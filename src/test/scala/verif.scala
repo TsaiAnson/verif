@@ -1,13 +1,13 @@
 package verif
 
 import org.scalatest._
-
 import chisel3._
 import chiseltest._
 import chisel3.util._
 
 import collection.mutable.MutableList
 import collection.mutable.Queue
+import scala.collection.mutable
 
 trait Transaction {
 	// Will define later when working with constraint solver
@@ -73,6 +73,27 @@ class GenericMonitor[T <: CAMIOOutTr] (c : ParameterizedCAMAssociative) {
 			// Hardcoded for now, can work with MACROs later
 			monitoredTransactions += CAMIOOutTr(c.io.found.peek.litToBoolean, c.io.dataRe.peek.litValue.toInt)
 			c.clock.step()
+		}
+	}
+}
+
+class DecoupledMonitor[T <: Data](x: ReadyValidIO[T], c: QueueModule[T]) {
+	val monitoredTransactions: mutable.MutableList[T] = MutableList[T]()
+
+	def getMonitoredTransactions: MutableList[T] = {
+		monitoredTransactions;
+	}
+
+  def clearMonitoredTransactions(): Unit = {
+		monitoredTransactions.clear()
+	}
+
+	fork.withRegion(Monitor) {
+		while (true) {
+			if (x.valid.peek().litToBoolean) {
+				monitoredTransactions += x.bits.peek()
+			}
+			c.clock.step(1)
 		}
 	}
 }
