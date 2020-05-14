@@ -77,8 +77,56 @@ class GenericMonitor[T <: CAMIOOutTr] (c : ParameterizedCAMAssociative) {
   }
 }
 
+class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
+  val inputTransactions = Queue[DecoupledTX[T]]()
+
+  def push(tx:Seq[DecoupledTX[T]]): Unit = {
+    for (t <- tx) {
+      inputTransactions += t
+    }
+  }
+
+   fork {
+     while (true) {
+       // Using hardcoded for now
+       if (!inputTransactions.isEmpty) {
+         val t = inputTransactions.dequeue
+         interface.bits.poke(t.data)
+         interface.valid.poke(1.B)
+         if (interface.ready.peek().litToBoolean) {
+           clock.step()
+           interface.valid.poke(0.B)
+         } else {
+           while (!interface.ready.peek().litToBoolean) {
+             clock.step()
+           }
+           interface.valid.poke(0.B)
+         }
+       } else {
+         clock.step()
+       }
+     }
+   }
+}
+
+class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
+  val txns = Queue[DecoupledTX[T]]()
+
+  fork {
+    while (true) {
+      interface.ready.poke(1.B)
+      if (interface.valid.peek().litToBoolean) {
+        val t = DecoupledTX[T](interface.bits.peek())
+        txns += t
+      }
+      clock.step()
+    }
+  }
+}
+/*
 // Wrapper for the Decoupled Driver given in Testers2
-class DecoupledDriver[T <: QueueIOInTr] (c: QueueModule[UInt]) {
+
+class XDecoupledDriver[T <: QueueIOInTr] (c: QueueModule[UInt]) {
   def push(tx:Seq[T]): Unit = {
     for (t <- tx) {
       if (!t.isInstanceOf[QueueIOInTrNull]) {
@@ -160,3 +208,5 @@ class DecoupledMonitor[T <: QueueIOOutTr]( c: QueueModule[UInt]) {
     }
   }
 }
+
+ */

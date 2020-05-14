@@ -1,16 +1,41 @@
 package verif
 
 import org.scalatest._
-
 import chisel3._
 import chiseltest._
 import chisel3.util._
-
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.VerilatorBackendAnnotation
+import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
 
 // Process Enqueue first (artificial ordering by driver, need to fix later)
 // The need of the data dequeued is due to the given Decoupled Driver. Fix later.
+
+class BundleA extends Bundle {
+  val x = UInt(8.W)
+  val y = SInt(8.W)
+}
+/*
+interface BundleA begin
+  reg[7:0] x;
+  signed reg[7:0] y;
+end
+
+reg[7:0] x;
+signed reg[7:0] y;
+
+Queue#(8) q(
+  .*
+);
+
+driver = new DecoupledDriver(q.enq)
+driver.push(DecoupledTX(new BundleA(x=10.U, y=-3.S))
+
+ */
+
+//val q = Queue[BundleA](8)
+//val driver = DecoupledDriver(q.enq)
+//driver.push(DecoupledTX(new BundleA(x=10.U, y=-3.S))
+case class DecoupledTX[T <: Data](data: T, waitCycles: Int = 0, postSendCycles: Int = 0)
 case class QueueIOInTr (readyDeq: Boolean, dataDeq: Int, validEnq: Boolean, dataEnq: Int)
 
 class QueueIOInTrNull extends QueueIOInTr(false, 0,false, 0)
@@ -26,31 +51,24 @@ class QueueModule[T <: Data](ioType: T, entries: Int) extends MultiIOModule {
 }
 
 class QueueTest extends FlatSpec with ChiselScalatestTester {
-  behavior of "Decoupled Testers2 for Queue"
+  //behavior of "Decoupled Testers2 for Queue"
 
-  it should "basic test to see if decoupled driver/monitor are working" in {
-    test(new QueueModule(UInt(8.W), 5)).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
-      c.in.initSource().setSourceClock(c.clock)
-      c.out.initSink().setSinkClock(c.clock)
+  it should "queue test" in {
+    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
+      val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
 
-      val qInAgent = new DecoupledDriver[QueueIOInTr](c)
-      val qOutAgent = new DecoupledMonitor[QueueIOOutTr](c)
       val inputTransactions = Seq(
-        QueueIOInTr(false, 255, true, 3),
-        QueueIOInTr(false, 255, true, 125),
-        QueueIOInTr(true, 3, false, 255),
-        QueueIOInTr(false, 255, true, 9),
-        QueueIOInTr(true, 125, false, 255),
-        QueueIOInTr(true, 9, true, 56),
-        QueueIOInTr(true, 56, false, 255)
+        DecoupledTX(10.U),
+        DecoupledTX(1.U)
       )
 
       // Currently hardcoded for the Queue, will create a generic decoupled driver/
       // monitor that handles multiple inputs/outputs
       qInAgent.push(inputTransactions)
-
-      val output = qOutAgent.getMonitoredTransactions.toArray[QueueIOOutTr]
-
+        c.clock.step(10)
+      val output = qOutAgent.txns
+      /*
       val model = new SWIntQueue(5);
       val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).filter(!_.isInstanceOf[QueueIOOutTrNull])
         .toArray[QueueIOOutTr]
@@ -70,6 +88,11 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
         for (t <- swoutput) {
           println(t)
         }
+      }
+       */
+      println("Received data:")
+      for (t <- output) {
+        println(t.data.litValue())
       }
     }
   }
