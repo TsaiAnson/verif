@@ -28,9 +28,15 @@ trait Transaction {
 //   }
 // }
 
+//GenericDriver[CAMIO]
+//driver.push(CAMIO(8.U, 12.U, ...))
+
+// fork
+//cam.io.poke(CAMIO(8.U, 12.U, ...))
+
 // Using hardcoded for now (ParameterizedCAMAssociative instead of Model) etc
-class GenericDriver[T <: CAMIOInTr] (c : ParameterizedCAMAssociative) {
-  val inputTransactions = Queue[CAMIOInTr]()
+class GenericDriver[T <: Data] (clock: Clock, interface : T) {
+  val inputTransactions = Queue[T]()
 
   def push(tx:Seq[T]): Unit = {
     for (t <- tx) {
@@ -40,9 +46,12 @@ class GenericDriver[T <: CAMIOInTr] (c : ParameterizedCAMAssociative) {
 
   fork {
     while (true) {
+
       // Using hardcoded for now
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue
+        interface.poke(t)
+        /*
         if (!t.isInstanceOf[CAMIOInTrNull]) {
           c.io.en.poke(t.en.B)
           c.io.we.poke(t.we.B)
@@ -50,8 +59,10 @@ class GenericDriver[T <: CAMIOInTr] (c : ParameterizedCAMAssociative) {
           c.io.keyWr.poke(t.keyWr.U)
           c.io.dataWr.poke(t.dataWr.U)
         }
+
+         */
       }
-      c.clock.step()
+      clock.step()
     }
   }
 }
