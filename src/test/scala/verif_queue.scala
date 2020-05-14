@@ -9,6 +9,16 @@ import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.VerilatorBackendAnnotation
 
+// Process Enqueue first (artificial ordering by driver, need to fix later)
+// The need of the data dequeued is due to the given Decoupled Driver. Fix later.
+case class QueueIOInTr (readyDeq: Boolean, dataDeq: Int, validEnq: Boolean, dataEnq: Int)
+
+class QueueIOInTrNull extends QueueIOInTr(false, 0,false, 0)
+
+case class QueueIOOutTr (dataDeq: Int)
+
+class QueueIOOutTrNull extends QueueIOOutTr(0)
+
 class QueueModule[T <: Data](ioType: T, entries: Int) extends MultiIOModule {
   val in = IO(Flipped(Decoupled(ioType)))
   val out = IO(Decoupled(ioType))
@@ -23,33 +33,32 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
       c.in.initSource().setSourceClock(c.clock)
       c.out.initSink().setSinkClock(c.clock)
 
-      val qOutAgent = new DecoupledMonitor[UInt] (c.out, c)
-      val inputTransactionsC = Seq(3.U, 125.U, 9.U, 56.U)
-      val inputTransactions = Seq(3, 125, 9, 56)
+      val qInAgent = new DecoupledDriver[QueueIOInTr](c)
+      val qOutAgent = new DecoupledMonitor[QueueIOOutTr](c)
+      val inputTransactions = Seq(
+        QueueIOInTr(false, 255, true, 3),
+        QueueIOInTr(false, 255, true, 125),
+        QueueIOInTr(true, 3, false, 255),
+        QueueIOInTr(false, 255, true, 9),
+        QueueIOInTr(true, 125, false, 255),
+        QueueIOInTr(true, 9, true, 56),
+        QueueIOInTr(true, 56, false, 255)
+      )
 
       // Currently hardcoded for the Queue, will create a generic decoupled driver/
       // monitor that handles multiple inputs/outputs
-      fork {
-        c.in.enqueueSeq(inputTransactionsC)
-      }
+      qInAgent.push(inputTransactions)
 
-      c.out.expectInvalid()
-      c.clock.step(1)  // wait for first element to enqueue
-      c.out.expectDequeueNow(3.U)
-      c.out.expectDequeueNow(125.U)
-      c.out.expectDequeueNow(9.U)
-      c.out.expectDequeueNow(56.U)
-      c.out.expectInvalid()
+      val output = qOutAgent.getMonitoredTransactions.toArray[QueueIOOutTr]
 
-      val output = qOutAgent.getMonitoredTransactions.toArray[UInt].map(chiseltype => chiseltype.litValue().toInt)
-
-      // Again, will need to make a wrapper of how to handle transactions
       val model = new SWIntQueue(5);
-      model.enqueueSeq(inputTransactions)
-      val swoutput = model.dequeueAll.toArray[Int]
+      val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).filter(!_.isInstanceOf[QueueIOOutTrNull])
+        .toArray[QueueIOOutTr]
 
       if (output.deep == swoutput.deep) {
         println("***** PASSED *****")
+        val outputsize = output.length
+        println(s"All $outputsize transactions were matched.")
       } else {
         println("***** FAILED *****")
         // Will need a better way of printing differences
