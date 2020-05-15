@@ -14,7 +14,7 @@ class CamTest extends FlatSpec with ChiselScalatestTester {
 	it should "cam test" in {
 		test(new ParameterizedCAMAssociative(8,8,8)).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
 			val camInAgent = new GenericDriver[CAMIOInTr](c.clock, c.in)
-			val camOutAgent = new GenericMonitor[CAMIOOutTr](c.clock, c.out, {(intf: CAMIOOutTr) => CAMIOOutTr(intf.found, intf.dataRe)})
+			val camOutAgent = new GenericMonitor[CAMIOOutTr](c.clock, c.out)
 			val inputTransactions = Seq(
 				CAMIOInTr(false.B, true.B, 0.U, 10.U, 123.U),
 				CAMIOInTr(true.B, false.B, 10.U, 0.U, 0.U)

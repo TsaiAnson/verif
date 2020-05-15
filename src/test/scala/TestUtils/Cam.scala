@@ -8,19 +8,29 @@ import chisel3._
 import chisel3.util._
 
 case class CAMIOInTr(en: Bool, we: Bool, keyRe: UInt, keyWr: UInt, dataWr: UInt) extends Transaction {
-  override def cloneType = CAMIOInTr(en, we, keyRe, keyWr, dataWr).asInstanceOf[this.type]
+//  override def cloneType = CAMIOInTr(en, we, keyRe, keyWr, dataWr).asInstanceOf[this.type]
 }
 
 case class CAMIOOutTr(found: Bool, dataRe: UInt) extends Transaction {
-  override def cloneType = CAMIOOutTr(found, dataRe).asInstanceOf[this.type]
+//  override def cloneType = CAMIOOutTr(found, dataRe).asInstanceOf[this.type]
+}
+
+class CAMIOIn (keyWidth: Int, dataWidth: Int) extends CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))) {
+  override def cloneType = new CAMIOIn(keyWidth, dataWidth).asInstanceOf[this.type]
+}
+
+class CAMIOOut (keyWidth: Int, dataWidth: Int) extends CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))) {
+  override def cloneType = new CAMIOOut(keyWidth, dataWidth).asInstanceOf[this.type]
 }
 
 class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {
   require(keyWidth >= 0)
   require(dataWidth >= 0)
   require(memSizeWidth >= 0)
-  val in = IO(CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))))
-  val out = IO(CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))))
+//  val in = IO(CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))))
+//  val out = IO(CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))))
+  val in = IO(new CAMIOIn(keyWidth,dataWidth))
+  val out = IO(new CAMIOOut(keyWidth,dataWidth))
 
   // Defining our "Memory"
   val memorySize = math.pow(2, memSizeWidth).toInt
