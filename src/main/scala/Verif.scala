@@ -44,6 +44,7 @@ class GenericDriver[T <: Data] (clock: Clock, interface : T) {
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue
+        println("Hi")
         interface.poke(t)
       }
       clock.step()
@@ -52,7 +53,7 @@ class GenericDriver[T <: Data] (clock: Clock, interface : T) {
 }
 
 // Using hardcoded for now (ParameterizedCAMAssociative instead of Model)
-class GenericMonitor[T <: Data] (clock: Clock, interface: T, constr: (T) => T) {
+class GenericMonitor[T <: Data] (clock: Clock, interface: T) {
   val monitoredTransactions = MutableList[T]()
 
   def getMonitoredTransactions: MutableList[T] = {
@@ -65,8 +66,7 @@ class GenericMonitor[T <: Data] (clock: Clock, interface: T, constr: (T) => T) {
 
   fork.withRegion(Monitor) {
     while(true) {
-      // Hardcoded for now, can work with MACROs later
-      monitoredTransactions += constr(interface.peek())
+      monitoredTransactions += interface.peek()
       clock.step()
     }
   }
