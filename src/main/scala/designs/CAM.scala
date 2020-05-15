@@ -1,36 +1,22 @@
-package verif
-
-// import freechips.rocketchip.config.Parameters
-// import freechips.rocketchip.unittest._
-// import freechips.rocketchip.util.{DecoupledHelper}
+package designs
 
 import chisel3._
-import chisel3.util._
 
-case class CAMIOInTr(en: Bool, we: Bool, keyRe: UInt, keyWr: UInt, dataWr: UInt) extends Transaction {
-//  override def cloneType = CAMIOInTr(en, we, keyRe, keyWr, dataWr).asInstanceOf[this.type]
-}
-
-case class CAMIOOutTr(found: Bool, dataRe: UInt) extends Transaction {
-//  override def cloneType = CAMIOOutTr(found, dataRe).asInstanceOf[this.type]
-}
-
-class CAMIOIn (keyWidth: Int, dataWidth: Int) extends CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))) {
-  override def cloneType = new CAMIOIn(keyWidth, dataWidth).asInstanceOf[this.type]
-}
-
-class CAMIOOut (keyWidth: Int, dataWidth: Int) extends CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))) {
-  override def cloneType = new CAMIOOut(keyWidth, dataWidth).asInstanceOf[this.type]
+case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
+  val en = Input(Bool())
+  val we = Input(Bool())
+  val keyRe = Input(UInt(keyWidth.W))
+  val keyWr = Input(UInt(keyWidth.W))
+  val dataWr = Input(UInt(dataWidth.W))
+  val found = Output(Bool())
+  val dataRe = Output(UInt(dataWidth.W))
 }
 
 class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {
   require(keyWidth >= 0)
   require(dataWidth >= 0)
   require(memSizeWidth >= 0)
-//  val in = IO(CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))))
-//  val out = IO(CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))))
-  val in = IO(new CAMIOIn(keyWidth,dataWidth))
-  val out = IO(new CAMIOOut(keyWidth,dataWidth))
+  val io = IO(new CAMIO(keyWidth, dataWidth))
 
   // Defining our "Memory"
   val memorySize = math.pow(2, memSizeWidth).toInt
@@ -40,23 +26,23 @@ class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: I
   // Combinational Logic
   val wrIndex  = RegInit(0.U(memSizeWidth.W))
   val index = Wire(UInt(memSizeWidth.W))
-  val found = (keyReg(index) === in.keyRe) && in.en
+  val found = (keyReg(index) === io.keyRe) && io.en
 
-  when (in.we) {
-    keyReg(wrIndex) := in.keyWr
-    valReg(wrIndex) := in.dataWr
+  when (io.we) {
+    keyReg(wrIndex) := io.keyWr
+    valReg(wrIndex) := io.dataWr
     wrIndex := wrIndex + 1.U
-  } 
+  }
 
-  when (in.en) {
-    index := keyReg.indexWhere(_ === in.keyRe)
+  when (io.en) {
+    index := keyReg.indexWhere(_ === io.keyRe)
   } .otherwise {
     index := (memorySize - 1).U
   }
 
   // Outputs
-  out.found := found
-  out.dataRe := valReg(index)
+  io.found := found
+  io.dataRe := valReg(index)
 }
 
 // class CAMIODecoupled (keyWidth: Int, dataWidth: Int)(implicit p: Parameters) extends Bundle {
@@ -108,7 +94,7 @@ class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: I
 //   val keyRe = RegInit(0.U(keyWidth.W))
 //   val done = ((keyReg(index) === tempKeyRe) || (index === (memorySize-1).asUInt))
 //   val found = (keyReg(index) === tempKeyRe) && tempEn
-  
+
 
 //   // DecoupledHelpers
 //   val ioHelper = DecoupledHelper(

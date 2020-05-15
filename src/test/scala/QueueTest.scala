@@ -5,17 +5,12 @@ import chisel3._
 import chiseltest._
 import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
-
-//class BundleA extends Bundle {
-//  val x = UInt(8.W)
-//  val y = SInt(8.W)
-//}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 
 class QueueTest extends FlatSpec with ChiselScalatestTester {
 
   it should "Queue Test" in {
-    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
       val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
 
@@ -30,7 +25,7 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
 
       val output = qOutAgent.getMonitoredTransactions.toArray[DecoupledTX[UInt]]
 
-      val model = new SWIntQueue(8);
+      val model = new SWIntQueue(8)
       val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[DecoupledTX[UInt]]
 
       if (output.map(t => t.data.litValue()).sameElements(swoutput.map(t => t.data.litValue()))) {
