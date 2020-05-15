@@ -8,36 +8,31 @@ class SWAssocCAM (keyWidth: Int, dataWidth: Int, memSizeWidth: Int) {
   var found = false
   var dataRe = values.last
 
-  def process (input: CAMIOInTr) : CAMIOOutTr = {
-  	// Handling Null Transaction
-  	if (input.isInstanceOf[CAMIOInTrNull]) {
-  		return CAMIOOutTr(found, dataRe)
-  	}
-
-    // Processing Writes First
-    if (input.we) {
-      // valid(writeIndex) = true
-      keys(writeIndex) = input.keyWr
-      values(writeIndex) = input.dataWr
-      writeIndex = if (writeIndex == (memSizeWidth - 1)) 0 else (writeIndex + 1)
-    }
-
-    // Processing Reads
-    var temp_index = -1
-    if (input.en) {
-      temp_index = keys.indexOf(input.keyRe)
-    }
-
-    // if (temp_index >= 0 && valid(temp_index)) {
-    found = false
-    dataRe = values.last
-    if (temp_index >= 0) {
-      found = true
-      dataRe = values(temp_index)
-    }
-
-    CAMIOOutTr(found, dataRe)
-  }
+//  def process (input: CAMIOInTr) : CAMIOOutTr = {
+//    // Processing Writes First
+//    if (input.we) {
+//      // valid(writeIndex) = true
+//      keys(writeIndex) = input.keyWr
+//      values(writeIndex) = input.dataWr
+//      writeIndex = if (writeIndex == (memSizeWidth - 1)) 0 else (writeIndex + 1)
+//    }
+//
+//    // Processing Reads
+//    var temp_index = -1
+//    if (input.en) {
+//      temp_index = keys.indexOf(input.keyRe)
+//    }
+//
+//    // if (temp_index >= 0 && valid(temp_index)) {
+//    found = false
+//    dataRe = values.last
+//    if (temp_index >= 0) {
+//      found = true
+//      dataRe = values(temp_index)
+//    }
+//
+//    CAMIOOutTr(found, dataRe)
+//  }
 }
 
 // object Main {

@@ -7,22 +7,20 @@ package verif
 import chisel3._
 import chisel3.util._
 
-class CAMIO (keyWidth: Int, dataWidth: Int) extends Bundle {
-  val en = Input(Bool())
-  val we = Input(Bool())
-  val found = Output(Bool())
-  val keyWr = Input(UInt(keyWidth.W))
-  val keyRe = Input(UInt(keyWidth.W))
-  val dataWr = Input(UInt(dataWidth.W))
-  val dataRe = Output(UInt(dataWidth.W))
-  override def cloneType = new CAMIO(keyWidth, dataWidth).asInstanceOf[this.type]
+case class CAMIOInTr(en: Bool, we: Bool, keyRe: UInt, keyWr: UInt, dataWr: UInt) extends Transaction {
+  override def cloneType = CAMIOInTr(en, we, keyRe, keyWr, dataWr).asInstanceOf[this.type]
 }
 
-class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends Module {
+case class CAMIOOutTr(found: Bool, dataRe: UInt) extends Transaction {
+  override def cloneType = CAMIOOutTr(found, dataRe).asInstanceOf[this.type]
+}
+
+class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {
   require(keyWidth >= 0)
   require(dataWidth >= 0)
   require(memSizeWidth >= 0)
-  val io = IO(new CAMIO(keyWidth,dataWidth))
+  val in = IO(CAMIOInTr(Input(Bool()), Input(Bool()), Input(UInt(keyWidth.W)), Input(UInt(keyWidth.W)), Input(UInt(dataWidth.W))))
+  val out = IO(CAMIOOutTr(Output(Bool()), Output(UInt(dataWidth.W))))
 
   // Defining our "Memory"
   val memorySize = math.pow(2, memSizeWidth).toInt
@@ -32,23 +30,23 @@ class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: I
   // Combinational Logic
   val wrIndex  = RegInit(0.U(memSizeWidth.W))
   val index = Wire(UInt(memSizeWidth.W))
-  val found = (keyReg(index) === io.keyRe) && io.en
+  val found = (keyReg(index) === in.keyRe) && in.en
 
-  when (io.we) {
-    keyReg(wrIndex) := io.keyWr
-    valReg(wrIndex) := io.dataWr
+  when (in.we) {
+    keyReg(wrIndex) := in.keyWr
+    valReg(wrIndex) := in.dataWr
     wrIndex := wrIndex + 1.U
   } 
 
-  when (io.en) {
-    index := keyReg.indexWhere(_ === io.keyRe)
+  when (in.en) {
+    index := keyReg.indexWhere(_ === in.keyRe)
   } .otherwise {
     index := (memorySize - 1).U
   }
 
   // Outputs
-  io.found := found
-  io.dataRe := valReg(index)
+  out.found := found
+  out.dataRe := valReg(index)
 }
 
 // class CAMIODecoupled (keyWidth: Int, dataWidth: Int)(implicit p: Parameters) extends Bundle {

@@ -1,5 +1,7 @@
 package verif
 
+import chisel3._
+
 import scala.collection.mutable.Queue
 
 class SWIntQueue (length: Int) {
@@ -31,16 +33,15 @@ class SWIntQueue (length: Int) {
 		outputs
 	}
 
-	// Enqueue has priority over dequeue
-	def process (input : QueueIOInTr) : QueueIOOutTr = {
-		if (input.validEnq) {
-			this.enqueue(input.dataEnq)
-		}
+	// The process method must handle the translation between
+	// Chisel and Scala-land data types
+	def process (input : DecoupledTX[UInt]) : DecoupledTX[UInt] = {
+		// This SWModel always enqueues and immediately dequeues
 
-		if (input.readyDeq) {
-			QueueIOOutTr(this.dequeue)
-		} else {
-			new QueueIOOutTrNull
-		}
+		// Enqueue
+		this.enqueue(input.data.litValue().toInt)
+
+		// Dequeue
+		DecoupledTX(this.dequeue.U)
 	}
 }
