@@ -9,23 +9,23 @@ import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import chisel3.experimental.BundleLiterals._
 
 // Defining module here for simplicity
-case class BundleIO() extends Bundle {
+case class MultiDirBundleIO() extends Bundle {
   val en = Input(Bool())
   val input = Input(UInt(8.W))
   val output = Output(UInt(8.W))
 }
 
-class BundleIOModule extends MultiIOModule {
-  val io = IO(new BundleIO)
+class MultiDirBundleIOModule extends MultiIOModule {
+  val io = IO(new MultiDirBundleIO)
 
   io.output := io.input
 }
 
-class BundlePokeTest extends FlatSpec with ChiselScalatestTester {
-  it should "bundle poke test" in {
-    test(new BundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
+  it should "multi dir bundle poke test" in {
+    test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
 
-      val protoTx = BundleIO()
+      val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
         protoTx.Lit(_.en -> false.B, _.input -> 0.U, _.output -> 0.U),
         protoTx.Lit(_.en -> true.B, _.input -> 100.U, _.output -> 0.U),
