@@ -1,5 +1,7 @@
 package verif
 
+import java.lang.reflect.Field
+
 import org.scalatest._
 import chisel3._
 import chiseltest._
@@ -14,6 +16,7 @@ import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 case class MultiDirBundleIO() extends Bundle {
   val en = Input(Bool())
   val input = Input(UInt(8.W))
+  // Dummy is another input that does nothing
   val dummy = Input(UInt(8.W))
   val output = Output(UInt(8.W))
 }
@@ -21,7 +24,7 @@ case class MultiDirBundleIO() extends Bundle {
 class MultiDirBundleIOModule extends MultiIOModule {
   val io = IO(new MultiDirBundleIO)
 
-  io.output := io.dummy
+  io.output := io.input
 }
 
 class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
@@ -30,9 +33,9 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
 
       val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
-        protoTx.Lit(_.en -> false.B, _.input -> 9.U,  _.dummy -> 255.U,_.output -> 255.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 100.U,  _.dummy -> 255.U,_.output -> 255.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.dummy -> 255.U, _.output -> 255.U)
+        protoTx.Lit(_.en -> false.B, _.input -> 9.U,  _.dummy -> 254.U,_.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 100.U,  _.dummy -> 254.U,_.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.dummy -> 254.U, _.output -> 255.U)
       )
 
       // Poking a bundle that has Input and Output
@@ -49,31 +52,27 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
 
       val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
-//        protoTx.Lit(_.en -> false.B, _.input -> 9.U, _.output -> 255.U),
-//        protoTx.Lit(_.en -> true.B, _.input -> 100.U, _.output -> 255.U),
-//        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.output -> 255.U)
-        protoTx.Lit(_.en -> false.B, _.input -> 9.U,  _.dummy -> 255.U,_.output -> 255.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 100.U,  _.dummy -> 255.U,_.output -> 255.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.dummy -> 255.U, _.output -> 255.U)
+        protoTx.Lit(_.en -> false.B, _.input -> 9.U,  _.dummy -> 254.U,_.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 100.U,  _.dummy -> 254.U,_.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.dummy -> 254.U, _.output -> 255.U)
       )
 
-      // Poking a bundle that has Input and Output using Data Mirror
-      for (t <- inputTransactions) {
-        for (p <- c.io.getElements) {
-          if (directionOf(p) == ActualDirection.Input) {
-            for (d <- t.getElements) {
-              // DOES NOT WORK FOR MULTIPLE INPUTS WITH SAME TYPE, could look into reflection
-              if (p.getClass == d.getClass && directionOf(d) == ActualDirection.Input) {
-                p.poke(d)
-              }
-            }
-          }
+      // Caching inputs
+      val inputCache = collection.mutable.ListBuffer[Field]()
+      for (f <- c.io.getClass.getDeclaredFields) {
+        f.setAccessible(true)
+        if (directionOf(f.get(c.io).asInstanceOf[Data]) == ActualDirection.Input) {
+          inputCache += f
         }
-        c.clock.step()
-        println(c.io.output.peek().litValue())
       }
 
-      // No checking, just wanted to try poking a bundle
+      // Poking
+      for (t <- inputTransactions) {
+        for (f <- inputCache) {
+          f.get(c.io).asInstanceOf[Data].poke(f.get(t).asInstanceOf[Data])
+        }
+        println(c.io.output.peek().litValue())
+      }
     }
   }
 }
