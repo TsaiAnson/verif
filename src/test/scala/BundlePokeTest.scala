@@ -5,8 +5,10 @@ import chisel3._
 import chiseltest._
 import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import chisel3.experimental.BundleLiterals._
+import chisel3.experimental.DataMirror._
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+
 
 // Defining module here for simplicity
 case class MultiDirBundleIO() extends Bundle {
@@ -27,14 +29,43 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
 
       val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
-        protoTx.Lit(_.en -> false.B, _.input -> 0.U, _.output -> 0.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 100.U, _.output -> 0.U),
-        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.output -> 0.U)
+        protoTx.Lit(_.en -> false.B, _.input -> 0.U, _.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 100.U, _.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.output -> 255.U)
       )
 
       // Poking a bundle that has Input and Output
       for (t <- inputTransactions) {
         c.io.poke(t)
+      }
+
+      // No checking, just wanted to try poking a bundle
+    }
+  }
+
+  it should "data mirror multi dir bundle poke test" in {
+    test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+
+      val protoTx = MultiDirBundleIO()
+      val inputTransactions = Seq(
+        protoTx.Lit(_.en -> false.B, _.input -> 9.U, _.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 100.U, _.output -> 255.U),
+        protoTx.Lit(_.en -> true.B, _.input -> 1.U, _.output -> 255.U)
+      )
+
+      // Poking a bundle that has Input and Output using Data Mirror
+      for (t <- inputTransactions) {
+        for (p <- c.io.getElements) {
+          if (directionOf(p) == ActualDirection.Input) {
+            for (d <- t.getElements) {
+              if (p.getClass == d.getClass && directionOf(d) == ActualDirection.Input) {
+                p.poke(d)
+              }
+            }
+          }
+        }
+        c.clock.step()
+        println(c.io.output.peek().litValue())
       }
 
       // No checking, just wanted to try poking a bundle
