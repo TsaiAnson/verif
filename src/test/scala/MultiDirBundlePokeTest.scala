@@ -11,6 +11,7 @@ import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.DataMirror._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 
+import org.openjdk.jmh.annotations.Benchmark
 
 // Defining module here for simplicity
 case class MultiDirBundleIO() extends Bundle {
@@ -51,7 +52,11 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
   }
 
   // Can poke duplex bundle using data mirror (optimized with caching input fields)
+  // Cannot use @Benchmark Tag
+  // @Benchmark
   it should "data mirror multi dir bundle poke test" in {
+    // Cannot use @Benchmark Tag
+    // @Benchmark
     test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
 
       val protoTx = MultiDirBundleIO()
@@ -81,7 +86,11 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
   }
 
   // Can poke using pokePartial implementation (which uses data mirror under the hood)
+  // Cannot use @Benchmark Tag
+  // @Benchmark
   it should "partial poke multi dir bundle poke test" in {
+    // Cannot use @Benchmark Tag
+    // @Benchmark
     test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
 
       val protoTx = MultiDirBundleIO()
@@ -98,4 +107,8 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
       }
     }
   }
+
+  // When using @Benchmark tag on a def, causes a Log4j2 error
+  // @Benchmark
+  def Hello() : Unit = {}
 }
