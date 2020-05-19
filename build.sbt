@@ -6,6 +6,7 @@ scalaVersion := "2.12.0"
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-language:reflectiveCalls")
 
 libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.2.0"
+libraryDependencies += "edu.berkeley.cs" %% "rocketchip" % "1.2-SNAPSHOT"
 
 //// Jmh Settings
 //enablePlugins(JmhPlugin)
