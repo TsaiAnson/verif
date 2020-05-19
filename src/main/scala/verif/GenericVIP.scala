@@ -17,9 +17,7 @@ class GenericDriver[T <: Data] (clock: Clock, interface : T) {
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue
-        println("Hi")
-        println(t)
-        interface.poke(t)
+        interface.asInstanceOf[Bundle].pokePartial(t.asInstanceOf[Bundle])
       }
       clock.step()
     }

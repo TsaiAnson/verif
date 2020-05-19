@@ -1,8 +1,9 @@
 package designs
 
 import chisel3._
+import verif.Transaction
 
-case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
+case class CAMIO(keyWidth: Int, dataWidth: Int) extends Transaction {
   val en = Input(Bool())
   val we = Input(Bool())
   val keyRe = Input(UInt(keyWidth.W))

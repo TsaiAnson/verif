@@ -1,5 +1,9 @@
 package verif
 
+import designs.CAMIO
+import chisel3._
+import chisel3.experimental.BundleLiterals._
+
 class SWAssocCAM (keyWidth: Int, dataWidth: Int, memSizeWidth: Int) {
   // var valid = new Array[Boolean](memSizeWidth)
   val keys = new Array[Int](scala.math.pow(2,memSizeWidth).toInt)
@@ -7,32 +11,34 @@ class SWAssocCAM (keyWidth: Int, dataWidth: Int, memSizeWidth: Int) {
   var writeIndex = 0
   var found = false
   var dataRe = values.last
+  val protoTx = CAMIO(keyWidth, dataWidth)
 
-//  def process (input: CAMIOInTr) : CAMIOOutTr = {
-//    // Processing Writes First
-//    if (input.we) {
-//      // valid(writeIndex) = true
-//      keys(writeIndex) = input.keyWr
-//      values(writeIndex) = input.dataWr
-//      writeIndex = if (writeIndex == (memSizeWidth - 1)) 0 else (writeIndex + 1)
-//    }
-//
-//    // Processing Reads
-//    var temp_index = -1
-//    if (input.en) {
-//      temp_index = keys.indexOf(input.keyRe)
-//    }
-//
-//    // if (temp_index >= 0 && valid(temp_index)) {
-//    found = false
-//    dataRe = values.last
-//    if (temp_index >= 0) {
-//      found = true
-//      dataRe = values(temp_index)
-//    }
-//
-//    CAMIOOutTr(found, dataRe)
-//  }
+  def process (input: CAMIO) : CAMIO = {
+    // Processing Writes First
+    if (input.we.litToBoolean) {
+      // valid(writeIndex) = true
+      keys(writeIndex) = input.keyWr.litValue().toInt
+      values(writeIndex) = input.dataWr.litValue().toInt
+      writeIndex = if (writeIndex == (memSizeWidth - 1)) 0 else (writeIndex + 1)
+    }
+
+    // Processing Reads
+    var temp_index = -1
+    if (input.en.litToBoolean) {
+      temp_index = keys.indexOf(input.keyRe.litValue())
+    }
+
+    // if (temp_index >= 0 && valid(temp_index)) {
+    found = false
+    dataRe = values.last
+    if (temp_index >= 0) {
+      found = true
+      dataRe = values(temp_index)
+    }
+
+    protoTx.Lit(_.en -> input.en, _.we -> input.we, _.keyRe -> input.keyRe, _.keyWr -> input.keyWr,
+      _.dataWr -> input.dataWr, _.found ->found.B, _.dataRe -> dataRe.U)
+  }
 }
 
 // object Main {
