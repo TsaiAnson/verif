@@ -7,6 +7,8 @@ scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-language:refle
 
 libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.2.0"
 
+enablePlugins(JmhPlugin)
+
 exportJars := true
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
