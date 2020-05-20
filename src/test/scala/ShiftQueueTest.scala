@@ -50,7 +50,11 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
       val model = new SWIntQueue(8)
       val swoutput = model.process(inputTransactions, simCycles, waitCycles).toArray[DecoupledTX[UInt]]
 
-      if (output.map(t => t.data.litValue()).sameElements(swoutput.map(t => t.data.litValue()))) {
+      // Cycle offset between software and DUT
+      val cycleOffset = 2
+
+      if (output.map(t => (t.data.litValue(), t.cycleStamp - cycleOffset)).sameElements(
+        swoutput.map(t => (t.data.litValue(), t.cycleStamp)))) {
         println("***** PASSED *****")
         val outputsize = output.length
         println(s"All $outputsize transactions were matched.")
@@ -59,11 +63,11 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
         // Will need a better way of printing differences
         println("========DUT========")
         for (t <- output) {
-          println(t.data.litValue())
+          println(t.data.litValue(), t.cycleStamp)
         }
         println("========GOLDEN MODEL========")
         for (t <- swoutput) {
-          println(t.data.litValue())
+          println(t.data.litValue(), t.cycleStamp)
         }
       }
     }

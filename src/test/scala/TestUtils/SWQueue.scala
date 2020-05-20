@@ -52,23 +52,28 @@ class SWIntQueue (length: Int) {
 			if (t == null && enqWaitCycles == 0 && txnIterator.hasNext) {
 				// If previous transaction finished, get next one
 				t = txnIterator.next()
+				// For debugging use
+				// println("NGOLD", t.data.litValue(), cycles - simCycles)
 
 				if (t.waitCycles == 0) {
 					val success = this.enqueue(t.data.litValue().toInt)
 					if (success) {
-						// println("EGOLD", cycles - simCycles)
+						// For debugging use
+						// println("EGOLD", t.data.litValue(), cycles - simCycles)
 						enqWaitCycles = t.postSendCycles
 						t = null
 					}
 				} else {
-					enqWaitCycles = t.waitCycles
+					// Subtract 1 to count current cycle as a wait cycle
+					enqWaitCycles = t.waitCycles - 1
 				}
 			} else if (t != null && enqWaitCycles == 0) {
 				// If there is an un-enqueued transaction
 				// Enqueue and set postSendCycles
 				val success = this.enqueue(t.data.litValue().toInt)
 				if (success) {
-					// println("EGOLD", cycles - simCycles)
+					// For debugging use
+					// println("EGOLD", t.data.litValue(), cycles - simCycles)
 					enqWaitCycles = t.postSendCycles
 					t = null
 				}
@@ -77,9 +82,12 @@ class SWIntQueue (length: Int) {
 			}
 
 			// Dequeue
+			var temp = 0.U
 			if (deqWaitCycles == 0 && this.internal_queue.nonEmpty) {
-				result += DecoupledTX(this.dequeue.U)
-//				println("DGOLD", cycles - simCycles)
+				temp = this.dequeue.U
+				result += DecoupledTX(temp, cycleStamp = (cycles - simCycles))
+				// For debugging use
+				// println("DGOLD", temp.litValue(), cycles - simCycles)
 				deqWaitCycles = waitCycles
 			} else if (deqWaitCycles > 0) {
 				deqWaitCycles -= 1

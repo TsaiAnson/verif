@@ -5,7 +5,7 @@ import chisel3.util._
 import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
-case class DecoupledTX[T <: Data](data: T, waitCycles: Int = 0, postSendCycles: Int = 0) extends Transaction
+case class DecoupledTX[T <: Data](data: T, waitCycles: Int = 0, postSendCycles: Int = 0, cycleStamp: Int = 0) extends Transaction
 
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val inputTransactions = Queue[DecoupledTX[T]]()
@@ -25,7 +25,10 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
         if (t.waitCycles > 0) {
           idleCycles = t.waitCycles
           while (idleCycles > 0) {
+            // For debugging use
+            // println("IDUT", cycleCount)
             idleCycles -= 1
+            cycleCount += 1
             clock.step()
           }
         }
@@ -35,7 +38,8 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
           cycleCount += 1
           clock.step()
           interface.valid.poke(0.B)
-//          println("EDUT", cycleCount)
+          // For debugging use
+          // println("EDUT", t.data.litValue(), cycleCount)
           idleCycles = t.postSendCycles
         } else {
           while (!interface.ready.peek().litToBoolean) {
@@ -43,13 +47,17 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
             clock.step()
           }
           interface.valid.poke(0.B)
-//          println("EDUT", cycleCount)
+          // For debugging use
+          // println("EDUT", t.data.litValue(), cycleCount)
           idleCycles = t.postSendCycles
         }
+      } else {
+        if (idleCycles > 0) idleCycles -= 1
+          cycleCount += 1
+        // For debugging use
+        // println("IDUT", cycleCount)
+        clock.step()
       }
-      if (idleCycles > 0) idleCycles -= 1
-      cycleCount += 1
-      clock.step()
     }
   }
 }
@@ -82,9 +90,10 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
       }
       interface.ready.poke(1.B)
       if (interface.valid.peek().litToBoolean) {
-        val t = DecoupledTX[T](interface.bits.peek())
+        val t = DecoupledTX[T](interface.bits.peek(), cycleStamp = cycleCount)
         idleCyclesD = waitCycles
-//        println("DDUT", cycleCount)
+        // For debugging use
+        // println("DDUT", interface.bits.peek().litValue(), cycleCount)
         txns += t
       }
       cycleCount += 1
