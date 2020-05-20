@@ -12,21 +12,43 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
   it should "Queue Test" in {
     test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
-      val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
 
+      val waitCycles = 2
+      val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
+      qOutAgent.setWaitCycles(waitCycles)
+
+      // Must ensure that there are enough cycles for the whole test
+      val simCycles = 80
       val inputTransactions = Seq(
-        DecoupledTX(10.U),
-        DecoupledTX(1.U),
-        DecoupledTX(15.U)
+        DecoupledTX(165.U,0,1),
+        DecoupledTX(122.U,1,1),
+        DecoupledTX(227.U,2,3),
+        DecoupledTX(227.U,1,1),
+        DecoupledTX(239.U,1,0),
+        DecoupledTX(108.U,2,1),
+        DecoupledTX(226.U,2,0),
+        DecoupledTX(27.U,1,0),
+        DecoupledTX(81.U,1,1),
+        DecoupledTX(127.U,0,2),
+        DecoupledTX(199.U,0,1),
+        DecoupledTX(161.U,1,1),
+        DecoupledTX(21.U,2,3),
+        DecoupledTX(161.U,3,2),
+        DecoupledTX(59.U,0,0),
+        DecoupledTX(89.U,0,0),
+        DecoupledTX(191.U,1,0),
+        DecoupledTX(107.U,2,0),
+        DecoupledTX(251.U,1,2),
+        DecoupledTX(210.U,0,1)
       )
 
       qInAgent.push(inputTransactions)
-      c.clock.step(inputTransactions.size + 1)
+      c.clock.step(simCycles)
 
       val output = qOutAgent.getMonitoredTransactions.toArray[DecoupledTX[UInt]]
 
       val model = new SWIntQueue(8)
-      val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[DecoupledTX[UInt]]
+      val swoutput = model.process(inputTransactions, simCycles, waitCycles).toArray[DecoupledTX[UInt]]
 
       if (output.map(t => t.data.litValue()).sameElements(swoutput.map(t => t.data.litValue()))) {
         println("***** PASSED *****")

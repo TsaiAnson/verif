@@ -13,39 +13,42 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
   it should "ShiftQueue Test" in {
     test(new ShiftQueue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
-      val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
 
+      val waitCycles = 2
+      val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
+      qOutAgent.setWaitCycles(waitCycles)
+
+      val simCycles = 80
       val inputTransactions = Seq(
-        DecoupledTX(10.U),
-        DecoupledTX(1.U),
-        DecoupledTX(253.U),
-        DecoupledTX(0.U),
-        DecoupledTX(64.U),
-        DecoupledTX(47.U),
-        DecoupledTX(23.U),
-        DecoupledTX(78.U),
-        DecoupledTX(173.U),
-        DecoupledTX(221.U),
-        DecoupledTX(85.U),
-        DecoupledTX(34.U),
-        DecoupledTX(94.U),
-        DecoupledTX(33.U),
-        DecoupledTX(198.U),
-        DecoupledTX(102.U),
-        DecoupledTX(31.U),
-        DecoupledTX(57.U),
-        DecoupledTX(134.U),
-        DecoupledTX(96.U),
-        DecoupledTX(43.U)
+        DecoupledTX(165.U,0,1),
+        DecoupledTX(122.U,1,1),
+        DecoupledTX(227.U,2,3),
+        DecoupledTX(227.U,1,1),
+        DecoupledTX(239.U,1,0),
+        DecoupledTX(108.U,2,1),
+        DecoupledTX(226.U,2,0),
+        DecoupledTX(27.U,1,0),
+        DecoupledTX(81.U,1,1),
+        DecoupledTX(127.U,0,2),
+        DecoupledTX(199.U,0,1),
+        DecoupledTX(161.U,1,1),
+        DecoupledTX(21.U,2,3),
+        DecoupledTX(161.U,3,2),
+        DecoupledTX(59.U,0,0),
+        DecoupledTX(89.U,0,0),
+        DecoupledTX(191.U,1,0),
+        DecoupledTX(107.U,2,0),
+        DecoupledTX(251.U,1,2),
+        DecoupledTX(210.U,0,1)
       )
 
       qInAgent.push(inputTransactions)
-      c.clock.step(inputTransactions.size + 1)
+      c.clock.step(simCycles)
 
       val output = qOutAgent.getMonitoredTransactions.toArray[DecoupledTX[UInt]]
 
       val model = new SWIntQueue(8)
-      val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[DecoupledTX[UInt]]
+      val swoutput = model.process(inputTransactions, simCycles, waitCycles).toArray[DecoupledTX[UInt]]
 
       if (output.map(t => t.data.litValue()).sameElements(swoutput.map(t => t.data.litValue()))) {
         println("***** PASSED *****")
