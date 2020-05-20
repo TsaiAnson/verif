@@ -53,7 +53,7 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
         }
       } else {
         if (idleCycles > 0) idleCycles -= 1
-          cycleCount += 1
+        cycleCount += 1
         // For debugging use
         // println("IDUT", cycleCount)
         clock.step()
@@ -66,8 +66,18 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val txns = Queue[DecoupledTX[T]]()
   var waitCycles = 0
 
-  def setWaitCycles(newWait : Int) : Unit = {
-    waitCycles = newWait
+  def setConfig(variableName: String, newValue : Int) : Unit = {
+    var found = false
+    for (f <- this.getClass.getDeclaredFields) {
+      f.setAccessible(true)
+      if (f.getName == variableName) {
+        f.set(this, newValue)
+        found = true
+      }
+    }
+    if (!found) {
+      throw new IllegalArgumentException("Config variable not found.")
+    }
   }
 
   def getMonitoredTransactions: MutableList[DecoupledTX[T]] = {

@@ -16,7 +16,7 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
 
       val waitCycles = 2
       val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
-      qOutAgent.setWaitCycles(waitCycles)
+      qOutAgent.setConfig("waitCycles", waitCycles)
 
       val simCycles = 80
       val inputTransactions = Seq(
