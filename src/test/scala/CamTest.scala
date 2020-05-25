@@ -30,24 +30,8 @@ class CamTest extends FlatSpec with ChiselScalatestTester {
 			val model = new SWAssocCAM(8,8,8)
 			val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[CAMIO]
 
-			if (output.slice(1,output.size).map(t => (t.found.litToBoolean, t.dataRe.litValue())).sameElements(
-				swoutput.map(t => (t.found.litToBoolean, t.dataRe.litValue())))) {
-				println("***** PASSED *****")
-			} else {
-				println("***** FAILED *****")
-				// Will need a better way of printing differences
-				val outputTail = output.slice(1,output.size)
-				println("========DUT========")
-				for (t <- outputTail) {
-					println(t.found, t.dataRe)
-					println("========")
-				}
-				println("========GOLDEN MODEL========")
-				for (t <- swoutput) {
-					println(t.found, t.dataRe)
-					println("========")
-				}
-			}
+			assert(outputChecker.checkOutput(output.slice(1,output.size), {t : CAMIO => (t.found.litToBoolean, t.dataRe.litValue())},
+				swoutput, {t : CAMIO => (t.found.litToBoolean, t.dataRe.litValue())}))
 		}
 	}
 }

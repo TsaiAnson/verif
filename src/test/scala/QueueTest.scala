@@ -53,23 +53,8 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
       // Cycle offset between software and DUT
       val cycleOffset = 2
 
-      if (output.map(t => (t.data.litValue(), t.cycleStamp - cycleOffset)).sameElements(
-        swoutput.map(t => (t.data.litValue(), t.cycleStamp)))) {
-        println("***** PASSED *****")
-        val outputsize = output.length
-        println(s"All $outputsize transactions were matched.")
-      } else {
-        println("***** FAILED *****")
-        // Will need a better way of printing differences
-        println("========DUT========")
-        for (t <- output) {
-          println(t.data.litValue(), t.cycleStamp)
-        }
-        println("========GOLDEN MODEL========")
-        for (t <- swoutput) {
-          println(t.data.litValue(), t.cycleStamp)
-        }
-      }
+      assert(outputChecker.checkOutput(output, {t : DecoupledTX[UInt] => (t.data.litValue(), t.cycleStamp - cycleOffset)},
+        swoutput, {t : DecoupledTX[UInt] => (t.data.litValue(), t.cycleStamp)}))
     }
   }
 }

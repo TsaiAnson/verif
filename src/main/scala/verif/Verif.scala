@@ -27,3 +27,28 @@ trait Transaction extends Bundle {
 //   }
 // }
 
+package object outputChecker {
+  def checkOutput[T](dutOutput : Array[T], dutFn : T => Any,
+                     swOutput : Array[T], swFn : T => Any) : Boolean = {
+    if (dutOutput.map(t => dutFn(t)).sameElements(swOutput.map(t => swFn(t)))) {
+      println("***** PASSED *****")
+      val outputsize = dutOutput.length
+      println(s"All $outputsize transactions were matched.")
+      true
+    } else {
+      println("***** FAILED *****")
+      // Will need a better way of printing differences
+      println("========DUT========")
+      for (t <- dutOutput) {
+        println(dutFn(t))
+      }
+      println("========GOLDEN MODEL========")
+      for (t <- swOutput) {
+        println(swFn(t))
+      }
+      false
+    }
+  }
+}
+
+
