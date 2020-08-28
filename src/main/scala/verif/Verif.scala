@@ -7,25 +7,34 @@ import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
 trait Transaction extends Bundle {
-  // Will define later when working with constraint solver
-  def rand(): Int = 0
+  // Currently randomizes fields using no constraints
+  def rand(): Unit = {
+    rand_helper(this)
+  }
 
+  // Helper function for rand
+  def rand_helper(b : Bundle): Unit = {
+    val r = scala.util.Random
+    for (field <- b.getClass.getDeclaredFields) {
+      field.setAccessible(true)
 
+      field.get(b).asInstanceOf[Any] match {
+        case _: Bool =>
+          field.set(b, r.nextBoolean().B)
+        case _: Boolean =>
+          field.set(b, r.nextBoolean())
+        case bundle: Bundle =>
+          rand_helper(bundle)
+        case _: Int =>
+          field.set(b, r.nextInt())
+        case _: UInt =>
+          field.set(b, r.nextInt().abs.U)
+        case _: Any =>
+          println(s"Unable to randomize ${field.get(b)}")
+      }
+    }
+  }
 }
-
-// // Playing around with scala
-// trait Transaction {
-//   def rand(): Unit = {
-//    // Gets all fields and sets them to a random int
-//    val r = scala.util.Random
-//    for (field <- this.getClass.getDeclaredFields) {
-//      field.setAccessible(true)
-//      // println(field.getName)
-//      // println(field.get(this))
-//      field.set(this, r.nextInt())
-//    }
-//   }
-// }
 
 package object outputChecker {
   def checkOutput[T](dutOutput : Array[T], dutFn : T => Any,
