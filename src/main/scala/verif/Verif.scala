@@ -27,8 +27,8 @@ trait Transaction extends Bundle {
           rand_helper(bundle)
         case _: Int =>
           field.set(b, r.nextInt())
-        case _: UInt =>
-          field.set(b, r.nextInt().abs.U)
+        case c: UInt =>
+          field.set(b, ((r.nextInt().abs) % Math.pow(2, c.getWidth).toInt).U(c.getWidth.W))
         case _: Any =>
           println(s"Unable to randomize ${field.get(b)}")
       }
