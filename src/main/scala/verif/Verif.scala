@@ -21,16 +21,12 @@ trait Transaction extends Bundle {
       field.get(b).asInstanceOf[Any] match {
         case _: Bool =>
           field.set(b, r.nextBoolean().B)
-        case _: Boolean =>
-          field.set(b, r.nextBoolean())
         case bundle: Bundle =>
           rand_helper(bundle)
-        case _: Int =>
-          field.set(b, r.nextInt())
         case c: UInt =>
           field.set(b, ((r.nextInt().abs) % Math.pow(2, c.getWidth).toInt).U(c.getWidth.W))
         case _: Any =>
-          println(s"Unable to randomize ${field.get(b)}")
+          println(s"Skipping randomization of non-chisel type: (${field.getName},${field.get(b)})")
       }
     }
   }

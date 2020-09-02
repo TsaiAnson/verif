@@ -5,7 +5,7 @@ import chisel3.util._
 import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
-case class DecoupledTX[T <: Data](data: T, waitCycles: Int = 0, postSendCycles: Int = 0, cycleStamp: Int = 0) extends Transaction
+case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Transaction
 
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val inputTransactions = Queue[DecoupledTX[T]]()
@@ -22,8 +22,8 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
     while (true) {
       if (!inputTransactions.isEmpty && idleCycles == 0) {
         val t = inputTransactions.dequeue
-        if (t.waitCycles > 0) {
-          idleCycles = t.waitCycles
+        if (t.waitCycles.litValue().toInt > 0) {
+          idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
             // For debugging use
             // println("IDUT", cycleCount)
@@ -40,7 +40,7 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
           interface.valid.poke(0.B)
           // For debugging use
           // println("EDUT", t.data.litValue(), cycleCount)
-          idleCycles = t.postSendCycles
+          idleCycles = t.postSendCycles.litValue().toInt
         } else {
           while (!interface.ready.peek().litToBoolean) {
             cycleCount += 1
@@ -49,7 +49,7 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
           interface.valid.poke(0.B)
           // For debugging use
           // println("EDUT", t.data.litValue(), cycleCount)
-          idleCycles = t.postSendCycles
+          idleCycles = t.postSendCycles.litValue().toInt
         }
       } else {
         if (idleCycles > 0) idleCycles -= 1
