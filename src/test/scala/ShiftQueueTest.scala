@@ -20,26 +20,26 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
 
       val simCycles = 80
       val inputTransactions = Seq(
-        DecoupledTX(165.U,0,1),
-        DecoupledTX(122.U,1,1),
-        DecoupledTX(227.U,2,3),
-        DecoupledTX(227.U,1,1),
-        DecoupledTX(239.U,1,0),
-        DecoupledTX(108.U,2,1),
-        DecoupledTX(226.U,2,0),
-        DecoupledTX(27.U,1,0),
-        DecoupledTX(81.U,1,1),
-        DecoupledTX(127.U,0,2),
-        DecoupledTX(199.U,0,1),
-        DecoupledTX(161.U,1,1),
-        DecoupledTX(21.U,2,3),
-        DecoupledTX(161.U,3,2),
-        DecoupledTX(59.U,0,0),
-        DecoupledTX(89.U,0,0),
-        DecoupledTX(191.U,1,0),
-        DecoupledTX(107.U,2,0),
-        DecoupledTX(251.U,1,2),
-        DecoupledTX(210.U,0,1)
+        DecoupledTX(165.U,0.U,1.U),
+        DecoupledTX(122.U,1.U,1.U),
+        DecoupledTX(227.U,2.U,3.U),
+        DecoupledTX(227.U,1.U,1.U),
+        DecoupledTX(239.U,1.U,0.U),
+        DecoupledTX(108.U,2.U,1.U),
+        DecoupledTX(226.U,2.U,0.U),
+        DecoupledTX(27.U,1.U,0.U),
+        DecoupledTX(81.U,1.U,1.U),
+        DecoupledTX(127.U,0.U,2.U),
+        DecoupledTX(199.U,0.U,1.U),
+        DecoupledTX(161.U,1.U,1.U),
+        DecoupledTX(21.U,2.U,3.U),
+        DecoupledTX(161.U,3.U,2.U),
+        DecoupledTX(59.U,0.U,0.U),
+        DecoupledTX(89.U,0.U,0.U),
+        DecoupledTX(191.U,1.U,0.U),
+        DecoupledTX(107.U,2.U,0.U),
+        DecoupledTX(251.U,1.U,2.U),
+        DecoupledTX(210.U,0.U,1.U)
       )
 
       qInAgent.push(inputTransactions)

@@ -55,17 +55,17 @@ class SWIntQueue (length: Int) {
 				// For debugging use
 				// println("NGOLD", t.data.litValue(), cycles - simCycles)
 
-				if (t.waitCycles == 0) {
+				if (t.waitCycles.litValue().toInt == 0) {
 					val success = this.enqueue(t.data.litValue().toInt)
 					if (success) {
 						// For debugging use
 						// println("EGOLD", t.data.litValue(), cycles - simCycles)
-						enqWaitCycles = t.postSendCycles
+						enqWaitCycles = t.postSendCycles.litValue().toInt
 						t = null
 					}
 				} else {
 					// Subtract 1 to count current cycle as a wait cycle
-					enqWaitCycles = t.waitCycles - 1
+					enqWaitCycles = t.waitCycles.litValue().toInt - 1
 				}
 			} else if (t != null && enqWaitCycles == 0) {
 				// If there is an un-enqueued transaction
@@ -74,7 +74,7 @@ class SWIntQueue (length: Int) {
 				if (success) {
 					// For debugging use
 					// println("EGOLD", t.data.litValue(), cycles - simCycles)
-					enqWaitCycles = t.postSendCycles
+					enqWaitCycles = t.postSendCycles.litValue().toInt
 					t = null
 				}
 			} else if (enqWaitCycles > 0) {
