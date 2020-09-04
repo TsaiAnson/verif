@@ -20,16 +20,14 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     // Testing Non-nested Structures
     val CTx = CAMIO(8, 8)
     for (_ <- 0 to 2) {
-      CTx.rand
-      CTx.printContents
+      CTx.rand.printContents
     }
 
     println("")
 
     val DTx = DecoupledTX(165.U, 0.U, 1.U)
     for (_ <- 0 to 9) {
-      DTx.rand
-      DTx.printContents
+      DTx.rand.printContents
     }
   }
 
@@ -38,8 +36,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     // Testing with single nested transactions
     val NTx = NestedBundleTxNC(100.U, InnerBundleNC(1.U,10.S,1.U), InnerBundleNC(2.U,2.S,2.U), 3.U)
     for (_ <- 0 to 9) {
-      NTx.rand
-      NTx.printContents
+      NTx.rand.printContents
     }
   }
 
@@ -47,14 +44,12 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
   "Other Bundle Edge Cases" should "have no error" in {
     val EBTx = TestBundleTxNC(new Bundle{})
     for (_ <- 0 to 9) {
-      EBTx.rand
-      EBTx.printContents
+      EBTx.rand.printContents
     }
 
     val ZBTx = TestBundleTxNC(new zeroBundle)
     for (_ <- 0 to 9) {
-      ZBTx.rand
-      ZBTx.printContents
+      ZBTx.rand.printContents
     }
   }
 
@@ -65,14 +60,12 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     // Testing that two CAMIO's with the same seed should have deterministic rand
     var CTx = CAMIO(8, 8)
     for (_ <- 0 to 9) {
-      CTx.rand
-      out1 += CTx.getStringContents
+      out1 += CTx.rand.getStringContents
     }
 
     CTx = CAMIO(8, 8)
     for (_ <- 0 to 9) {
-      CTx.rand
-      out2 += CTx.getStringContents
+      out2 += CTx.rand.getStringContents
     }
 
 //    print(out1)
@@ -86,15 +79,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out2 = ""
     CTx = CAMIO(8, 8)
     for (_ <- 0 to 9) {
-      CTx.rand
-      out1 += CTx.getStringContents
+      out1 += CTx.rand.getStringContents
     }
 
     CTx = CAMIO(8, 8)
     CTx.setSeed(987654321)
     for (_ <- 0 to 9) {
-      CTx.rand
-      out2 += CTx.getStringContents
+      out2 += CTx.rand.getStringContents
     }
 
     (out1 == out2) should be (false)
@@ -104,14 +95,12 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out2 = ""
     var DTx = DecoupledTX(165.U, 0.U, 1.U)
     for (_ <- 0 to 9) {
-      DTx.rand
-      out1 += DTx.getStringContents
+      out1 += DTx.rand.getStringContents
     }
 
     DTx = DecoupledTX(165.U, 0.U, 1.U)
     for (_ <- 0 to 9) {
-      DTx.rand
-      out2 += DTx.getStringContents
+      out2 += DTx.rand.getStringContents
     }
 
 //    print(out1)
@@ -124,15 +113,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out2 = ""
     DTx = DecoupledTX(165.U, 0.U, 1.U)
     for (_ <- 0 to 9) {
-      DTx.rand
-      out1 += DTx.getStringContents
+      out1 += DTx.rand.getStringContents
     }
 
     DTx = DecoupledTX(165.U, 0.U, 1.U)
     DTx.setSeed(808080)
     for (_ <- 0 to 9) {
-      DTx.rand
-      out2 += DTx.getStringContents
+      out2 += DTx.rand.getStringContents
     }
 
     (out1 == out2) should be (false)
@@ -141,15 +128,15 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     var NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    NTx.setSeed(6767)
     for (_ <- 0 to 9) {
-      NTx.rand
-      out1 += NTx.getStringContents
+      out1 += NTx.rand.getStringContents
     }
 
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    NTx.setSeed(6767)
     for (_ <- 0 to 9) {
-      NTx.rand
-      out2 += NTx.getStringContents
+      out2 += NTx.rand.getStringContents
     }
 
 //    print(out1)
@@ -162,15 +149,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out2 = ""
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
     for (_ <- 0 to 9) {
-      NTx.rand
-      out1 += NTx.getStringContents
+      out1 += NTx.rand.getStringContents
     }
 
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
     NTx.setSeed(808080)
     for (_ <- 0 to 9) {
-      NTx.rand
-      out2 += NTx.getStringContents
+      out2 += NTx.rand.getStringContents
     }
 
     (out1 == out2) should be (false)

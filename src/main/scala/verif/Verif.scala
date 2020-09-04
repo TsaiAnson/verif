@@ -4,12 +4,17 @@ import scala.util.Random
 import chisel3._
 import chisel3.util._
 import chiseltest._
+import java.lang.reflect.Field
 
-import scala.collection.mutable.{MutableList, Queue}
+import scala.collection.mutable
+import scala.collection.mutable.{Map, MutableList, Queue}
 
 trait Transaction extends Bundle {
+//  var r_seed = 1234567890.toLong
   private val r = Random
-  r.setSeed(1234567890)
+  r.setSeed(1234567890.toLong)
+
+  private val declaredFields = Map[Class[_],Array[Field]]()
 
   // Set seed for randomization
   def setSeed(seed : Long): Unit = {
@@ -17,13 +22,19 @@ trait Transaction extends Bundle {
   }
 
   // Currently randomizes fields using no constraints
-  def rand: Unit = {
+  def rand: Transaction = {
     rand_helper(this)
+    this
   }
 
   // Helper function for rand
   def rand_helper(b : Bundle): Unit = {
-    for (field <- b.getClass.getDeclaredFields) {
+    // Caching
+    if (!declaredFields.contains(b.getClass)) {
+      declaredFields += (b.getClass -> b.getClass.getDeclaredFields)
+    }
+
+    for (field <- declaredFields(b.getClass)) {
       field.setAccessible(true)
 
       field.get(b).asInstanceOf[Any] match {
@@ -63,6 +74,18 @@ trait Transaction extends Bundle {
           for (field1 <- bundle.getClass.getDeclaredFields) {
             field1.setAccessible(true)
             result += s"(${field1.getName}, ${field1.get(bundle)}) "
+          }
+          result += "} "
+        case map: mutable.Map[Class[_],Array[Field]] =>
+          // Listing out Map contents
+          result += s"Map ${field.getName} {"
+          for (key <- map.keys) {
+            result += s"(key: "
+            for (field1 <- map(key)) {
+              field1.setAccessible(true)
+              result += s"${field1.getName} "
+            }
+            result += ") "
           }
           result += "} "
         case _: Any =>
