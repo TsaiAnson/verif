@@ -20,13 +20,13 @@ class RandomTest extends FlatSpec with ChiselScalatestTester {
         val CTx = CAMIO(8, 8)
         for (_ <- 0 to 9) {
           CTx.rand
-          CTx.listContents
+          CTx.printContents
         }
 
         val DTx = DecoupledTX(165.U,0.U,1.U)
         for (_ <- 0 to 9) {
           DTx.rand
-          DTx.listContents
+          DTx.printContents
         }
         assert(true)
       }
@@ -39,7 +39,7 @@ class RandomTest extends FlatSpec with ChiselScalatestTester {
         val NTx = NestedBundleTx(100.U, InnerBundle(1.U,1.U,1.U), InnerBundle(2.U,2.U,2.U), 3.U)
         for (_ <- 0 to 9) {
           NTx.rand
-          NTx.listContents
+          NTx.printContents
         }
         assert(true)
       }

@@ -19,15 +19,17 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
   "Basic NoChiselRandomTest" should "have no error" in {
     // Testing Non-nested Structures
     val CTx = CAMIO(8, 8)
-    for (_ <- 0 to 9) {
+    for (_ <- 0 to 2) {
       CTx.rand
-      CTx.listContents
+      CTx.printContents
     }
+
+    println("")
 
     val DTx = DecoupledTX(165.U, 0.U, 1.U)
     for (_ <- 0 to 9) {
       DTx.rand
-      DTx.listContents
+      DTx.printContents
     }
   }
 
@@ -37,7 +39,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     val NTx = NestedBundleTxNC(100.U, InnerBundleNC(1.U,10.S,1.U), InnerBundleNC(2.U,2.S,2.U), 3.U)
     for (_ <- 0 to 9) {
       NTx.rand
-      NTx.listContents
+      NTx.printContents
     }
   }
 
@@ -46,13 +48,132 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     val EBTx = TestBundleTxNC(new Bundle{})
     for (_ <- 0 to 9) {
       EBTx.rand
-      EBTx.listContents
+      EBTx.printContents
     }
 
     val ZBTx = TestBundleTxNC(new zeroBundle)
     for (_ <- 0 to 9) {
       ZBTx.rand
-      ZBTx.listContents
+      ZBTx.printContents
     }
   }
+
+  "Deterministic Testing" should "have no error" in {
+    var out1 = ""
+    var out2 = ""
+
+    // Testing that two CAMIO's with the same seed should have deterministic rand
+    var CTx = CAMIO(8, 8)
+    for (_ <- 0 to 9) {
+      CTx.rand
+      out1 += CTx.getStringContents
+    }
+
+    CTx = CAMIO(8, 8)
+    for (_ <- 0 to 9) {
+      CTx.rand
+      out2 += CTx.getStringContents
+    }
+
+//    print(out1)
+//    println("DEBUG")
+//    print(out2)
+
+    (out1 == out2) should be (true)
+
+    // Testing that two CAMIO's with the different seed should have deterministic rand
+    out1 = ""
+    out2 = ""
+    CTx = CAMIO(8, 8)
+    for (_ <- 0 to 9) {
+      CTx.rand
+      out1 += CTx.getStringContents
+    }
+
+    CTx = CAMIO(8, 8)
+    CTx.setSeed(987654321)
+    for (_ <- 0 to 9) {
+      CTx.rand
+      out2 += CTx.getStringContents
+    }
+
+    (out1 == out2) should be (false)
+
+    // Performing the above tests on DecoupledTX to double check
+    out1 = ""
+    out2 = ""
+    var DTx = DecoupledTX(165.U, 0.U, 1.U)
+    for (_ <- 0 to 9) {
+      DTx.rand
+      out1 += DTx.getStringContents
+    }
+
+    DTx = DecoupledTX(165.U, 0.U, 1.U)
+    for (_ <- 0 to 9) {
+      DTx.rand
+      out2 += DTx.getStringContents
+    }
+
+//    print(out1)
+//    println("DEBUG")
+//    print(out2)
+
+    (out1 == out2) should be (true)
+
+    out1 = ""
+    out2 = ""
+    DTx = DecoupledTX(165.U, 0.U, 1.U)
+    for (_ <- 0 to 9) {
+      DTx.rand
+      out1 += DTx.getStringContents
+    }
+
+    DTx = DecoupledTX(165.U, 0.U, 1.U)
+    DTx.setSeed(808080)
+    for (_ <- 0 to 9) {
+      DTx.rand
+      out2 += DTx.getStringContents
+    }
+
+    (out1 == out2) should be (false)
+
+    // Performing the above tests on the Nested Transactions to triple check
+    out1 = ""
+    out2 = ""
+    var NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    for (_ <- 0 to 9) {
+      NTx.rand
+      out1 += NTx.getStringContents
+    }
+
+    NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    for (_ <- 0 to 9) {
+      NTx.rand
+      out2 += NTx.getStringContents
+    }
+
+//    print(out1)
+//    println("DEBUG")
+//    print(out2)
+
+    (out1 == out2) should be (true)
+
+    out1 = ""
+    out2 = ""
+    NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    for (_ <- 0 to 9) {
+      NTx.rand
+      out1 += NTx.getStringContents
+    }
+
+    NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    NTx.setSeed(808080)
+    for (_ <- 0 to 9) {
+      NTx.rand
+      out2 += NTx.getStringContents
+    }
+
+    (out1 == out2) should be (false)
+  }
+
 }

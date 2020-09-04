@@ -49,22 +49,28 @@ trait Transaction extends Bundle {
   // Temporary function to print for debug
   // Print contents of transaction
   // Can only handle single-nested bundles for now
-  def listContents: Unit = {
+  def printContents: Unit = {
+    print(this.getStringContents)
+  }
+
+  def getStringContents: String = {
+    var result = ""
     for (field <- this.getClass.getDeclaredFields) {
       field.setAccessible(true)
       field.get(this).asInstanceOf[Any] match {
         case bundle: Bundle =>
-          print(s"Bundle ${field.getName} {")
+          result += s"Bundle ${field.getName} {"
           for (field1 <- bundle.getClass.getDeclaredFields) {
             field1.setAccessible(true)
-            print(s"(${field1.getName}, ${field1.get(bundle)}) ")
+            result += s"(${field1.getName}, ${field1.get(bundle)}) "
           }
-          print("} ")
+          result += "} "
         case _: Any =>
-          print(field.getName, field.get(this)); print(" ")
+          result += s"(${field.getName}, ${field.get(this)}) "
       }
     }
-    println("")
+    result += "\n"
+    result
   }
 }
 
