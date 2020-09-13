@@ -12,6 +12,8 @@ class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
 
   it should "ShiftQueue Test" in {
     test(new ShiftQueue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
+
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
 
       val waitCycles = 2

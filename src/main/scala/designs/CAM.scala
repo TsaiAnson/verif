@@ -1,9 +1,9 @@
 package designs
 
 import chisel3._
-import verif.Transaction
+import verif.{ScalaVerifRandomGenerator, Transaction, VerifRandomGenerator}
 
-case class CAMIO(keyWidth: Int, dataWidth: Int) extends Transaction {
+case class CAMIO(keyWidth: Int, dataWidth: Int) (implicit val r: VerifRandomGenerator) extends Transaction {
   val en = Input(Bool())
   val we = Input(Bool())
   val keyRe = Input(UInt(keyWidth.W))
@@ -14,6 +14,7 @@ case class CAMIO(keyWidth: Int, dataWidth: Int) extends Transaction {
 }
 
 class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {
+  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
   require(keyWidth >= 0)
   require(dataWidth >= 0)
   require(memSizeWidth >= 0)

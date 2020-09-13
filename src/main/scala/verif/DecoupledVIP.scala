@@ -5,7 +5,8 @@ import chisel3.util._
 import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
-case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Transaction
+case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0)
+                                 (implicit val randGen: VerifRandomGenerator) extends Transaction
 
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val inputTransactions = Queue[DecoupledTX[T]]()
@@ -63,6 +64,7 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
 }
 
 class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
+  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
   val txns = Queue[DecoupledTX[T]]()
   var waitCycles = 0
 

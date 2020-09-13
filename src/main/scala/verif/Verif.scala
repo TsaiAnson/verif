@@ -6,20 +6,42 @@ import chisel3.util._
 import chiseltest._
 import java.lang.reflect.Field
 
-import scala.collection.mutable
 import scala.collection.mutable.{Map, MutableList, Queue}
 
-trait Transaction extends Bundle {
-//  var r_seed = 1234567890.toLong
+trait VerifRandomGenerator {
+  def setSeed(seed: Long): Unit
+  def getNextBool: Bool
+  def getNextUInt(width: Int): UInt
+  def getNextSInt(width: Int): SInt
+  // Can add more types
+}
+
+class ScalaVerifRandomGenerator extends VerifRandomGenerator {
   private val r = Random
   r.setSeed(1234567890.toLong)
-
-  private val declaredFields = Map[Class[_],Array[Field]]()
 
   // Set seed for randomization
   def setSeed(seed : Long): Unit = {
     r.setSeed(seed)
   }
+
+  def getNextBool: Bool = {
+    r.nextBoolean().B
+  }
+
+  def getNextUInt(width: Int): UInt = {
+    (r.nextInt().abs % Math.pow(2, width).toInt).U(width.W)
+  }
+
+  def getNextSInt(width: Int): SInt = {
+    ((r.nextInt().abs % Math.pow(2, width).toInt) - Math.pow(2, width - 1).toInt).S(width.W)
+  }
+
+}
+
+class Transaction(implicit randgen: VerifRandomGenerator) extends Bundle {
+
+  private val declaredFields = Map[Class[_],Array[Field]]()
 
   // Currently randomizes fields using no constraints
   def rand: Transaction = {
@@ -39,20 +61,23 @@ trait Transaction extends Bundle {
 
       field.get(b).asInstanceOf[Any] match {
         case _: Bool =>
-          field.set(b, r.nextBoolean().B)
+          field.set(b, randgen.getNextBool)
         case bundle: Bundle =>
           rand_helper(bundle)
         case uval: UInt =>
           if (uval.getWidth != 0) {
-            field.set(b, (r.nextInt().abs % Math.pow(2, uval.getWidth).toInt).U(uval.getWidth.W))
+            field.set(b, randgen.getNextUInt(uval.getWidth))
           }
         case sval: SInt =>
           if (sval.getWidth != 0) {
             // Handling for negative numbers (2's complement)
-            field.set(b, ((r.nextInt().abs % Math.pow(2, sval.getWidth).toInt) - Math.pow(2, sval.getWidth - 1).toInt).S(sval.getWidth.W))
+            field.set(b, randgen.getNextSInt(sval.getWidth))
           }
+        case _: Data =>
+          println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
+            s"(${field.getName},${field.get(b)})")
         case _: Any =>
-//          println(s"Skipping randomization of non-chisel type: (${field.getName},${field.get(b)})")
+          // Do nothing
       }
     }
   }
@@ -76,7 +101,7 @@ trait Transaction extends Bundle {
             result += s"(${field1.getName}, ${field1.get(bundle)}) "
           }
           result += "} "
-        case map: mutable.Map[Class[_],Array[Field]] =>
+        case map: Map[Class[_],Array[Field]] =>
           // Listing out Map contents
           result += s"Map ${field.getName} {"
           for (key <- map.keys) {

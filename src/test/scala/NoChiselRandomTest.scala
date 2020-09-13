@@ -11,11 +11,16 @@ class zeroBundle extends Bundle {
 
 case class InnerBundleNC[T <: Data](data: T, numb1: SInt = 0.S(8.W), numb2: UInt = 0.U(8.W)) extends Bundle
 
-case class NestedBundleTxNC[T <: Data](data: T, inner1: InnerBundleNC[UInt], inner2: InnerBundleNC[UInt], numb1: UInt = 0.U) extends Transaction
+case class NestedBundleTxNC[T <: Data](data: T, inner1: InnerBundleNC[UInt], inner2: InnerBundleNC[UInt],
+                                       numb1: UInt = 0.U) (implicit val r: VerifRandomGenerator) extends Transaction
 
-case class TestBundleTxNC (testB: Bundle) extends Transaction
+case class TestBundleTxNC (testB: Bundle) (implicit val r: VerifRandomGenerator) extends Transaction
+
+case class TestVecBundle[T <: Data](data: T, vec1: Vec[T]) (implicit val r: VerifRandomGenerator) extends Transaction
 
 class NoChiselRandomTest extends FlatSpec with Matchers {
+  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
+
   "Basic NoChiselRandomTest" should "have no error" in {
     // Testing Non-nested Structures
     val CTx = CAMIO(8, 8)
@@ -59,11 +64,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 
     // Testing that two CAMIO's with the same seed should have deterministic rand
     var CTx = CAMIO(8, 8)
+    randGen.setSeed(1234567890.toLong)
     for (_ <- 0 to 9) {
       out1 += CTx.rand.getStringContents
     }
 
     CTx = CAMIO(8, 8)
+    randGen.setSeed(1234567890.toLong)
     for (_ <- 0 to 9) {
       out2 += CTx.rand.getStringContents
     }
@@ -78,12 +85,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     CTx = CAMIO(8, 8)
+    randGen.setSeed(1234567890.toLong)
     for (_ <- 0 to 9) {
       out1 += CTx.rand.getStringContents
     }
 
     CTx = CAMIO(8, 8)
-    CTx.setSeed(987654321)
+    randGen.setSeed(987654321.toLong)
     for (_ <- 0 to 9) {
       out2 += CTx.rand.getStringContents
     }
@@ -94,11 +102,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     var DTx = DecoupledTX(165.U, 0.U, 1.U)
+    randGen.setSeed(123123123.toLong)
     for (_ <- 0 to 9) {
       out1 += DTx.rand.getStringContents
     }
 
     DTx = DecoupledTX(165.U, 0.U, 1.U)
+    randGen.setSeed(123123123.toLong)
     for (_ <- 0 to 9) {
       out2 += DTx.rand.getStringContents
     }
@@ -112,12 +122,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     DTx = DecoupledTX(165.U, 0.U, 1.U)
+    randGen.setSeed(111111111.toLong)
     for (_ <- 0 to 9) {
       out1 += DTx.rand.getStringContents
     }
 
     DTx = DecoupledTX(165.U, 0.U, 1.U)
-    DTx.setSeed(808080)
+    randGen.setSeed(222222222.toLong)
     for (_ <- 0 to 9) {
       out2 += DTx.rand.getStringContents
     }
@@ -128,13 +139,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     var NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
-    NTx.setSeed(6767)
+    randGen.setSeed(676767.toLong)
     for (_ <- 0 to 9) {
       out1 += NTx.rand.getStringContents
     }
 
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
-    NTx.setSeed(6767)
+    randGen.setSeed(676767.toLong)
     for (_ <- 0 to 9) {
       out2 += NTx.rand.getStringContents
     }
@@ -148,12 +159,13 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     out1 = ""
     out2 = ""
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+    randGen.setSeed(999999999.toLong)
     for (_ <- 0 to 9) {
       out1 += NTx.rand.getStringContents
     }
 
     NTx = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
-    NTx.setSeed(808080)
+    randGen.setSeed(888888888.toLong)
     for (_ <- 0 to 9) {
       out2 += NTx.rand.getStringContents
     }
@@ -161,4 +173,18 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     (out1 == out2) should be (false)
   }
 
+// KEPT FOR REFERENCE
+//  // Problem: Cannot get fields of Vec. Will have to find another way to set  Vec
+//  "Vec Test" should "have no error" in {
+//    var VTx = TestVecBundle(123.U, Vec(5, UInt(10.W)))
+//    println("WHA")
+//    for (field <- VTx.getClass.getDeclaredFields) {
+//      println(field.getName)
+//      if (field.isInstanceOf[Vec[_]]) {
+//        for (vecfields <- field.getClass.getFields) {
+//          println(vecfields.getName)
+//        }
+//      }
+//    }
+//  }
 }

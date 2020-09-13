@@ -40,6 +40,7 @@ class SWIntQueue (length: Int) {
 	// The process method must handle the translation between
 	// Chisel and Scala-land data types
 	def process (input : Seq[DecoupledTX[UInt]], cycles : Int, waitCycles : Int) : Seq[DecoupledTX[UInt]] = {
+		implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 		var enqWaitCycles = 0
 		var deqWaitCycles = 0
 		var simCycles = cycles
