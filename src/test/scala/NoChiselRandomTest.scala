@@ -172,7 +172,6 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 
     (out1 == out2) should be (false)
   }
-
 // KEPT FOR REFERENCE
 //  // Problem: Cannot get fields of Vec. Will have to find another way to set  Vec
 //  "Vec Test" should "have no error" in {
@@ -187,4 +186,16 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 //      }
 //    }
 //  }
+}
+
+
+class NoChiselDummyRandomTest extends FlatSpec with Matchers {
+  implicit val randGen: VerifRandomGenerator = new DummyVerifRandomGenerator
+  "Dummy VerifRandomGenerator" should "have no error" in {
+    // Testing the dummy random generator
+    val NTx = NestedBundleTxNC(100.U, InnerBundleNC(100.U, 100.S, 100.U), InnerBundleNC(100.U, 100.S, 100.U), 100.U)
+    for (_ <- 0 to 9) {
+      NTx.rand.printContents
+    }
+  }
 }

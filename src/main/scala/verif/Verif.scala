@@ -39,6 +39,30 @@ class ScalaVerifRandomGenerator extends VerifRandomGenerator {
 
 }
 
+class DummyVerifRandomGenerator extends VerifRandomGenerator {
+  var current_val = -1
+  def setSeed(seed: Long): Unit = {
+
+  }
+
+  def getNextBool: Bool = {
+    current_val += 1
+    (current_val % 2).B
+  }
+
+  def getNextUInt(width: Int): UInt = {
+    current_val += 1
+    (current_val % Math.pow(2, width).toInt).U(width.W)
+  }
+
+  def getNextSInt(width: Int): SInt = {
+    current_val += 1
+    ((current_val.abs % Math.pow(2, width).toInt) - Math.pow(2, width - 1).toInt).S(width.W)
+  }
+}
+
+// Can define more VerifRandomGenerators Here
+
 class Transaction(implicit randgen: VerifRandomGenerator) extends Bundle {
 
   private val declaredFields = Map[Class[_],Array[Field]]()
@@ -113,6 +137,8 @@ class Transaction(implicit randgen: VerifRandomGenerator) extends Bundle {
             result += ") "
           }
           result += "} "
+        case _: VerifRandomGenerator =>
+          result += s"RandomGen(${field.getName})"
         case _: Any =>
           result += s"(${field.getName}, ${field.get(this)}) "
       }
