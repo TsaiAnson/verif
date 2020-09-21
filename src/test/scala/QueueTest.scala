@@ -11,7 +11,6 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
 
   it should "Queue Test" in {
     test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-      implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
 

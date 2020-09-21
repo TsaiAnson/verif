@@ -1,9 +1,9 @@
 package designs
 
 import chisel3._
-import verif.{ScalaVerifRandomGenerator, Transaction, VerifRandomGenerator}
+import verif.{ScalaVerifRandomGenerator, VerifRandomGenerator}
 
-case class CAMIO(keyWidth: Int, dataWidth: Int) (implicit val r: VerifRandomGenerator) extends Transaction {
+case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
   val en = Input(Bool())
   val we = Input(Bool())
   val keyRe = Input(UInt(keyWidth.W))

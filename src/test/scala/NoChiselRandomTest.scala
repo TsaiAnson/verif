@@ -1,6 +1,7 @@
 package verif
 
 import org.scalatest._
+import verif.Randomization._
 
 import chisel3._
 import designs.CAMIO
@@ -12,11 +13,11 @@ class zeroBundle extends Bundle {
 case class InnerBundleNC[T <: Data](data: T, numb1: SInt = 0.S(8.W), numb2: UInt = 0.U(8.W)) extends Bundle
 
 case class NestedBundleTxNC[T <: Data](data: T, inner1: InnerBundleNC[UInt], inner2: InnerBundleNC[UInt],
-                                       numb1: UInt = 0.U) (implicit val r: VerifRandomGenerator) extends Transaction
+                                       numb1: UInt = 0.U) extends Bundle
 
-case class TestBundleTxNC (testB: Bundle) (implicit val r: VerifRandomGenerator) extends Transaction
+case class TestBundleTxNC (testB: Bundle) extends Bundle
 
-case class TestVecBundle[T <: Data](data: T, vec1: Vec[T]) (implicit val r: VerifRandomGenerator) extends Transaction
+case class TestVecBundle[T <: Data](data: T, vec1: Vec[T]) extends Bundle
 
 class NoChiselRandomTest extends FlatSpec with Matchers {
   implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
@@ -172,6 +173,29 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 
     (out1 == out2) should be (false)
   }
+
+//  // Testing that rand() returns a new bundle
+//  "Independent Bundle" should "have no error" in {
+//    val NTx_proto = NestedBundleTxNC(255.U, InnerBundleNC(255.U,255.S,255.U), InnerBundleNC(255.U,255.S,255.U), 255.U)
+//
+//    println(NTx_proto.getClass)
+//
+//    val NTx_temp = NTx_proto.rand
+//    val NTx_temp1 = NTx_proto.rand
+//
+//    // Checking if they are different objects
+//    (NTx_temp == NTx_temp1) should be (false)
+//
+//    // Hardcoded for this specific case, but the inner bundles should also be different
+//    println(NTx_temp.getClass)
+//    println(NTx_temp1.getClass)
+////    (NTx_temp.asInstanceOf[NestedBundleTxNC[UInt]].inner1 == NTx_temp1.asInstanceOf[NestedBundleTxNC[UInt]].inner1) should be (false)
+////    (NTx_temp.asInstanceOf[NestedBundleTxNC[UInt]].inner2  == NTx_temp1.asInstanceOf[NestedBundleTxNC[UInt]].inner2) should be (false)
+//
+//    // Printing their contents
+//    NTx_temp.printContents
+//    NTx_temp1.printContents
+//  }
 // KEPT FOR REFERENCE
 //  // Problem: Cannot get fields of Vec. Will have to find another way to set  Vec
 //  "Vec Test" should "have no error" in {

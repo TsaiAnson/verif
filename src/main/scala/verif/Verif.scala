@@ -63,88 +63,94 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
 
 // Can define more VerifRandomGenerators Here
 
-class Transaction(implicit randgen: VerifRandomGenerator) extends Bundle {
+package object Randomization {
+  implicit class VerifBundle(bundle: Bundle) {
+    // Caching no longer seems to work within implicit class
+    val declaredFields: Map[Class[_], Array[Field]] = Map[Class[_],Array[Field]]()
 
-  private val declaredFields = Map[Class[_],Array[Field]]()
+//    def cloneBundle: Bundle = {
+////      val newclone = bundle.getClass.newInstance()
+////      newclone
+//    }
 
-  // Currently randomizes fields using no constraints
-  def rand: Transaction = {
-    rand_helper(this)
-    this
-  }
-
-  // Helper function for rand
-  def rand_helper(b : Bundle): Unit = {
-    // Caching
-    if (!declaredFields.contains(b.getClass)) {
-      declaredFields += (b.getClass -> b.getClass.getDeclaredFields)
+    def rand(implicit randgen: VerifRandomGenerator): Bundle = {
+      rand_helper(bundle)
+      bundle
     }
 
-    for (field <- declaredFields(b.getClass)) {
-      field.setAccessible(true)
-
-      field.get(b).asInstanceOf[Any] match {
-        case _: Bool =>
-          field.set(b, randgen.getNextBool)
-        case bundle: Bundle =>
-          rand_helper(bundle)
-        case uval: UInt =>
-          if (uval.getWidth != 0) {
-            field.set(b, randgen.getNextUInt(uval.getWidth))
-          }
-        case sval: SInt =>
-          if (sval.getWidth != 0) {
-            // Handling for negative numbers (2's complement)
-            field.set(b, randgen.getNextSInt(sval.getWidth))
-          }
-        case _: Data =>
-          println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
-            s"(${field.getName},${field.get(b)})")
-        case _: Any =>
-          // Do nothing
+    // Helper function for rand
+    def rand_helper(b : Bundle)(implicit randgen: VerifRandomGenerator): Unit = {
+      // Caching
+      if (!declaredFields.contains(b.getClass)) {
+        declaredFields += (b.getClass -> b.getClass.getDeclaredFields)
       }
-    }
-  }
 
-  // Temporary function to print for debug
-  // Print contents of transaction
-  // Can only handle single-nested bundles for now
-  def printContents: Unit = {
-    print(this.getStringContents)
-  }
+      for (field <- declaredFields(b.getClass)) {
+        field.setAccessible(true)
 
-  def getStringContents: String = {
-    var result = ""
-    for (field <- this.getClass.getDeclaredFields) {
-      field.setAccessible(true)
-      field.get(this).asInstanceOf[Any] match {
-        case bundle: Bundle =>
-          result += s"Bundle ${field.getName} {"
-          for (field1 <- bundle.getClass.getDeclaredFields) {
-            field1.setAccessible(true)
-            result += s"(${field1.getName}, ${field1.get(bundle)}) "
-          }
-          result += "} "
-        case map: Map[Class[_],Array[Field]] =>
-          // Listing out Map contents
-          result += s"Map ${field.getName} {"
-          for (key <- map.keys) {
-            result += s"(key: "
-            for (field1 <- map(key)) {
-              field1.setAccessible(true)
-              result += s"${field1.getName} "
+        field.get(b).asInstanceOf[Any] match {
+          case _: Bool =>
+            field.set(b, randgen.getNextBool)
+          case bundle: Bundle =>
+            rand_helper(bundle)
+          case uval: UInt =>
+            if (uval.getWidth != 0) {
+              field.set(b, randgen.getNextUInt(uval.getWidth))
             }
-            result += ") "
-          }
-          result += "} "
-        case _: VerifRandomGenerator =>
-          result += s"RandomGen(${field.getName})"
-        case _: Any =>
-          result += s"(${field.getName}, ${field.get(this)}) "
+          case sval: SInt =>
+            if (sval.getWidth != 0) {
+              // Handling for negative numbers (2's complement)
+              field.set(b, randgen.getNextSInt(sval.getWidth))
+            }
+          case _: Data =>
+            println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
+              s"(${field.getName},${field.get(b)})")
+          case _: Any =>
+          // Do nothing
+        }
       }
     }
-    result += "\n"
-    result
+
+    // Temporary function to print for debug
+    // Print contents of transaction
+    // Can only handle single-nested bundles for now
+    def printContents: Unit = {
+      print(this.getStringContents)
+    }
+
+    def getStringContents: String = {
+      var result = ""
+      for (field <- this.getClass.getDeclaredFields) {
+        field.setAccessible(true)
+        field.get(this).asInstanceOf[Any] match {
+          case bundle: Bundle =>
+            result += s"Bundle ${field.getName} {"
+            for (field1 <- bundle.getClass.getDeclaredFields) {
+              field1.setAccessible(true)
+              result += s"(${field1.getName}, ${field1.get(bundle)}) "
+            }
+            result += "} "
+          case map: Map[Class[_],Array[Field]] =>
+            // Listing out Map contents
+            result += s"Map ${field.getName} {"
+            for (key <- map.keys) {
+              result += s"(key: "
+              for (field1 <- map(key)) {
+                field1.setAccessible(true)
+                result += s"${field1.getName} "
+              }
+              result += ") "
+            }
+            result += "} "
+          case _: VerifRandomGenerator =>
+            result += s"RandomGen(${field.getName})"
+          case _: Any =>
+            result += s"(${field.getName}, ${field.get(this)}) "
+        }
+      }
+      result += "\n"
+      result
+    }
   }
 }
 

@@ -6,7 +6,6 @@ import chisel3.experimental.BundleLiterals._
 
 class SWAssocCAM (keyWidth: Int, dataWidth: Int, memSizeWidth: Int) {
   // var valid = new Array[Boolean](memSizeWidth)
-  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
   val keys = new Array[Int](scala.math.pow(2,memSizeWidth).toInt)
   val values = new Array[Int](scala.math.pow(2,memSizeWidth).toInt)
   var writeIndex = 0
