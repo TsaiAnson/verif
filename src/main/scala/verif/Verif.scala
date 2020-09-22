@@ -6,8 +6,7 @@ import chisel3.util._
 import chiseltest._
 import java.lang.reflect.Field
 
-import scala.collection.mutable
-import scala.collection.mutable.{Map, MutableList, Queue}
+import scala.collection.mutable.{Map, ListBuffer, Queue}
 
 trait VerifRandomGenerator {
   def setSeed(seed: Long): Unit
@@ -66,24 +65,16 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
 
 package object Randomization {
   implicit class VerifBundle(bundle: Bundle) extends Bundle {
-    // Caching no longer seems to work within implicit class
+    // Caching no longer seems to work within implicit class, seems like the variable is cleared each time
     val declaredFields: Map[Class[_], Array[Field]] = Map[Class[_],Array[Field]]()
 
     // Want to have constraints structure saved with each bundle, not currently working (similar problem to above)
-    // Would want to implement caching, so each field would be assigned a list of constraints
-    // For example: constraints: Map[String, Array[Bundle => Bool]]
-    // Currently just integers to test if the structures would be saved (they're not)
-    val constraints: MutableList[Int] = new MutableList[Int]
+    // Functions defined here for reference
+    var constraints: Map[String, ListBuffer[Data => Bool]] = Map[String, ListBuffer[Data => Bool]]()
 
-    def addConstraint(test: Int): Unit = {
-      // Currently just integer list for sanity checks
-      constraints += test
-      println(constraints)
-      // Would add to cache-map here
-    }
-
-    def printConstraint: Unit = {
-      println(constraints)
+    // Ignore
+    def addConstraint(fieldName: String, constraint: Data => Bool): Unit = {
+      constraints(fieldName) += constraint
     }
 
 //    def cloneBundle: Bundle = {
@@ -91,20 +82,22 @@ package object Randomization {
 //      newclone
 //    }
 
-    // Using single constraint as an example. Planned to have separate constraint functions (see above)
-    // Proof of Concept: UInt range
-    def rand (constraint: UInt => Bool = {v : Data => true.B}) (implicit randgen: VerifRandomGenerator): Bundle = {
+    // Pass in constraint map. A listbuffer of cosntraints is mapped to field names (text). Currently, only supports
+    // independent constraints (no dependencies). Also, only works with non-clashing field names. Currently proof-of-
+    // concept.
+    def rand (constraint: Map[String, ListBuffer[Data => Bool]] = Map("" -> new ListBuffer[Data => Bool])) (implicit randgen: VerifRandomGenerator): Bundle = {
       rand_helper(bundle, constraint)
       bundle
     }
 
     // Helper function for rand
-    def rand_helper(b : Bundle, constraint: UInt => Bool) (implicit randgen: VerifRandomGenerator): Unit = {
+    def rand_helper(b : Bundle, constraints: Map[String, ListBuffer[Data => Bool]] = Map("" -> new ListBuffer[Data => Bool])) (implicit randgen: VerifRandomGenerator): Unit = {
       // Caching
       if (!declaredFields.contains(b.getClass)) {
         declaredFields += (b.getClass -> b.getClass.getDeclaredFields)
       }
 
+      // Randomize individual fields. Currently, only the UInt and SInt fields use the constraint map.
       for (field <- declaredFields(b.getClass)) {
         field.setAccessible(true)
 
@@ -112,19 +105,26 @@ package object Randomization {
           case _: Bool =>
             field.set(b, randgen.getNextBool)
           case bundle: Bundle =>
-            rand_helper(bundle, constraint)
+            rand_helper(bundle, constraints)
           case uval: UInt =>
             if (uval.getWidth != 0) {
               var newval = randgen.getNextUInt(uval.getWidth)
-              while (!satisfy(newval, constraint).litToBoolean) {
-                newval = randgen.getNextUInt(uval.getWidth)
+              if (constraints.contains(field.getName)) {
+                while (!satisfy(newval, constraints(field.getName)).litToBoolean) {
+                  newval = randgen.getNextUInt(uval.getWidth)
+                }
               }
               field.set(b, newval)
             }
           case sval: SInt =>
             if (sval.getWidth != 0) {
-              // Handling for negative numbers (2's complement)
-              field.set(b, randgen.getNextSInt(sval.getWidth))
+              var newval = randgen.getNextSInt(sval.getWidth)
+              if (constraints.contains(field.getName)) {
+                while (!satisfy(newval, constraints(field.getName)).litToBoolean) {
+                  newval = randgen.getNextSInt(sval.getWidth)
+                }
+              }
+              field.set(b, newval)
             }
           case _: Data =>
             println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
@@ -135,8 +135,12 @@ package object Randomization {
       }
     }
 
-    def satisfy(value: UInt, constraint: UInt => Bool): Bool = {
-      constraint(value)
+    def satisfy(value: Data, constraints: ListBuffer[Data => Bool]): Bool = {
+      var sat = true
+      for (constraint <- constraints) {
+        sat &= constraint(value).litToBoolean
+      }
+      sat.B
     }
 
     // Temporary function to print for debug
