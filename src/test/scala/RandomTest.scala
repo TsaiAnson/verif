@@ -22,12 +22,12 @@ class RandomTest extends FlatSpec with ChiselScalatestTester {
         // Testing with non-nested basic transactions
         val CTx = CAMIO(8, 8)
         for (_ <- 0 to 9) {
-          CTx.rand.printContents
+          CTx.rand().printContents
         }
 
         val DTx = DecoupledTX(165.U,0.U,1.U)
         for (_ <- 0 to 9) {
-          DTx.rand.printContents
+          DTx.rand().printContents
         }
         assert(true)
       }
@@ -40,7 +40,7 @@ class RandomTest extends FlatSpec with ChiselScalatestTester {
         // Testing with single nested transactions
         val NTx = NestedBundleTx(100.U, InnerBundle(1.U,1.U,1.U), InnerBundle(2.U,2.U,2.U), 3.U)
         for (_ <- 0 to 9) {
-          NTx.rand.printContents
+          NTx.rand().printContents
         }
         assert(true)
       }

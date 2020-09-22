@@ -6,6 +6,7 @@ import chisel3.util._
 import chiseltest._
 import java.lang.reflect.Field
 
+import scala.collection.mutable
 import scala.collection.mutable.{Map, MutableList, Queue}
 
 trait VerifRandomGenerator {
@@ -64,22 +65,41 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
 // Can define more VerifRandomGenerators Here
 
 package object Randomization {
-  implicit class VerifBundle(bundle: Bundle) {
+  implicit class VerifBundle(bundle: Bundle) extends Bundle {
     // Caching no longer seems to work within implicit class
     val declaredFields: Map[Class[_], Array[Field]] = Map[Class[_],Array[Field]]()
 
+    // Want to have constraints structure saved with each bundle, not currently working (similar problem to above)
+    // Would want to implement caching, so each field would be assigned a list of constraints
+    // For example: constraints: Map[String, Array[Bundle => Bool]]
+    // Currently just integers to test if the structures would be saved (they're not)
+    val constraints: MutableList[Int] = new MutableList[Int]
+
+    def addConstraint(test: Int): Unit = {
+      // Currently just integer list for sanity checks
+      constraints += test
+      println(constraints)
+      // Would add to cache-map here
+    }
+
+    def printConstraint: Unit = {
+      println(constraints)
+    }
+
 //    def cloneBundle: Bundle = {
-////      val newclone = bundle.getClass.newInstance()
-////      newclone
+//      val newclone = bundle.getClass.newInstance()
+//      newclone
 //    }
 
-    def rand(implicit randgen: VerifRandomGenerator): Bundle = {
-      rand_helper(bundle)
+    // Using single constraint as an example. Planned to have separate constraint functions (see above)
+    // Proof of Concept: UInt range
+    def rand (constraint: UInt => Bool = {v : Data => true.B}) (implicit randgen: VerifRandomGenerator): Bundle = {
+      rand_helper(bundle, constraint)
       bundle
     }
 
     // Helper function for rand
-    def rand_helper(b : Bundle)(implicit randgen: VerifRandomGenerator): Unit = {
+    def rand_helper(b : Bundle, constraint: UInt => Bool) (implicit randgen: VerifRandomGenerator): Unit = {
       // Caching
       if (!declaredFields.contains(b.getClass)) {
         declaredFields += (b.getClass -> b.getClass.getDeclaredFields)
@@ -92,10 +112,14 @@ package object Randomization {
           case _: Bool =>
             field.set(b, randgen.getNextBool)
           case bundle: Bundle =>
-            rand_helper(bundle)
+            rand_helper(bundle, constraint)
           case uval: UInt =>
             if (uval.getWidth != 0) {
-              field.set(b, randgen.getNextUInt(uval.getWidth))
+              var newval = randgen.getNextUInt(uval.getWidth)
+              while (!satisfy(newval, constraint).litToBoolean) {
+                newval = randgen.getNextUInt(uval.getWidth)
+              }
+              field.set(b, newval)
             }
           case sval: SInt =>
             if (sval.getWidth != 0) {
@@ -104,11 +128,15 @@ package object Randomization {
             }
           case _: Data =>
             println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
-              s"(${field.getName},${field.get(b)})")
+              s"(${field.getName}:${field.getType},${field.get(b)})")
           case _: Any =>
           // Do nothing
         }
       }
+    }
+
+    def satisfy(value: UInt, constraint: UInt => Bool): Bool = {
+      constraint(value)
     }
 
     // Temporary function to print for debug
@@ -127,7 +155,18 @@ package object Randomization {
             result += s"Bundle ${field.getName} {"
             for (field1 <- bundle.getClass.getDeclaredFields) {
               field1.setAccessible(true)
-              result += s"(${field1.getName}, ${field1.get(bundle)}) "
+              // Hardcoded for single-nested bundles. Just for proof-of-concept
+              if (field1.get(bundle).isInstanceOf[Bundle]) {
+                val innerBundle = field1.get(bundle)
+                result += s"Bundle ${field1.getName} {"
+                for (field2 <- innerBundle.getClass.getDeclaredFields) {
+                  field2.setAccessible(true)
+                  result += s"(${field2.getName}, ${field2.get(innerBundle)}) "
+                }
+                result += "} "
+              } else {
+                result += s"(${field1.getName}, ${field1.get(bundle)}) "
+              }
             }
             result += "} "
           case map: Map[Class[_],Array[Field]] =>
@@ -145,7 +184,7 @@ package object Randomization {
           case _: VerifRandomGenerator =>
             result += s"RandomGen(${field.getName})"
           case _: Any =>
-            result += s"(${field.getName}, ${field.get(this)}) "
+            result += s"(${field.getName}:${field.getType}, ${field.get(this)}) "
         }
       }
       result += "\n"
