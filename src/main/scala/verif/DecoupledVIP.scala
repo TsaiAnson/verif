@@ -5,7 +5,9 @@ import chisel3.util._
 import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
-case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Bundle
+case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Bundle {
+  override def cloneType = DecoupledTX(data, waitCycles, postSendCycles).asInstanceOf[this.type]
+}
 
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val inputTransactions = Queue[DecoupledTX[T]]()

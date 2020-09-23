@@ -2,6 +2,7 @@ package designs
 
 import chisel3._
 import verif.{ScalaVerifRandomGenerator, VerifRandomGenerator}
+import chisel3.experimental.BundleLiterals._
 
 case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
   val en = Input(Bool())
@@ -11,6 +12,11 @@ case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
   val dataWr = Input(UInt(dataWidth.W))
   val found = Output(Bool())
   val dataRe = Output(UInt(dataWidth.W))
+
+  // TODO Fix, gets StackOverflowError
+//  override def cloneType = CAMIO(keyWidth, dataWidth).Lit(_.en -> this.en, _.we -> this.we,
+//    _.keyRe -> this.keyRe, _.keyWr -> this.keyWr, _.dataWr -> this.dataWr, _.found -> this.found,
+//    _.dataRe -> this.dataRe).asInstanceOf[this.type]
 }
 
 class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {

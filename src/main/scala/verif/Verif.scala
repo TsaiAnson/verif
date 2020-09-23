@@ -6,7 +6,9 @@ import chisel3.util._
 import chiseltest._
 import java.lang.reflect.Field
 
-import scala.collection.mutable.{Map, ListBuffer, Queue}
+import chisel3.stage.ChiselGeneratorAnnotation
+
+import scala.collection.mutable.{ListBuffer, Map, Queue}
 
 trait VerifRandomGenerator {
   def setSeed(seed: Long): Unit
@@ -64,7 +66,7 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
 // Can define more VerifRandomGenerators Here
 
 package object Randomization {
-  implicit class VerifBundle(bundle: Bundle) extends Bundle {
+  implicit class VerifBundle[T <: Bundle](bundle: T) extends Bundle {
     // Caching no longer seems to work within implicit class, seems like the variable is cleared each time
     val declaredFields: Map[Class[_], Array[Field]] = Map[Class[_],Array[Field]]()
 
@@ -82,12 +84,28 @@ package object Randomization {
 //      newclone
 //    }
 
+    def randNew (constraint: T => Bool): T = {
+      class dummy extends MultiIOModule {
+        val b = IO(bundle.cloneType)
+
+        constraint(b)
+        dontTouch(b)
+      }
+
+      val annos = List(
+        ChiselGeneratorAnnotation(() => new dummy)
+      )
+      (new chisel3.stage.ChiselStage).execute(Array.empty, annos)
+
+      bundle.cloneType
+    }
+
     // Pass in constraint map. A listbuffer of cosntraints is mapped to field names (text). Currently, only supports
     // independent constraints (no dependencies). Also, only works with non-clashing field names. Currently proof-of-
     // concept.
-    def rand (constraint: Map[String, ListBuffer[Data => Bool]] = Map("" -> new ListBuffer[Data => Bool])) (implicit randgen: VerifRandomGenerator): Bundle = {
+    def rand (constraint: Map[String, ListBuffer[Data => Bool]] = Map("" -> new ListBuffer[Data => Bool])) (implicit randgen: VerifRandomGenerator): T = {
       rand_helper(bundle, constraint)
-      bundle
+      bundle.cloneType
     }
 
     // Helper function for rand

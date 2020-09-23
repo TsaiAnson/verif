@@ -9,9 +9,13 @@ import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation
 import designs.{CAMIO, ParameterizedCAMAssociative}
 import chisel3.experimental.BundleLiterals._
 
-case class InnerBundle[T <: Data](data: T, numb1: UInt = 0.U, numb2: UInt = 0.U) extends Bundle
+case class InnerBundle[T <: Data](data: T, numb2: UInt = 0.U, numb3: UInt = 0.U) extends Bundle {
+  override def cloneType = InnerBundle(data, numb2, numb3).asInstanceOf[this.type]
+}
 
-case class NestedBundleTx[T <: Data](data: T, inner1: InnerBundle[UInt], inner2: InnerBundle[UInt], numb1: UInt = 0.U) extends Bundle
+case class NestedBundleTx[T <: Data](data: T, inner1: InnerBundle[UInt], inner2: InnerBundle[UInt], numb1: UInt = 0.U) extends Bundle {
+  override def cloneType = NestedBundleTx(data, inner1.cloneType, inner2.cloneType, numb1).asInstanceOf[this.type]
+}
 
 class RandomTest extends FlatSpec with ChiselScalatestTester {
   it should "random test basic" in {

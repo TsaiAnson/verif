@@ -2,8 +2,11 @@ name := "verif"
 
 version := "0.0.1"
 
-scalaVersion := "2.12.0"
+scalaVersion := "2.12.12"
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-language:reflectiveCalls")
+
+fork in test := true
+cancelable in Global := true
 
 libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.2.0"
 libraryDependencies += "edu.berkeley.cs" %% "rocketchip" % "1.2-SNAPSHOT"
@@ -24,3 +27,4 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
   Resolver.mavenLocal
 )
+
