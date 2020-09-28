@@ -10,6 +10,8 @@ cancelable in Global := true
 
 libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.2.0"
 libraryDependencies += "edu.berkeley.cs" %% "rocketchip" % "1.2-SNAPSHOT"
+libraryDependencies += "edu.berkeley.cs" %% "dsptools" % "1.4-SNAPSHOT"
+libraryDependencies += "edu.berkeley.cs" %% "rocket-dsptools" % "1.2-SNAPSHOT"
 
 //// Jmh Settings
 //enablePlugins(JmhPlugin)
