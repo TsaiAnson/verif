@@ -64,9 +64,10 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
 //  TLNode := node
 
   val TLNode = TLRegisterNode(
-    address = Seq(AddressSet(0x2000, 0xfff)),
+    address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
-    beatBytes = 8)
+    beatBytes = 8,
+    concurrency = 1)
 
   lazy val module = new LazyModuleImp(this) {
     val bigReg = RegInit(10.U(64.W))
@@ -76,6 +77,7 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
     val tinyReg0 = RegInit(13.U(4.W))
     val tinyReg1 = RegInit(14.U(4.W))
 
+    // Will try to implement hardware FIFO (using Queue) for later examples
     TLNode.regmap(
       0x00 -> Seq(RegField(64, bigReg)),
       0x08 -> Seq(RegField(32, mediumReg)),
@@ -84,8 +86,8 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
                   RegField(4, tinyReg1))
     )
 
-    val (in, _) = TLNode.in.unzip
-    val (out, _) = TLNode.out.unzip
+    val (in, inE) = TLNode.in.unzip
+    val (out, outE) = TLNode.out.unzip
   }
 }
 

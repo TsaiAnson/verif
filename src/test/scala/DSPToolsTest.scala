@@ -2,6 +2,7 @@ package verif
 
 import org.scalatest._
 import chisel3._
+import chisel3.util.Decoupled
 import chiseltest._
 import designs.{VerifTLPassthrough, VerifTLStandaloneBlock}
 import chiseltest.experimental.TestOptionBuilder._
@@ -28,28 +29,23 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       println("Got here")
 
-      val protoTLBundleA = new TLBundleA(standaloneParams)
+//      val protoTLBundleA = new TLBundleA(standaloneParams)
+//      val testA = protoTLBundleA.Lit(_.opcode -> 0.U(3.W), _.param -> 0.U(3.W), _.size -> 2.U(6.W), _.source -> 1.U(1.W),
+//        _.address -> 0.U(8.W))
+//      val a = c.in.head.a
+//      // Poke fails as testA is a hardware and not a chisel type?
+//      a.pokePartial(Decoupled(testA))
 
-      val testA = protoTLBundleA.Lit(_.opcode -> 0.U(3.W), _.param -> 0.U, _.size -> 2.U, _.source -> 1.U,
-        _.address -> 0.U, _.mask -> 0xff.U)
+      // Trying to use helper function with edge
+      val inE = c.inE.head
+      val (valid, testA) = inE.Get(1.U, 0.U, 6.U)
+      println(valid)
 
-      var a = c.in.head.a
-
-      a.bits.pokePartial(testA)
-
-//      a.bits.opcode.poke(0.U)
-//      a.bits.param.poke(0.U)
-//      a.bits.size.poke(2.U)
-//      a.bits.source.poke(1.U)
-//      // Poking some value for address
-//      a.bits.address.poke(0.U)
-//      a.bits.mask.poke(0xff.U)
-//      a.bits.data.poke(0.U)
-
-      // Peeking some value as test
-      println("Got here 2")
-      var d = c.out.head.d
-      println(d.bits.data)
+//      // Peeking some value as test
+//      println("Got here 2")
+//
+//      val d = c.out.head.d
+//      println(d.bits.data)
 
       assert(true)
     }
