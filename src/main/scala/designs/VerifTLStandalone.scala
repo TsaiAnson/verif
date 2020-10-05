@@ -31,34 +31,22 @@ trait VerifTLStandaloneBlock extends LazyModule {
   val ioInNode = BundleBridgeSource(() => TLBundle(standaloneParams))
 //  val ioOutNode = BundleBridgeSink[TLBundle]()
   val TLNode: TLNode
+  val client: TLNode
+
+  TLNode := client
 
 //  ioOutNode :=
 //    TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x2000, 0xfff)))), beatBytes = 8)) :=
-    TLNode :=
-    BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
-    ioInNode
-
-  val in = InModuleBody { ioInNode.makeIO() }
+//    TLNode :=
+//    BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
+//    ioInNode
+//
+//  val in = InModuleBody { ioInNode.makeIO() }
 //  val out = InModuleBody { ioOutNode.makeIO() }
 }
 
-//trait VerifTLBasicBlock extends VerifTLStandaloneBlock {
-//  def csrAddress = AddressSet(0x0, 0xff)
-//  def beatBytes = 8
-//  def memdevname = "veriftlbasicblock"
-//  def devcompat = Seq("verif")
-//  val memdevice = new SimpleDevice(memdevname, devcompat) {
-//    override def describe(resources: ResourceBindings): Description = {
-//      val Description(name, mapping) = super.describe(resources)
-//      Description(name, mapping)
-//    }
-//  }
-//  override val mem = Some(TLRegisterNode(address = Seq(csrAddress), device = memdevice, beatBytes = beatBytes))
-//}
-
-//class VerifTLPassthrough(implicit p: Parameters) extends LazyModule with VerifTLBasicBlock  {
 class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor")) // Not sure about compatibility list
+  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
 //  val TLNode = TLIdentityNode()
 //
 //  TLNode := node
@@ -68,6 +56,13 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
     device = device,
     beatBytes = 8,
     concurrency = 1)
+
+  // Adding client node just for testing --- Temporary
+  val client = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
+    name = "testclient",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
     val bigReg = RegInit(10.U(64.W))
@@ -86,8 +81,8 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
                   RegField(4, tinyReg1))
     )
 
-    val (in, inE) = TLNode.in.unzip
-    val (out, outE) = TLNode.out.unzip
+    val (in, inE) = TLNode.in(0)
+    val (cli, cliE) = client.out(0)
   }
 }
 

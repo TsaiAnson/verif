@@ -37,8 +37,11 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 //      a.pokePartial(Decoupled(testA))
 
       // Trying to use helper function with edge
-      val inE = c.inE.head
-      val (valid, testA) = inE.Get(1.U, 0.U, 6.U)
+//      val inE = c.inE.head
+//      val (valid, testA) = inE.Get(1.U, 0.U, 6.U)
+//      println(valid)
+      val clientE = c.cliE
+      val (valid, testA) = clientE.Get(1.U, 0.U, 6.U)
       println(valid)
 
 //      // Peeking some value as test
