@@ -65,7 +65,6 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
 }
 
 class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
-  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
   val txns = Queue[DecoupledTX[T]]()
   var waitCycles = 0
 
