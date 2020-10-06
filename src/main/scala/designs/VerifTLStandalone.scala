@@ -7,6 +7,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
+import testchipip.TLHelper
 
 trait VerifTLStandaloneBlock extends LazyModule {
   def standaloneParams = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
@@ -29,30 +30,49 @@ trait VerifTLStandaloneBlock extends LazyModule {
 //  }}
 
   val ioInNode = BundleBridgeSource(() => TLBundle(standaloneParams))
-  val TLNode: TLNode
+//  val ioOutNode = BundleBridgeSink[TLBundle]()
 
-  TLNode :=
+  val TLClient: TLNode
+  val TLManager: TLNode
+  // Temporary filler to connect client node
+  val TLFiller: TLNode
+
+  // TLToBundleBridge is not working, using a filler node for now
+  // ioOutNode :=
+  //   TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)))), beatBytes = 2)) :=
+  //   TLClient
+  TLFiller := TLClient
+
+  TLManager :=
     BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
+//  val out = InModuleBody { ioOutNode.makeIO() }
 }
 
 class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
 
-  val TLNode = TLRegisterNode(
+  val TLManager = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
 
-//  // Adding client node just for testing --- Temporary
-//  val client = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
-//    name = "testclient",
-//    sourceId = IdRange(0,1),
-//    requestFifo = true,
-//    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+  // Adding Manager node just for client testing --- Temporary
+  val TLFiller = TLRegisterNode(
+    address = Seq(AddressSet(0x0, 0xfff)),
+    device = device,
+    beatBytes = 8,
+    concurrency = 1)
+
+  // Adding client node just for testing --- Temporary
+  val TLClient = TLHelper.makeClientNode(TLClientParameters(
+    name = "my-client",
+    sourceId = IdRange(0, 1),
+    requestFifo = false,
+    visibility = Seq(AddressSet(0x1000, 0xfff))))
 
   lazy val module = new LazyModuleImp(this) {
     val bigReg1 = RegInit(10.U(64.W))
@@ -61,7 +81,7 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
     val bigReg4 = RegInit(13.U(64.W))
 
     // Will try to implement hardware FIFO (using Queue) for later examples
-    TLNode.regmap(
+    TLManager.regmap(
       0x00 -> Seq(RegField(64, bigReg1)),
       0x08 -> Seq(RegField(64, bigReg2)),
       0x10 -> Seq(RegField(64, bigReg3)),
