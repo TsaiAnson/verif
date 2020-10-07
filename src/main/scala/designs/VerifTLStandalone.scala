@@ -30,27 +30,25 @@ trait VerifTLStandaloneBlock extends LazyModule {
 //  }}
 
   val ioInNode = BundleBridgeSource(() => TLBundle(standaloneParams))
-//  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val ioOutNode = BundleBridgeSink[TLBundle]()
 
   val TLClient: TLNode
   val TLManager: TLNode
 
-  // TLToBundleBridge is not working, using a filler node for now
-  // ioOutNode :=
-  //   TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)))), beatBytes = 2)) :=
-  //   TLClient
-  val TLFiller: TLNode
-  TLFiller := TLClient
+   ioOutNode :=
+     TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
+       supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)) :=
+     TLClient
 
   TLManager :=
     BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
-//  val out = InModuleBody { ioOutNode.makeIO() }
+  val out = InModuleBody { ioOutNode.makeIO() }
 }
 
-class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
+class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
 
   val TLManager = TLRegisterNode(
@@ -59,12 +57,6 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
     beatBytes = 8,
     concurrency = 1)
 
-  // Adding TLFiller and TLClient just for testing --- Temporary
-  val TLFiller = TLRegisterNode(
-    address = Seq(AddressSet(0x0, 0xfff)),
-    device = device,
-    beatBytes = 8,
-    concurrency = 1)
   val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
     name = "testclient",
     sourceId = IdRange(0,1),
@@ -84,6 +76,26 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
       0x10 -> Seq(RegField(64, bigReg3)),
       0x18 -> Seq(RegField(64, bigReg4))
     )
+  }
+}
+
+class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient"))
+
+  val TLManager = TLRegisterNode(
+    address = Seq(AddressSet(0x0, 0xfff)),
+    device = device,
+    beatBytes = 8,
+    concurrency = 1)
+
+  val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
+    name = "testclient",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+
+  lazy val module = new LazyModuleImp(this) {
+    // TODO Do something here
   }
 }
 

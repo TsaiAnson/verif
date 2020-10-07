@@ -4,7 +4,7 @@ import org.scalatest._
 import chisel3._
 import chisel3.util.Decoupled
 import chiseltest._
-import designs.{VerifTLPassthrough, VerifTLStandaloneBlock}
+import designs.{VerifTLPassthroughManager, VerifTLStandaloneBlock}
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import dspblocks.{PassthroughParams, TLPassthrough, TLStandaloneBlock}
@@ -32,7 +32,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
   val testBundleMap = new BundleMap(Seq(MyBundleDataField(1)))
 
   it should "DSPTools Test" in {
-    val TLPassthrough = LazyModule(new VerifTLPassthrough with VerifTLStandaloneBlock)
+    val TLPassthrough = LazyModule(new VerifTLPassthroughManager with VerifTLStandaloneBlock)
     test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLManagerDriverBasic(c.clock, TLPassthrough.in)
