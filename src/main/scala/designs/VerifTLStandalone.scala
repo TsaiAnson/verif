@@ -34,13 +34,12 @@ trait VerifTLStandaloneBlock extends LazyModule {
 
   val TLClient: TLNode
   val TLManager: TLNode
-  // Temporary filler to connect client node
-  val TLFiller: TLNode
 
   // TLToBundleBridge is not working, using a filler node for now
   // ioOutNode :=
   //   TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)))), beatBytes = 2)) :=
   //   TLClient
+  val TLFiller: TLNode
   TLFiller := TLClient
 
   TLManager :=
@@ -60,19 +59,17 @@ class VerifTLPassthrough(implicit p: Parameters) extends LazyModule  {
     beatBytes = 8,
     concurrency = 1)
 
-  // Adding Manager node just for client testing --- Temporary
+  // Adding TLFiller and TLClient just for testing --- Temporary
   val TLFiller = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
-
-  // Adding client node just for testing --- Temporary
-  val TLClient = TLHelper.makeClientNode(TLClientParameters(
-    name = "my-client",
-    sourceId = IdRange(0, 1),
-    requestFifo = false,
-    visibility = Seq(AddressSet(0x1000, 0xfff))))
+  val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
+    name = "testclient",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
     val bigReg1 = RegInit(10.U(64.W))
