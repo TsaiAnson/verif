@@ -20,7 +20,6 @@ case class CAMIO(keyWidth: Int, dataWidth: Int) extends Bundle {
 }
 
 class ParameterizedCAMAssociative(keyWidth: Int, dataWidth: Int, memSizeWidth: Int) extends MultiIOModule {
-  implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
   require(keyWidth >= 0)
   require(dataWidth >= 0)
   require(memSizeWidth >= 0)
