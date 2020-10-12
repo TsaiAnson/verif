@@ -7,7 +7,6 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
-import testchipip.TLHelper
 
 trait VerifTLStandaloneBlock extends LazyModule {
   def standaloneParams = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
@@ -49,7 +48,7 @@ trait VerifTLStandaloneBlock extends LazyModule {
 }
 
 class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
+  val device = new SimpleDevice("veriftlpassthroughmanager", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
 
   val TLManager = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
@@ -57,6 +56,7 @@ class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
     beatBytes = 8,
     concurrency = 1)
 
+  // Filler for now
   val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
     name = "testclient",
     sourceId = IdRange(0,1),
@@ -80,8 +80,9 @@ class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
 }
 
 class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient"))
+  val device = new SimpleDevice("veriftlpassthroughclient", Seq("veriftldriver,veriftlmonitor,testclient"))
 
+  // Filler for now
   val TLManager = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
@@ -92,10 +93,58 @@ class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
     name = "testclient",
     sourceId = IdRange(0,1),
     requestFifo = true,
-    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+    visibility = Seq(AddressSet(0x0, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
-    // TODO Do something here
+    val (out, edge) = TLClient.out(0)
+    var addr = 0.U(6.W)
+    var alt = 0.U(10.W)
+    var response: TLBundleD = out.d.deq()
+
+    // Read and write back values
+    // Hardcoded example
+    // Read data
+//    var request = edge.Get(0.U, 0.U, 3.U)._2
+//    out.a.enq(request)
+//    var response = out.d.deq()
+//    // Write data
+//    request = edge.Put(0.U, 0x20.U, 3.U, response.data)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//    // Repeat 3 more times
+//    request = edge.Get(0.U, 0x08.U, 3.U)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//    request = edge.Put(0.U, 0x28.U, 3.U, response.data)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//
+//    request = edge.Get(0.U, 0x10.U, 3.U)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//    request = edge.Put(0.U, 0x30.U, 3.U, response.data)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//
+//    request = edge.Get(0.U, 0x18.U, 3.U)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+//    request = edge.Put(0.U, 0x38.U, 3.U, response.data)._2
+//    out.a.enq(request)
+//    response = out.d.deq()
+
+    when (out.a.ready) {
+      if ((alt % 2.U).litValue().toInt == 1) {
+        response = out.d.deq()
+        out.a.enq(edge.Put(0.U, addr + 0x20.U, 3.U, response.data)._2)
+        addr = addr + 0x08.U
+        alt = alt + 1.U
+      } else {
+        response = out.d.deq()
+        out.a.enq(edge.Get(0.U, addr, 3.U)._2)
+        alt = alt + 1.U
+      }
+    }
   }
 }
 

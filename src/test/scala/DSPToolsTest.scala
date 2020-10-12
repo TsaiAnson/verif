@@ -4,7 +4,7 @@ import org.scalatest._
 import chisel3._
 import chisel3.util.Decoupled
 import chiseltest._
-import designs.{VerifTLPassthroughManager, VerifTLStandaloneBlock}
+import designs.{VerifTLPassthroughClient, VerifTLPassthroughManager, VerifTLStandaloneBlock}
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import dspblocks.{PassthroughParams, TLPassthrough, TLStandaloneBlock}
@@ -29,9 +29,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
     hasBCE = false)
 
-  val testBundleMap = new BundleMap(Seq(MyBundleDataField(1)))
-
-  it should "DSPTools Test" in {
+  it should "VerifTL Test Manager" in {
     val TLPassthrough = LazyModule(new VerifTLPassthroughManager with VerifTLStandaloneBlock)
     test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
@@ -80,6 +78,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       assert(outputChecker.checkOutput(output, {t : VerifTLDChannel => t.data.litValue()},
         swoutput, {t : VerifTLDChannel => t.data.litValue()}))
 
+      //  val testBundleMap = new BundleMap(Seq(MyBundleDataField(1)))
       // // Poking with bundle literals is not working, leaving here for reference
       // val protoTLBundleA = new TLBundleA(standaloneParams)
       // println(TLPassthrough.in.params)
@@ -89,6 +88,35 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       //   _.mask -> 0xfff.U, _.data -> 0.U, _.corrupt -> false.B)
       // // Poke fails as testA is a hardware and not a chisel type?
       // a.pokePartial(Decoupled(testA))
+    }
+  }
+
+  it should "VerifTL Test Client" in {
+    val TLPassthrough = LazyModule(new VerifTLPassthroughClient with VerifTLStandaloneBlock)
+    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      // Currently just recording requests, only Driver is needed
+      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
+//      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+      val simCycles = 20
+
+      c.clock.step(simCycles)
+
+      val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
+
+      // TODO Add software model here
+      val swoutput = Array(
+        VerifTLAChannel(opcode = 4.U, address = 0.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x20.U, data = 10.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x8.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x28.U, data = 11.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x10.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x18.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
+
+      assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
+        swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
     }
   }
 }

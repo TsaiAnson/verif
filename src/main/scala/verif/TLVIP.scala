@@ -1,10 +1,11 @@
 package verif
 
-import org.scalatest._
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chiseltest._
-import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import firrtl.FirrtlProtos.Firrtl.Statement.Register
+import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
+import freechips.rocketchip.regmapper.RegField
 import freechips.rocketchip.tilelink._
 
 import scala.collection.mutable
@@ -44,9 +45,9 @@ case class VerifTLDChannel(opcode:  UInt = 0.U,
 
 case class VerifTLEChannel(sink:  UInt = 0.U) extends Bundle
 
-// Used to interface with Master Nodes
+// Used to interface with Manager Nodes
 // Does not fully support TL-C yet
-trait VerifTLMasterModel {
+trait VerifTLManagerFunctions {
   def clk: Clock
   def TLChannels: TLBundle
 
@@ -187,12 +188,154 @@ trait VerifTLMasterModel {
 }
 
 // Used to interface with Client Nodes
-trait VerifTLClientModel {
-  // To be implemented
+trait VerifTLClientFunctions {
+//  // One strategy is to have a register node as Manager to drive client
+//  // Would need use TLXBar to connect multiple clients
+//  def regMan: TLRegisterNode
+
+  def clk: Clock
+  def TLChannels: TLBundle
+
+  def peekA(): VerifTLAChannel = {
+    val aC = TLChannels.a
+    val opcode = aC.bits.opcode.peek()
+    val param = aC.bits.param.peek()
+    val size = aC.bits.size.peek()
+    val source = aC.bits.source.peek()
+    val address = aC.bits.address.peek()
+    val mask = aC.bits.mask.peek()
+    val data = aC.bits.data.peek()
+
+    VerifTLAChannel(opcode, param, size, source, address, mask, data)
+  }
+
+  def pokeB(b: VerifTLBChannel): Unit = {
+    val bC = TLChannels.b
+    bC.bits.opcode.poke(b.opcode)
+    bC.bits.param.poke(b.param)
+    bC.bits.size.poke(b.size)
+    bC.bits.source.poke(b.source)
+    bC.bits.address.poke(b.address)
+    bC.bits.mask.poke(b.mask)
+    bC.bits.data.poke(b.data)
+  }
+
+  def peekC(): VerifTLCChannel = {
+    val cC = TLChannels.c
+    val opcode = cC.bits.opcode.peek()
+    val param = cC.bits.param.peek()
+    val size = cC.bits.size.peek()
+    val source = cC.bits.source.peek()
+    val address = cC.bits.address.peek()
+    val data = cC.bits.data.peek()
+    val corrupt = cC.bits.corrupt.peek()
+
+    VerifTLCChannel(opcode, param, size, source, address, data, corrupt)
+  }
+
+  def pokeD(d: VerifTLDChannel): Unit = {
+    val dC = TLChannels.d
+    dC.bits.opcode.poke(d.opcode)
+    dC.bits.param.poke(d.param)
+    dC.bits.size.poke(d.size)
+    dC.bits.source.poke(d.source)
+    dC.bits.sink.poke(d.sink)
+    dC.bits.data.poke(d.data)
+    dC.bits.corrupt.poke(d.corrupt)
+  }
+
+  def peekE(): VerifTLEChannel = {
+    val eC = TLChannels.e
+    val sink = eC.bits.sink.peek()
+
+    VerifTLEChannel(sink)
+  }
+
+  def readA(): VerifTLAChannel = {
+    val aC = TLChannels.a
+
+    aC.ready.poke(true.B)
+
+    while(!aC.valid.peek().litToBoolean) {
+      clk.step(1)
+    }
+    clk.step(1)
+    aC.ready.poke(false.B)
+
+    peekA()
+  }
+
+  def writeB(b: VerifTLBChannel): Unit = {
+    val bC = TLChannels.b
+
+    bC.valid.poke(true.B)
+    pokeB(b)
+
+    while(bC.ready.peek().litToBoolean) {
+      clk.step(1)
+    }
+    clk.step(1)
+
+    bC.valid.poke(false.B)
+  }
+
+  def readC(): VerifTLCChannel = {
+    val cC = TLChannels.c
+
+    cC.ready.poke(true.B)
+
+    while(!cC.valid.peek().litToBoolean) {
+      clk.step(1)
+    }
+    clk.step(1)
+    cC.ready.poke(false.B)
+
+    peekC()
+  }
+
+  def writeD(d: VerifTLDChannel): Unit = {
+    val dC = TLChannels.d
+
+    dC.valid.poke(true.B)
+    pokeD(d)
+
+    while(dC.ready.peek().litToBoolean) {
+      clk.step(1)
+    }
+    clk.step(1)
+
+    dC.valid.poke(false.B)
+  }
+
+  def readE(): VerifTLEChannel = {
+    val eC = TLChannels.e
+
+    eC.ready.poke(true.B)
+
+    while(!eC.valid.peek().litToBoolean) {
+      clk.step(1)
+    }
+    clk.step(1)
+    eC.ready.poke(false.B)
+
+    peekE()
+  }
+
+  def reset(): Unit = {
+    pokeB(VerifTLBChannel())
+    pokeD(VerifTLDChannel())
+    TLChannels.a.ready.poke(false.B)
+    TLChannels.b.valid.poke(false.B)
+    TLChannels.c.ready.poke(false.B)
+    TLChannels.d.valid.poke(false.B)
+    TLChannels.e.ready.poke(false.B)
+  }
+
+  def process(req: VerifTLAChannel): Unit
 }
 
-// Basic Driver -- no cycle tracking
-class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterModel {
+// Basic Driver -- no cycle tracking, only AChannel as Input
+class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLManagerFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -217,7 +360,8 @@ class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMas
   }
 }
 
-class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterModel {
+// Basic Monitor -- no cycle tracking, only DChannel as Output
+class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLManagerFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -235,6 +379,82 @@ class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMa
     // Reads everything
     while (true) {
       txns += readD()
+      clock.step(1)
+    }
+  }
+}
+
+// Basic Driver -- no cycle tracking, only AChannel as Input
+// Interface must be Client
+// TODO Allow user to write transactions to fill in "regMap"
+// WIP, currently just a hardcoded example
+class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClientFunctions {
+  // Acting like "regmap"
+  var hash = mutable.HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
+
+  val clk = clock
+
+  val TLChannels = interface
+
+  val txns = Queue[VerifTLAChannel]()
+
+  def getMonitoredTransactions: mutable.MutableList[VerifTLAChannel] = {
+    for (x <- hash.keys) {
+      print(s"(${x}, ${hash(x)}), ")
+    }
+    println("")
+    txns
+  }
+
+  // Process function currently only takes opcode 4 (GET)
+  def process(a : VerifTLAChannel) : Unit = {
+    txns += a
+
+    if (!(a.opcode.litValue() == 4 || a.opcode.litValue() == 0)) {
+      println(s"ONLY FULL-PUT (0) AND GET (4) OPCODE IS PERMITTED. GIVEN OP: ${a.opcode} EXAMPLE TEST.")
+    }
+
+    var result = 0.U;
+    if (a.opcode.litValue() == 0) {
+      hash(a.address.litValue().toInt) = a.data.litValue().toInt
+      result = a.data
+    } else {
+      if (hash.contains(a.address.litValue().toInt)) {
+        result = hash(a.address.litValue().toInt).U
+      }
+    }
+
+    pokeD(VerifTLDChannel(a.opcode, a.param, a.size, a.source, 0.U, result, true.B))
+  }
+
+  // Currently just processes the requests from Client
+  fork {
+    while (true) {
+      process(readA())
+      clk.step(1)
+    }
+  }
+}
+
+// Basic Monitor -- no cycle tracking, currently only records the requests from the client
+class TLClientMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLClientFunctions {
+  val clk = clock
+  val TLChannels = interface
+
+  val txns = Queue[VerifTLAChannel]()
+
+  def process(a: VerifTLAChannel) : Unit = {
+    txns += a
+  }
+
+  def getMonitoredTransactions: mutable.MutableList[VerifTLAChannel] = {
+    txns
+  }
+
+  fork {
+    // Reads all requests
+    while (true) {
+      process(readA())
       clock.step(1)
     }
   }
