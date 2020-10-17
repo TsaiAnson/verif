@@ -7,6 +7,7 @@ import chisel3.util._
 import chisel3.stage.ChiselGeneratorAnnotation
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation, WriteVcdAnnotation}
+import chipyard.{RocketConfig, GemminiRocketConfig}
 import chipyard.config.{AbstractConfig}
 import testchipip.{TLHelper}
 import freechips.rocketchip.config.{Parameters, Config}
@@ -62,17 +63,27 @@ class GemminiManagerNode(beatBytes: Int)(implicit p: Parameters) extends LazyMod
 //}
 
 class WithDummyTileParams extends Config ((site, here, up) => {
-    case TileKey => RocketTileParams
+    case TileKey => RocketTileParams()
+    case TileVisibilityNodeKey => TLEphemeralNode()(ValName("tile_master")),
 })
 
 
 class DummyConfig extends Config(
     new WithDummyTileParams ++
-    new chipyard.config.AbstractConfig)
+    new chipyard.RocketConfig
+)
+
+class VerifConfig extends Config(
+  // This should set up the edges for TileVisiblityNodeKey...
+  new verif.WithNVerifTiles ++
+  new chipyard.config.AbstractConfig
+)
 
 class GemminiTest extends FlatSpec with ChiselScalatestTester {
-  implicit val p: Parameters = new DummyConfig
-
+  //implicit val p: Parameters = new VerifConfig() // TileKey not defined
+  //implicit val p: Parameters = new DummyConfig() // TileVisiblityNodeKey has no edges
+  //implicit val p: Parameters = new RocketConfig() // TileKey not defined
+  implicit val p: Parameters = new GemminiRocketConfig
 
   it should "Elaborate Gemmini" in {
     test(new MultiIOModule {
