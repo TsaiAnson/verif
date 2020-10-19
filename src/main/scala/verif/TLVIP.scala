@@ -175,6 +175,7 @@ trait VerifTLManagerFunctions {
     eC.valid.poke(false.B)
   }
 
+  // TODO Figure out why poking C and E does not work
   def reset(): Unit = {
     pokeA(VerifTLAChannel())
     pokeC(VerifTLCChannel())
@@ -321,14 +322,15 @@ trait VerifTLClientFunctions {
     peekE()
   }
 
+  // TODO Figure out why pokingB doesn't work
   def reset(): Unit = {
-    pokeB(VerifTLBChannel())
+//    pokeB(VerifTLBChannel())
     pokeD(VerifTLDChannel())
     TLChannels.a.ready.poke(false.B)
-    TLChannels.b.valid.poke(false.B)
-    TLChannels.c.ready.poke(false.B)
+//    TLChannels.b.valid.poke(false.B)
+//    TLChannels.c.ready.poke(false.B)
     TLChannels.d.valid.poke(false.B)
-    TLChannels.e.ready.poke(false.B)
+//    TLChannels.e.ready.poke(false.B)
   }
 
   def process(req: VerifTLAChannel): Unit
@@ -424,11 +426,12 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
       }
     }
 
-    pokeD(VerifTLDChannel(a.opcode, a.param, a.size, a.source, 0.U, result, true.B))
+    writeD(VerifTLDChannel(a.opcode, a.param, a.size, a.source, 0.U, result, true.B))
   }
 
   // Currently just processes the requests from Client
   fork {
+    reset()
     while (true) {
       process(readA())
       clk.step(1)
