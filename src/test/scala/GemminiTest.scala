@@ -83,7 +83,7 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
   //implicit val p: Parameters = new VerifConfig() // TileKey not defined
   //implicit val p: Parameters = new DummyConfig() // TileVisiblityNodeKey has no edges
   //implicit val p: Parameters = new RocketConfig() // TileKey not defined
-  implicit val p: Parameters = new GemminiRocketConfig
+  implicit val p: Parameters = VerifTestUtils.getVerifParameters("VerifConfig")
 
   it should "Elaborate Gemmini" in {
     test(new MultiIOModule {
