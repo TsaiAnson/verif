@@ -138,9 +138,18 @@ class VerifTLPassthroughClientPattern(txns: Seq[Pattern])(implicit p: Parameters
     beatBytes = 8,
     concurrency = 1)
 
-  val TLClient = TLPatternPusher("testclient", txns)
+  val patternp = LazyModule(new TLPatternPusher("testclient", txns))
+  val TLClient = patternp.node
 
-  lazy val module = new LazyModuleImp(this) {}
+  lazy val module = new LazyModuleImp(this) {
+    val testIO = IO(new Bundle {
+      val run = Input(Bool())
+      val done = Output(Bool())
+    })
+
+    RegNext(patternp.module.io.run) := testIO.run
+    testIO.done := patternp.module.io.done
+  }
 }
 
 class VerifTLPassthroughClientFuzzer(implicit p: Parameters) extends LazyModule  {

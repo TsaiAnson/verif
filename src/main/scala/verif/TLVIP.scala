@@ -401,10 +401,10 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
   val txns = Queue[VerifTLAChannel]()
 
   def getMonitoredTransactions: mutable.MutableList[VerifTLAChannel] = {
-//    for (x <- hash.keys) {
-//      print(s"(${x}, ${hash(x)}), ")
-//    }
-//    println("")
+    for (x <- hash.keys) {
+      print(s"(${x}, ${hash(x)}), ")
+    }
+    println("")
     txns
   }
 

@@ -6,7 +6,7 @@ import chisel3.util.Decoupled
 import chiseltest._
 import designs.{VerifTLPassthroughClient, VerifTLPassthroughClientFuzzer, VerifTLPassthroughClientPattern, VerifTLPassthroughManager, VerifTLStandaloneBlock}
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
 import dspblocks.{PassthroughParams, TLPassthrough, TLStandaloneBlock}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
@@ -95,6 +95,10 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // Sanity test to make sure that driver/monitor is correctly getting requests
       assert(output.length == 30)
+
+      for (out <- output) {
+        println(out.getElements)
+      }
     }
   }
 
@@ -112,6 +116,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
       //      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
       val simCycles = 100
+
+      c.testIO.run.poke(true.B)
 
       c.clock.step(simCycles)
 
@@ -156,6 +162,10 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
         VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
         VerifTLAChannel(opcode = 4.U, address = 0x18.U),
         VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
+
+      for (out <- output) {
+        println(out.getElements)
+      }
 
       assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
         swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
