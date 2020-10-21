@@ -79,7 +79,7 @@ class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
   }
 }
 
-// TODO: FIX
+// Example of manual Client
 class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("veriftlpassthroughclient", Seq("veriftldriver,veriftlmonitor,testclient"))
 
@@ -97,23 +97,34 @@ class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
       visibility = Seq(AddressSet(0x0, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
-        val (out, edge) = TLClient.out(0)
-        val addr = RegInit(UInt(6.W), 0.U)
-        val alt = RegInit(Bool(), false.B)
-        val response = out.d.deq()
+    val (out, edge) = TLClient.out(0)
+    val addr = RegInit(UInt(8.W), 0.U)
+    val response = RegInit(UInt(5.W), 0.U)
+    val alt = RegInit(Bool(), false.B)
 
-        when (out.a.ready) {
-          when (alt === true.B) {
-            response := out.d.deq()
-            out.a.enq(edge.Put(0.U, addr + 0x20.U, 3.U, 1.U)._2)
-            addr := addr + 0x08.U
-            alt := !alt
-          } otherwise {
-            response := out.d.deq()
-            out.a.enq(edge.Get(0.U, addr, 3.U)._2)
-            alt := !alt
-          }
-        }
+    // Behavior: Read in address x and then write result in address + 0x20.U
+    // Operates on addresses from 0x0 to 0x18
+
+    // Offset by 8 needed here, will look into later
+    when (alt) {
+      out.a.bits := edge.Get(0.U, addr - 0x8.U, 3.U)._2
+    } otherwise {
+      out.a.bits := edge.Put(0.U, addr + 0x18.U, 3.U, response)._2
+    }
+
+    when (out.a.fire()) {
+      when (!alt) {
+        addr := addr + 0x8.U
+      }
+      alt := !alt
+    }
+
+    when (out.d.valid) {
+      response := out.d.deq().data
+    }
+
+    // Hack to fix missing last instruction, fix later
+    out.a.valid := addr < 0x20.U || (addr === 0x20.U && alt)
   }
 }
 

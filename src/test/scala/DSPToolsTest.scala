@@ -77,22 +77,6 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       assert(outputChecker.checkOutput(output, {t : VerifTLDChannel => t.data.litValue()},
         swoutput, {t : VerifTLDChannel => t.data.litValue()}))
-
-      println("TEST")
-      for (req <- output) {
-        println(s"${req.source}, ${req.sink}")
-      }
-
-      //  val testBundleMap = new BundleMap(Seq(MyBundleDataField(1)))
-      // // Poking with bundle literals is not working, leaving here for reference
-      // val protoTLBundleA = new TLBundleA(standaloneParams)
-      // println(TLPassthrough.in.params)
-      // val testA = protoTLBundleA.Lit(_.opcode -> 0.U(3.W), _.param -> 0.U(3.W), _.size -> 2.U(6.W), _.source -> 1.U(1.W),
-      //   _.address -> 0.U(8.W), _.user -> testBundleMap, _.echo -> testBundleMap,
-      //   _.address -> 0.U(8.W),
-      //   _.mask -> 0xfff.U, _.data -> 0.U, _.corrupt -> false.B)
-      // // Poke fails as testA is a hardware and not a chisel type?
-      // a.pokePartial(Decoupled(testA))
     }
   }
 
@@ -110,75 +94,71 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
 
       // Sanity test to make sure that driver/monitor is correctly getting requests
-      for (req <- output) {
-        println(s"${req.getElements}, ")
-      }
-
-      assert(true)
+      assert(output.length == 30)
     }
   }
 
-//  it should "VerifTL Test Client Pattern" in {
-//    // Currently hardcoded write values as Patterns does not support dependent patterns
-//    // (e.g. write a value that was read in earlier pattern)
-//    val clienttxns = Seq(ReadExpectPattern(0, 3, 10), WritePattern(0x20, 3, 10),
-//      ReadExpectPattern(0x8, 3, 11), WritePattern(0x28, 3, 11),
-//      ReadExpectPattern(0x10, 3, 12),WritePattern(0x30, 3, 12),
-//      ReadExpectPattern(0x18, 3, 13), WritePattern(0x38, 3, 13))
-//    val TLPassthrough = LazyModule(new VerifTLPassthroughClientPattern(clienttxns) with VerifTLStandaloneBlock)
-//    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-//
-//      // Currently just recording requests, only Driver is needed
-//      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
-//      //      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
-//      val simCycles = 100
-//
-//      c.clock.step(simCycles)
-//
-//      val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
-//
-//      // TODO Add software model here
-//      val swoutput = Array(
-//        VerifTLAChannel(opcode = 4.U, address = 0.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x20.U, data = 10.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x8.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x28.U, data = 11.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x10.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x18.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
-//
-//      assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
-//        swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
-//    }
-//  }
+  it should "VerifTL Test Client Pattern" in {
+    // Currently hardcoded write values as Patterns does not support dependent patterns
+    // (e.g. write a value that was read in earlier pattern)
+    val clienttxns = Seq(ReadExpectPattern(0, 3, 10), WritePattern(0x20, 3, 10),
+      ReadExpectPattern(0x8, 3, 11), WritePattern(0x28, 3, 11),
+      ReadExpectPattern(0x10, 3, 12),WritePattern(0x30, 3, 12),
+      ReadExpectPattern(0x18, 3, 13), WritePattern(0x38, 3, 13))
+    val TLPassthrough = LazyModule(new VerifTLPassthroughClientPattern(clienttxns) with VerifTLStandaloneBlock)
+    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-//  it should "VerifTL Test Client" in {
-//    val TLPassthrough = LazyModule(new VerifTLPassthroughClient with VerifTLStandaloneBlock)
-//    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-//
-//      // Currently just recording requests, only Driver is needed
-//      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
-////      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
-//      val simCycles = 100
-//
-//      c.clock.step(simCycles)
-//
-//      val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
-//
-//      // TODO Add software model here
-//      val swoutput = Array(
-//        VerifTLAChannel(opcode = 4.U, address = 0.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x20.U, data = 10.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x8.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x28.U, data = 11.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x10.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
-//        VerifTLAChannel(opcode = 4.U, address = 0x18.U),
-//        VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
-//
-//      assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
-//        swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
-//    }
-//  }
+      // Currently just recording requests, only Driver is needed
+      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
+      //      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+      val simCycles = 100
+
+      c.clock.step(simCycles)
+
+      val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
+
+      // TODO Add software model here
+      val swoutput = Array(
+        VerifTLAChannel(opcode = 4.U, address = 0.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x20.U, data = 10.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x8.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x28.U, data = 11.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x10.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x18.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
+
+      assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
+        swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
+    }
+  }
+
+  it should "VerifTL Test Client" in {
+    val TLPassthrough = LazyModule(new VerifTLPassthroughClient with VerifTLStandaloneBlock)
+    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      // Currently just recording requests, only Driver is needed
+      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
+//      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+      val simCycles = 80
+
+      c.clock.step(simCycles)
+
+      val output = passInAgent.getMonitoredTransactions.toArray[VerifTLAChannel]
+
+      // TODO Add software model here
+      val swoutput = Array(
+        VerifTLAChannel(opcode = 4.U, address = 0.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x20.U, data = 10.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x8.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x28.U, data = 11.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x10.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x30.U, data = 12.U),
+        VerifTLAChannel(opcode = 4.U, address = 0x18.U),
+        VerifTLAChannel(opcode = 0.U, address = 0x38.U, data = 13.U))
+
+      assert(outputChecker.checkOutput(output, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
+        swoutput, {t : VerifTLAChannel => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
+    }
+  }
 }
