@@ -111,7 +111,7 @@ trait VerifTLManagerFunctions {
     aC.valid.poke(true.B)
     pokeA(a)
 
-    while(aC.ready.peek().litToBoolean) {
+    while(!aC.ready.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
@@ -139,7 +139,7 @@ trait VerifTLManagerFunctions {
     cC.valid.poke(true.B)
     pokeC(c)
 
-    while(cC.ready.peek().litToBoolean) {
+    while(!cC.ready.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
@@ -167,7 +167,7 @@ trait VerifTLManagerFunctions {
     eC.valid.poke(true.B)
     pokeE(e)
 
-    while(eC.ready.peek().litToBoolean) {
+    while(!eC.ready.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
@@ -272,7 +272,7 @@ trait VerifTLClientFunctions {
     bC.valid.poke(true.B)
     pokeB(b)
 
-    while(bC.ready.peek().litToBoolean) {
+    while(!bC.ready.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
@@ -300,7 +300,7 @@ trait VerifTLClientFunctions {
     dC.valid.poke(true.B)
     pokeD(d)
 
-    while(dC.ready.peek().litToBoolean) {
+    while(!dC.ready.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
@@ -381,7 +381,7 @@ class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMa
     // Reads everything
     while (true) {
       txns += readD()
-      clock.step(1)
+      clock.step()
     }
   }
 }
@@ -434,7 +434,7 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
     reset()
     while (true) {
       process(readA())
-      clk.step(1)
+      clk.step()
     }
   }
 }
@@ -458,7 +458,7 @@ class TLClientMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLCli
     // Reads all requests
     while (true) {
       process(readA())
-      clock.step(1)
+      clock.step()
     }
   }
 }
