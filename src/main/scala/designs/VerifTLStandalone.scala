@@ -7,13 +7,9 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
+import verif.VerifTLBase
 
-trait VerifTLStandaloneBlock extends LazyModule {
-  def standaloneParams = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
-    sinkBits = 1, sizeBits = 6,
-    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
-    hasBCE = false)
-
+trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
   // Commented out for now
 //  //Diplomatic node for mem interface (OPTIONAL)
 //  val mem: Option[MixedNode[TLClientPortParameters, TLManagerPortParameters, TLEdgeIn, TLBundle,
@@ -28,7 +24,7 @@ trait VerifTLStandaloneBlock extends LazyModule {
 //    ioMem
 //  }}
 
-  val ioInNode = BundleBridgeSource(() => TLBundle(standaloneParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLUBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()
 
   val TLClient: TLOutwardNode
@@ -47,8 +43,8 @@ trait VerifTLStandaloneBlock extends LazyModule {
   val out = InModuleBody { ioOutNode.makeIO() }
 }
 
-class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthroughmanager", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
+class VerifTLRegBankManager(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLRegBankManager", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
 
   val TLManager = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
@@ -80,8 +76,8 @@ class VerifTLPassthroughManager(implicit p: Parameters) extends LazyModule  {
 }
 
 // Example of manual Client
-class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthroughclient", Seq("veriftldriver,veriftlmonitor,testclient"))
+class VerifTLCustomClient(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLCustomClient", Seq("veriftldriver,veriftlmonitor,testclient"))
 
   // Filler for now
   val TLManager = TLRegisterNode(
@@ -128,8 +124,8 @@ class VerifTLPassthroughClient(implicit p: Parameters) extends LazyModule  {
   }
 }
 
-class VerifTLPassthroughClientPattern(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthroughclient", Seq("veriftldriver,veriftlmonitor,testclient"))
+class VerifTLClientPattern(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLClientPattern", Seq("veriftldriver,veriftlmonitor,testclient"))
 
   // Filler for now
   val TLManager = TLRegisterNode(
@@ -138,7 +134,7 @@ class VerifTLPassthroughClientPattern(txns: Seq[Pattern])(implicit p: Parameters
     beatBytes = 8,
     concurrency = 1)
 
-  val patternp = LazyModule(new TLPatternPusher("testclient", txns))
+  val patternp = LazyModule(new TLPatternPusher("patternpusher", txns))
   val TLClient = patternp.node
 
   lazy val module = new LazyModuleImp(this) {
@@ -152,8 +148,8 @@ class VerifTLPassthroughClientPattern(txns: Seq[Pattern])(implicit p: Parameters
   }
 }
 
-class VerifTLPassthroughClientFuzzer(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("veriftlpassthroughclient", Seq("veriftldriver,veriftlmonitor,testclient"))
+class VerifTLClientFuzzer(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLClientFuzzer", Seq("veriftldriver,veriftlmonitor,testclient"))
 
   // Filler for now
   val TLManager = TLRegisterNode(
@@ -166,60 +162,3 @@ class VerifTLPassthroughClientFuzzer(implicit p: Parameters) extends LazyModule 
 
   lazy val module = new LazyModuleImp(this) {}
 }
-
-//class RegMaster(implicit p: Parameters) extends LazyModule {
-//  val device = new SimpleDevice("veriftlpassthrough", Seq("veriftldriver,veriftlmonitor,testclient"))
-//
-//  val RegNode = TLRegisterNode(
-//    address = Seq(AddressSet(0x0, 0xfff)),
-//    device = device,
-//    beatBytes = 8,
-//    concurrency = 1)
-//
-//  lazy val module = new LazyModuleImp(this) {
-//    val bigReg = RegInit(10.U(64.W))
-//    val mediumReg = RegInit(11.U(32.W))
-//    val smallReg = RegInit(12.U(16.W))
-//
-//    val tinyReg0 = RegInit(13.U(4.W))
-//    val tinyReg1 = RegInit(14.U(4.W))
-//
-//    // Will try to implement hardware FIFO (using Queue) for later examples
-//    RegNode.regmap(
-//      0x00 -> Seq(RegField(64, bigReg)),
-//      0x08 -> Seq(RegField(32, mediumReg)),
-//      0x0C -> Seq(RegField(16, smallReg)),
-//      0x0E -> Seq(RegField(4, tinyReg0),
-//        RegField(4, tinyReg1))
-//    )
-//
-//    val (reg, regE) = RegNode.in(0)
-//  }
-//}
-//
-//class Client1(implicit p: Parameters) extends LazyModule {
-//  val client = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
-//    name = "testclient",
-//    sourceId = IdRange(0,1),
-//    requestFifo = true,
-//    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
-//
-//  lazy val module = new LazyModuleImp(this) {
-//    val (cli, cliE) = client.out(0)
-//  }
-//}
-//
-//class MasterClient(implicit p: Parameters) extends LazyModule {
-//  val master = LazyModule(new RegMaster)
-//  val client = LazyModule(new Client1)
-//
-//  master.RegNode := client.client
-//
-//  lazy val module = new LazyModuleImp(this) {
-//    val reg = master.module.reg
-//    val regE = master.module.regE
-//    val cli = client.module.cli
-//    val cliE = client.module.cliE
-//  }
-//}
-

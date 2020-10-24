@@ -7,52 +7,58 @@ import firrtl.FirrtlProtos.Firrtl.Statement.Register
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
 import freechips.rocketchip.regmapper.RegField
 import freechips.rocketchip.tilelink._
+import chisel3.experimental.BundleLiterals._
 
 import scala.collection.mutable
 import scala.collection.mutable.Queue
 
-case class VerifTLAChannel(opcode:  UInt = 0.U,
-                           param:   UInt = 0.U,
-                           size:    UInt = 2.U,
-                           source:  UInt = 1.U,
-                           address: UInt = 0.U,
-                           mask:    UInt = 0xff.U,
-                           data:    UInt = 0.U) extends Bundle
+trait VerifTLBase {
+  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
+    sinkBits = 1, sizeBits = 6,
+    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
+    hasBCE = false)
+//  def verifTLCBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
+//    sinkBits = 1, sizeBits = 6,
+//    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
+//    hasBCE = true)
 
-case class VerifTLBChannel(opcode:  UInt = 0.U,
-                           param:   UInt = 0.U,
-                           size:    UInt = 0.U,
-                           source:  UInt = 0.U,
-                           address: UInt = 0.U,
-                           mask:    UInt = 0.U,
-                           data:    UInt = 0.U) extends Bundle
+  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
+                       mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleA = {
+    new TLBundleA(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.address -> address, _.mask -> mask, _.data -> data)
+  }
 
-case class VerifTLCChannel(opcode:  UInt = 0.U,
-                           param:   UInt = 0.U,
-                           size:    UInt = 2.U,
-                           source:  UInt = 1.U,
-                           address: UInt = 0.U,
-                           data:    UInt = 0.U,
-                           corrupt: Bool = false.B) extends Bundle
+  def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
+                       mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleB = {
+    new TLBundleB(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.address -> address, _.mask -> mask, _.data -> data)
+  }
 
-case class VerifTLDChannel(opcode:  UInt = 0.U,
-                           param:   UInt = 0.U,
-                           size:    UInt = 2.U,
-                           source:  UInt = 1.U,
-                           sink:    UInt = 0.U,
-                           data:    UInt = 0.U,
-                           corrupt: Bool = false.B) extends Bundle
+  def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
+                        data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleC = {
+    new TLBundleC(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.address -> address, _.data -> data, _.corrupt -> corrupt)
+  }
 
-case class VerifTLEChannel(sink:  UInt = 0.U) extends Bundle
+  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, sink: UInt = 0.U,
+                        data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleD = {
+    new TLBundleD(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.sink -> sink, _.data -> data, _.corrupt -> corrupt)
+  }
+
+  def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
+    new TLBundleE(verifTLUBundleParams).Lit(_.sink -> sink)
+  }
+}
 
 // Used to interface with Manager Nodes
 // Does not fully support TL-C yet
-trait VerifTLManagerFunctions {
+trait VerifTLManagerFunctions extends VerifTLBase {
   def clk: Clock
   def TLChannels: TLBundle
 
 
-  def pokeA(a: VerifTLAChannel): Unit = {
+  def pokeA(a: TLBundleA): Unit = {
     val aC = TLChannels.a
     aC.bits.opcode.poke(a.opcode)
     aC.bits.param.poke(a.param)
@@ -63,7 +69,7 @@ trait VerifTLManagerFunctions {
     aC.bits.data.poke(a.data)
   }
 
-  def peekB(): VerifTLBChannel = {
+  def peekB(): TLBundleB = {
     val bC = TLChannels.b
     val opcode = bC.bits.opcode.peek()
     val param = bC.bits.param.peek()
@@ -73,10 +79,10 @@ trait VerifTLManagerFunctions {
     val mask = bC.bits.mask.peek()
     val data = bC.bits.data.peek()
 
-    VerifTLBChannel(opcode, param, size, source, address, mask, data)
+    TLUBundleBHelper(opcode, param, size, source, address, mask, data)
   }
 
-  def pokeC(c: VerifTLCChannel): Unit = {
+  def pokeC(c: TLBundleC): Unit = {
     val cC = TLChannels.c
     cC.bits.opcode.poke(c.opcode)
     cC.bits.param.poke(c.param)
@@ -87,7 +93,7 @@ trait VerifTLManagerFunctions {
     cC.bits.corrupt.poke(c.corrupt)
   }
 
-  def peekD(): VerifTLDChannel = {
+  def peekD(): TLBundleD = {
     val dC = TLChannels.d
     val opcode = dC.bits.opcode.peek()
     val param = dC.bits.param.peek()
@@ -97,15 +103,15 @@ trait VerifTLManagerFunctions {
     val data = dC.bits.data.peek()
     val corrupt = dC.bits.corrupt.peek()
 
-    VerifTLDChannel(opcode, param, size, source, sink, data, corrupt)
+    TLUBundleDHelper(opcode, param, size, source, sink, data, corrupt)
   }
 
-  def pokeE(e: VerifTLEChannel): Unit = {
+  def pokeE(e: TLBundleE): Unit = {
     val eC = TLChannels.e
     eC.bits.sink.poke(e.sink)
   }
 
-  def writeA(a: VerifTLAChannel): Unit = {
+  def writeA(a: TLBundleA): Unit = {
     val aC = TLChannels.a
 
     aC.valid.poke(true.B)
@@ -119,7 +125,7 @@ trait VerifTLManagerFunctions {
     aC.valid.poke(false.B)
   }
 
-  def readB(): VerifTLBChannel = {
+  def readB(): TLBundleB = {
     val bC = TLChannels.b
 
     bC.ready.poke(true.B)
@@ -133,7 +139,7 @@ trait VerifTLManagerFunctions {
     peekB()
   }
 
-  def writeC(c: VerifTLCChannel): Unit = {
+  def writeC(c: TLBundleC): Unit = {
     val cC = TLChannels.c
 
     cC.valid.poke(true.B)
@@ -147,7 +153,7 @@ trait VerifTLManagerFunctions {
     cC.valid.poke(false.B)
   }
 
-  def readD(): VerifTLDChannel = {
+  def readD(): TLBundleD = {
     val dC = TLChannels.d
 
     dC.ready.poke(true.B)
@@ -161,7 +167,7 @@ trait VerifTLManagerFunctions {
     peekD()
   }
 
-  def writeE(e: VerifTLEChannel): Unit = {
+  def writeE(e: TLBundleE): Unit = {
     val eC = TLChannels.e
 
     eC.valid.poke(true.B)
@@ -177,9 +183,9 @@ trait VerifTLManagerFunctions {
 
   // TODO Figure out why poking C and E does not work
   def reset(): Unit = {
-    pokeA(VerifTLAChannel())
-    pokeC(VerifTLCChannel())
-    pokeE(VerifTLEChannel())
+    pokeA(TLUBundleAHelper())
+//    pokeC(TLUBundleCHelper())
+//    pokeE(TLUBundleEHelper())
     TLChannels.a.valid.poke(false.B)
     TLChannels.b.ready.poke(false.B)
     TLChannels.c.valid.poke(false.B)
@@ -189,7 +195,7 @@ trait VerifTLManagerFunctions {
 }
 
 // Used to interface with Client Nodes
-trait VerifTLClientFunctions {
+trait VerifTLClientFunctions extends VerifTLBase {
 //  // One strategy is to have a register node as Manager to drive client
 //  // Would need use TLXBar to connect multiple clients
 //  def regMan: TLRegisterNode
@@ -197,7 +203,7 @@ trait VerifTLClientFunctions {
   def clk: Clock
   def TLChannels: TLBundle
 
-  def peekA(): VerifTLAChannel = {
+  def peekA(): TLBundleA = {
     val aC = TLChannels.a
     val opcode = aC.bits.opcode.peek()
     val param = aC.bits.param.peek()
@@ -207,10 +213,10 @@ trait VerifTLClientFunctions {
     val mask = aC.bits.mask.peek()
     val data = aC.bits.data.peek()
 
-    VerifTLAChannel(opcode, param, size, source, address, mask, data)
+    TLUBundleAHelper(opcode, param, size, source, address, mask, data)
   }
 
-  def pokeB(b: VerifTLBChannel): Unit = {
+  def pokeB(b: TLBundleB): Unit = {
     val bC = TLChannels.b
     bC.bits.opcode.poke(b.opcode)
     bC.bits.param.poke(b.param)
@@ -221,7 +227,7 @@ trait VerifTLClientFunctions {
     bC.bits.data.poke(b.data)
   }
 
-  def peekC(): VerifTLCChannel = {
+  def peekC(): TLBundleC = {
     val cC = TLChannels.c
     val opcode = cC.bits.opcode.peek()
     val param = cC.bits.param.peek()
@@ -231,10 +237,10 @@ trait VerifTLClientFunctions {
     val data = cC.bits.data.peek()
     val corrupt = cC.bits.corrupt.peek()
 
-    VerifTLCChannel(opcode, param, size, source, address, data, corrupt)
+    TLUBundleCHelper(opcode, param, size, source, address, data, corrupt)
   }
 
-  def pokeD(d: VerifTLDChannel): Unit = {
+  def pokeD(d: TLBundleD): Unit = {
     val dC = TLChannels.d
     dC.bits.opcode.poke(d.opcode)
     dC.bits.param.poke(d.param)
@@ -245,14 +251,14 @@ trait VerifTLClientFunctions {
     dC.bits.corrupt.poke(d.corrupt)
   }
 
-  def peekE(): VerifTLEChannel = {
+  def peekE(): TLBundleE = {
     val eC = TLChannels.e
     val sink = eC.bits.sink.peek()
 
-    VerifTLEChannel(sink)
+    new TLBundleE(verifTLUBundleParams).Lit(_.sink -> sink)
   }
 
-  def readA(): VerifTLAChannel = {
+  def readA(): TLBundleA = {
     val aC = TLChannels.a
 
     aC.ready.poke(true.B)
@@ -266,7 +272,7 @@ trait VerifTLClientFunctions {
     peekA()
   }
 
-  def writeB(b: VerifTLBChannel): Unit = {
+  def writeB(b: TLBundleB): Unit = {
     val bC = TLChannels.b
 
     bC.valid.poke(true.B)
@@ -280,7 +286,7 @@ trait VerifTLClientFunctions {
     bC.valid.poke(false.B)
   }
 
-  def readC(): VerifTLCChannel = {
+  def readC(): TLBundleC = {
     val cC = TLChannels.c
 
     cC.ready.poke(true.B)
@@ -294,7 +300,7 @@ trait VerifTLClientFunctions {
     peekC()
   }
 
-  def writeD(d: VerifTLDChannel): Unit = {
+  def writeD(d: TLBundleD): Unit = {
     val dC = TLChannels.d
 
     dC.valid.poke(true.B)
@@ -308,7 +314,7 @@ trait VerifTLClientFunctions {
     dC.valid.poke(false.B)
   }
 
-  def readE(): VerifTLEChannel = {
+  def readE(): TLBundleE = {
     val eC = TLChannels.e
 
     eC.ready.poke(true.B)
@@ -324,8 +330,8 @@ trait VerifTLClientFunctions {
 
   // TODO Figure out why pokingB doesn't work
   def reset(): Unit = {
-//    pokeB(VerifTLBChannel())
-    pokeD(VerifTLDChannel())
+//    pokeB(TLUBundleBHelper())
+    pokeD(TLUBundleDHelper())
     TLChannels.a.ready.poke(false.B)
 //    TLChannels.b.valid.poke(false.B)
 //    TLChannels.c.ready.poke(false.B)
@@ -333,7 +339,7 @@ trait VerifTLClientFunctions {
 //    TLChannels.e.ready.poke(false.B)
   }
 
-  def process(req: VerifTLAChannel): Unit
+  def process(req: TLBundleA): Unit
 }
 
 // Basic Driver -- no cycle tracking, only AChannel as Input
@@ -341,9 +347,9 @@ class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMan
   val clk = clock
   val TLChannels = interface
 
-  val inputTransactions = Queue[VerifTLAChannel]()
+  val inputTransactions = Queue[TLBundleA]()
 
-  def push(tx: Seq[VerifTLAChannel]): Unit = {
+  def push(tx: Seq[TLBundleA]): Unit = {
     for (t <- tx) {
       inputTransactions += t
     }
@@ -367,9 +373,9 @@ class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMa
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[VerifTLDChannel]()
+  val txns = Queue[TLBundleD]()
 
-  def getMonitoredTransactions: mutable.MutableList[VerifTLDChannel] = {
+  def getMonitoredTransactions: mutable.MutableList[TLBundleD] = {
     txns
   }
 
@@ -398,18 +404,18 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
 
   val TLChannels = interface
 
-  val txns = Queue[VerifTLAChannel]()
+  val txns = Queue[TLBundleA]()
 
-  def getMonitoredTransactions: mutable.MutableList[VerifTLAChannel] = {
-    for (x <- hash.keys) {
-      print(s"(${x}, ${hash(x)}), ")
-    }
-    println("")
+  def getMonitoredTransactions: mutable.MutableList[TLBundleA] = {
+//    for (x <- hash.keys) {
+//      print(s"(${x}, ${hash(x)}), ")
+//    }
+//    println("")
     txns
   }
 
   // Process function currently only takes opcode 4 (GET)
-  def process(a : VerifTLAChannel) : Unit = {
+  def process(a : TLBundleA) : Unit = {
     txns += a
 
     if (!(a.opcode.litValue() == 4 || a.opcode.litValue() == 0)) {
@@ -426,7 +432,7 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
       }
     }
 
-    writeD(VerifTLDChannel(a.opcode, a.param, a.size, a.source, 0.U, result, true.B))
+    writeD(TLUBundleDHelper(a.opcode, a.param, a.size, a.source, 0.U, result, false.B))
   }
 
   // Currently just processes the requests from Client
@@ -444,13 +450,13 @@ class TLClientMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLCli
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[VerifTLAChannel]()
+  val txns = Queue[TLBundleA]()
 
-  def process(a: VerifTLAChannel) : Unit = {
+  def process(a: TLBundleA) : Unit = {
     txns += a
   }
 
-  def getMonitoredTransactions: mutable.MutableList[VerifTLAChannel] = {
+  def getMonitoredTransactions: mutable.MutableList[TLBundleA] = {
     txns
   }
 
