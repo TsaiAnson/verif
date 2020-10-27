@@ -10,11 +10,11 @@ import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation
 import chipyard.{RocketConfig, GemminiRocketConfig}
 import chipyard.config.{AbstractConfig}
 import testchipip.{TLHelper}
-import freechips.rocketchip.config.{Parameters, Config}
+import freechips.rocketchip.config._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.system.{BaseConfig}
-import freechips.rocketchip.subsystem.TileCrossingParamsLike
+import freechips.rocketchip.system._
+import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import firrtl.AnnotationSeq
@@ -79,24 +79,28 @@ class VerifConfig extends Config(
   new chipyard.config.AbstractConfig
 )
 
+class GemminiElaborationModule(implicit p: Parameters) extends MultiIOModule {
+  val manager = LazyModule(new GemminiManagerNode(16))
+  val gemmini = LazyModule(new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig))
+  manager.node := gemmini.tlNode
+  val visibilityNode = p(TileVisibilityNodeKey)
+  val masterNode: TLOutwardNode = TLIdentityNode() := visibilityNode := TLTempNode()
+  val slaveNode = TLIdentityNode()
+  // Define driver and monitor here
+  // Hookup driver and monitor to Gemmini here
+}
+
 class GemminiTest extends FlatSpec with ChiselScalatestTester {
   //implicit val p: Parameters = new VerifConfig() // TileKey not defined
   //implicit val p: Parameters = new DummyConfig() // TileVisiblityNodeKey has no edges
   //implicit val p: Parameters = new RocketConfig() // TileKey not defined
   implicit val p: Parameters = VerifTestUtils.getVerifParameters("VerifConfig")
-
+  val DUT = LazyModule(new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig) with VerifTLStandaloneBlock)
   it should "Elaborate Gemmini" in {
-    test(new MultiIOModule {
-      val xbar = LazyModule(new TLXbar)
-      val manager = LazyModule(new GemminiManagerNode(16))
-      val gemmini = LazyModule(new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig))
-      xbar.node := gemmini.tlNode
-      manager.node := xbar.node
-      // Define driver and monitor here
-      // Hookup driver and monitor to Gemmini here
-    }).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val stage = new chisel3.stage.ChiselStage()
-      stage.execute(Array("-X", "verilog"), ChiselGeneratorAnnotation(() => c.gemmini.module) +: Seq.empty)
+    test(new GemminiElaborationModule).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      //p(TilesLocated(InSubsystem))(0).instantiate
+      //val stage = new chisel3.stage.ChiselStage()
+      c.clock.step()
       assert(true)
     }
   }

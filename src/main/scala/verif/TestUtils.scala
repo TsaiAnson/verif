@@ -25,8 +25,7 @@ object VerifTestUtils {
   private def augment(tp: TileParams)(implicit p: Parameters): Parameters = p.alterPartial {
     case TileKey => tp
 
-    // TODO: Figure out proper TL parameters
-    case TileVisibilityNodeKey => TLEphemeralNode()(ValName("verif_master"))
+    case TileVisibilityNodeKey => TLEphemeralNode()(ValName("tile_master"))
 
     case LookupByHartId => lookupByHartId(Seq(tp))
   }
@@ -54,10 +53,12 @@ object VerifTestUtils {
 
     // get the tile parameters
     val verifTileParams = origParams(TilesLocated(InSubsystem)) // this is a seq
+    //verifTileParams(0).instantiate(origParams) -> ResourceBinding must be called from within a BindingScope
 
     // augment the parameters
     val outParams = augment(verifTileParams(0).tileParams)(origParams)
 
+    //orgParams
     outParams
   }
 }
