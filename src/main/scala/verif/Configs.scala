@@ -7,3 +7,8 @@ class VerifConfig extends Config(
   new verif.WithNVerifTiles ++
   new chipyard.config.AbstractConfig
 )
+
+class EmptyVerifConfig extends Config(
+  // This should set up the edges for TileVisiblityNodeKey...
+  new chipyard.config.AbstractConfig
+)

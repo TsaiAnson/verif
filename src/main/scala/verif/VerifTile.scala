@@ -21,6 +21,17 @@ case class VerifTileAttachParams(
   val lookup = PriorityMuxHartIdFromSeq(Seq(tileParams))
 }
 
+case object TraitVerifTileParams extends TileParams {
+  val name: Option[String] = Some("verif_tile")
+  val hartId: Int = 0
+  val core: RocketCoreParams = RocketCoreParams()
+  val beuAddr: Option[BigInt] = None
+  val blockerCtrlAddr: Option[BigInt] = None
+  val btb: Option[BTBParams] = None
+  val dcache: Option[DCacheParams] = Some(DCacheParams())
+  val icache: Option[ICacheParams] = Some(ICacheParams())
+}
+
 case class VerifTileParams(
   name: Option[String] = Some("verif_tile"),
   hartId: Int = 0,

@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tile.{TileVisibilityNodeKey}
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
@@ -32,7 +33,7 @@ trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
 
    ioOutNode :=
      TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
-       supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)) :=
+       supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), 16)) :=
      TLClient
 
   TLManager :=
@@ -40,6 +41,19 @@ trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
+  val out = InModuleBody { ioOutNode.makeIO() }
+}
+
+trait VerifRoCCStandaloneBlock extends LazyModule with VerifTLBase {
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+
+  val tlNode: TLIdentityNode
+
+  ioOutNode :=
+    TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
+      supportsGet = TransferSizes(1, 64), supportsPutFull = TransferSizes(1,64), supportsPutPartial = TransferSizes(1,64))), 16)) :=
+    tlNode
+
   val out = InModuleBody { ioOutNode.makeIO() }
 }
 

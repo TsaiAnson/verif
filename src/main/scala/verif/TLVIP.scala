@@ -13,6 +13,7 @@ import scala.collection.mutable
 import scala.collection.mutable.Queue
 
 trait VerifTLBase {
+  // Consider moving these to a case object for ease of use outside of VerifTLBase?
   def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
     sinkBits = 1, sizeBits = 6,
     echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
