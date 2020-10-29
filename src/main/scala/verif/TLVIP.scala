@@ -51,9 +51,9 @@ trait VerifTLBase {
   }
 }
 
-// Used to interface with Manager Nodes
+// Used to interface with Slave Nodes
 // Does not fully support TL-C yet
-trait VerifTLManagerFunctions extends VerifTLBase {
+trait VerifTLSlaveFunctions extends VerifTLBase {
   def clk: Clock
   def TLChannels: TLBundle
 
@@ -194,10 +194,10 @@ trait VerifTLManagerFunctions extends VerifTLBase {
   }
 }
 
-// Used to interface with Client Nodes
-trait VerifTLClientFunctions extends VerifTLBase {
-//  // One strategy is to have a register node as Manager to drive client
-//  // Would need use TLXBar to connect multiple clients
+// Used to interface with Master Nodes
+trait VerifTLMasterFunctions extends VerifTLBase {
+//  // One strategy is to have a register node as slave to drive master
+//  // Would need use TLXBar to connect multiple masters
 //  def regMan: TLRegisterNode
 
   def clk: Clock
@@ -343,7 +343,7 @@ trait VerifTLClientFunctions extends VerifTLBase {
 }
 
 // Basic Driver -- no cycle tracking, only AChannel as Input
-class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLManagerFunctions {
+class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -369,7 +369,7 @@ class TLManagerDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMan
 }
 
 // Basic Monitor -- no cycle tracking, only DChannel as Output
-class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLManagerFunctions {
+class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -393,10 +393,10 @@ class TLManagerMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMa
 }
 
 // Basic Driver -- no cycle tracking, only AChannel as Input
-// Interface must be Client
+// Interface must be Master
 // TODO Allow user to write transactions to fill in "regMap"
 // WIP, currently just a hardcoded example
-class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClientFunctions {
+class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
   // Acting like "regmap"
   var hash = mutable.HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
 
@@ -435,7 +435,7 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
     writeD(TLUBundleDHelper(a.opcode, a.param, a.size, a.source, 0.U, result, false.B))
   }
 
-  // Currently just processes the requests from Client
+  // Currently just processes the requests from master
   fork {
     reset()
     while (true) {
@@ -445,8 +445,8 @@ class TLClientDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLClie
   }
 }
 
-// Basic Monitor -- no cycle tracking, currently only records the requests from the client
-class TLClientMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLClientFunctions {
+// Basic Monitor -- no cycle tracking, currently only records the requests from the master
+class TLMasterMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
   val clk = clock
   val TLChannels = interface
 

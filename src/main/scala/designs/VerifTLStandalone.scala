@@ -12,13 +12,13 @@ import verif.VerifTLBase
 trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
   // Commented out for now
 //  //Diplomatic node for mem interface (OPTIONAL)
-//  val mem: Option[MixedNode[TLClientPortParameters, TLManagerPortParameters, TLEdgeIn, TLBundle,
-//    TLClientPortParameters, TLManagerPortParameters, TLEdgeOut, TLBundle]]
+//  val mem: Option[MixedNode[TLMasterPortParameters, TLSlavePortParameters, TLEdgeIn, TLBundle,
+//    TLMasterPortParameters, TLSlavePortParameters, TLEdgeOut, TLBundle]]
 //
 //  val ioMem = mem.map { m => {
 //    val ioMemNode = BundleBridgeSource(() => TLBundle(standaloneParams))
 //    m :=
-//      BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
+//      BundleBridgeToTL(TLMasterPortParameters(Seq(TLMasterParameters("bundleBridgeToTL")))) :=
 //      ioMemNode
 //    val ioMem = InModuleBody { ioMemNode.makeIO() }
 //    ioMem
@@ -27,34 +27,34 @@ trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLUBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()
 
-  val TLClient: TLOutwardNode
-  val TLManager: TLInwardNode
+  val TLMaster: TLOutwardNode
+  val TLSlave: TLInwardNode
 
    ioOutNode :=
-     TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
+     TLToBundleBridge(TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
        supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)) :=
-     TLClient
+     TLMaster
 
-  TLManager :=
-    BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
+  TLSlave :=
+    BundleBridgeToTL(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))) :=
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
   val out = InModuleBody { ioOutNode.makeIO() }
 }
 
-class VerifTLRegBankManager(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLRegBankManager", Seq("veriftldriver,veriftlmonitor,testclient")) // Not sure about compatibility list
+class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLRegBankSlave", Seq("veriftldriver,veriftlmonitor,testmaster")) // Not sure about compatibility list
 
-  val TLManager = TLRegisterNode(
+  val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
 
   // Filler for now
-  val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
-    name = "testclient",
+  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
+    name = "testmaster",
     sourceId = IdRange(0,1),
     requestFifo = true,
     visibility = Seq(AddressSet(0x1000, 0xfff)))))))
@@ -66,7 +66,7 @@ class VerifTLRegBankManager(implicit p: Parameters) extends LazyModule  {
     val bigReg4 = RegInit(13.U(64.W))
 
     // Will try to implement hardware FIFO (using Queue) for later examples
-    TLManager.regmap(
+    TLSlave.regmap(
       0x00 -> Seq(RegField(64, bigReg1)),
       0x08 -> Seq(RegField(64, bigReg2)),
       0x10 -> Seq(RegField(64, bigReg3)),
@@ -75,25 +75,25 @@ class VerifTLRegBankManager(implicit p: Parameters) extends LazyModule  {
   }
 }
 
-// Example of manual Client
-class VerifTLCustomClient(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLCustomClient", Seq("veriftldriver,veriftlmonitor,testclient"))
+// Example of manual Master
+class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLCustomMaster", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
   // Filler for now
-  val TLManager = TLRegisterNode(
+  val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
 
-    val TLClient = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters(
-      name = "testclient",
+    val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
+      name = "testmaster",
       sourceId = IdRange(0,1),
       requestFifo = true,
       visibility = Seq(AddressSet(0x0, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
-    val (out, edge) = TLClient.out(0)
+    val (out, edge) = TLMaster.out(0)
     val addr = RegInit(UInt(8.W), 0.U)
     val response = RegInit(UInt(5.W), 0.U)
     val alt = RegInit(Bool(), false.B)
@@ -124,18 +124,18 @@ class VerifTLCustomClient(implicit p: Parameters) extends LazyModule  {
   }
 }
 
-class VerifTLClientPattern(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLClientPattern", Seq("veriftldriver,veriftlmonitor,testclient"))
+class VerifTLMasterPattern(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLMasterPattern", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
   // Filler for now
-  val TLManager = TLRegisterNode(
+  val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
 
   val patternp = LazyModule(new TLPatternPusher("patternpusher", txns))
-  val TLClient = patternp.node
+  val TLMaster = patternp.node
 
   lazy val module = new LazyModuleImp(this) {
     val testIO = IO(new Bundle {
@@ -148,17 +148,17 @@ class VerifTLClientPattern(txns: Seq[Pattern])(implicit p: Parameters) extends L
   }
 }
 
-class VerifTLClientFuzzer(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLClientFuzzer", Seq("veriftldriver,veriftlmonitor,testclient"))
+class VerifTLMasterFuzzer(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("VerifTLMasterFuzzer", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
   // Filler for now
-  val TLManager = TLRegisterNode(
+  val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
     device = device,
     beatBytes = 8,
     concurrency = 1)
 
-  val TLClient = TLFuzzer(30, inFlight=1)
+  val TLMaster = TLFuzzer(30, inFlight=1)
 
   lazy val module = new LazyModuleImp(this) {}
 }

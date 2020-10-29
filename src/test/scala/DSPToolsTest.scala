@@ -23,12 +23,12 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
   //  implicit val p: Parameters = (new BaseConfig).toInstance
   implicit val p: Parameters = new WithoutTLMonitors
 
-  it should "VerifTL Test Manager" in {
-    val TLPassthrough = LazyModule(new VerifTLRegBankManager with VerifTLStandaloneBlock)
-    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+  it should "VerifTL Test Slave" in {
+    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
+    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val passInAgent = new TLManagerDriverBasic(c.clock, TLPassthrough.in)
-      val passOutAgent = new TLManagerMonitorBasic(c.clock, TLPassthrough.in)
+      val passInAgent = new TLSlaveDriverBasic(c.clock, TLRegBankSlave.in)
+      val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRegBankSlave.in)
       val simCycles = 100
 
       val inputTransactions = Seq(
@@ -74,13 +74,13 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
     }
   }
 
-  it should "VerifTL Test Client Fuzzer" in {
-    val TLPassthrough = LazyModule(new VerifTLClientFuzzer with VerifTLStandaloneBlock)
-    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+  it should "VerifTL Test Master Fuzzer" in {
+    val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer with VerifTLStandaloneBlock)
+    test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
-      //      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+      val passInAgent = new TLMasterDriverBasic(c.clock, TLMasterFuzzer.out)
+      //      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
       val simCycles = 100
 
       c.clock.step(simCycles)
@@ -96,19 +96,19 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
     }
   }
 
-//  it should "VerifTL Test Client Pattern" in {
+//  it should "VerifTL Test Master Pattern" in {
 //    // Currently hardcoded write values as Patterns does not support dependent patterns
 //    // (e.g. write a value that was read in earlier pattern)
-//    val clienttxns = Seq(ReadExpectPattern(0, 3, 10), WritePattern(0x20, 3, 10),
+//    val mastertxns = Seq(ReadExpectPattern(0, 3, 10), WritePattern(0x20, 3, 10),
 //      ReadExpectPattern(0x8, 3, 11), WritePattern(0x28, 3, 11),
 //      ReadExpectPattern(0x10, 3, 12),WritePattern(0x30, 3, 12),
 //      ReadExpectPattern(0x18, 3, 13), WritePattern(0x38, 3, 13))
-//    val TLPassthrough = LazyModule(new VerifTLClientPattern(clienttxns) with VerifTLStandaloneBlock)
-//    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+//    val TLMasterPattern = LazyModule(new VerifTLMasterPattern(mastertxns) with VerifTLStandaloneBlock)
+//    test(TLMasterPattern.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 //
 //      // Currently just recording requests, only Driver is needed
-//      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
-//      //      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+//      val passInAgent = new TLMasterDriverBasic(c.clock, TLMasterPattern.out)
+//      //      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLMasterPattern.out)
 //      val simCycles = 100
 //
 //      c.testIO.run.poke(true.B)
@@ -133,13 +133,13 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
 //    }
 //  }
 
-  it should "VerifTL Test Client" in {
-    val TLPassthrough = LazyModule(new VerifTLCustomClient with VerifTLStandaloneBlock)
-    test(TLPassthrough.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+  it should "VerifTL Test Master" in {
+    val TLCustomMaster = LazyModule(new VerifTLCustomMaster with VerifTLStandaloneBlock)
+    test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLClientDriverBasic(c.clock, TLPassthrough.out)
-//      val passOutAgent = new TLClientMonitorBasic(c.clock, TLPassthrough.out)
+      val passInAgent = new TLMasterDriverBasic(c.clock, TLCustomMaster.out)
+//      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
       val simCycles = 80
 
       c.clock.step(simCycles)
