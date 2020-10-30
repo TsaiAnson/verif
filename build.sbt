@@ -8,8 +8,10 @@ scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-language:refle
 fork in test := true
 cancelable in Global := true
 
-libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.2.0"
-libraryDependencies += "edu.berkeley.cs" %% "rocketchip" % "1.2-SNAPSHOT"
+libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3-SNAPSHOT"
+libraryDependencies += "com.lihaoyi" %% "utest" % "0.7.2" % "test"
+
+testFrameworks += new TestFramework("utest.runner.Framework")
 
 //// Jmh Settings
 //enablePlugins(JmhPlugin)

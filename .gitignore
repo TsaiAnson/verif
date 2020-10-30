@@ -3,3 +3,8 @@ project/build.properties
 test_run_dir
 project/target
 target
+.bloop
+.metals
+project/.bloop
+project/metals.sbt
+project/project

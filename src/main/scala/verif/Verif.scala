@@ -1,14 +1,22 @@
 package verif
 
 import scala.util.Random
-import chisel3._
-import chisel3.util._
-import chiseltest._
 import java.lang.reflect.Field
+import java.nio.charset.StandardCharsets
 
-import chisel3.stage.ChiselGeneratorAnnotation
+import chisel3._
+import chisel3.experimental.DataMirror
+import chisel3.stage.ChiselCircuitAnnotation
+import chisel3.stage.phases.Elaborate
+import firrtl.AnnotationSeq
+import firrtl.backends.experimental.smt.EmittedSMTModelAnnotation
+import firrtl.stage.{FirrtlSourceAnnotation, FirrtlStage}
+import firrtl.options.TargetDirAnnotation
 
+import scala.collection.mutable
 import scala.collection.mutable.{ListBuffer, Map, Queue}
+import scala.io.Source
+import scala.sys.process.{BasicIO, Process, ProcessLogger}
 
 trait VerifRandomGenerator {
   def setSeed(seed: Long): Unit
@@ -63,8 +71,6 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
   }
 }
 
-// Can define more VerifRandomGenerators Here
-
 package object Randomization {
   implicit class VerifBundle[T <: Bundle](bundle: T) extends Bundle {
     // Caching no longer seems to work within implicit class, seems like the variable is cleared each time
@@ -79,25 +85,168 @@ package object Randomization {
       constraints(fieldName) += constraint
     }
 
-//    def cloneBundle: Bundle = {
-//      val newclone = bundle.getClass.newInstance()
-//      newclone
-//    }
+    sealed trait RandomizationError
+    case class Unsat() extends RandomizationError
+    case class Timeout() extends RandomizationError
 
-    def randNew (constraint: T => Bool): T = {
-      class dummy extends MultiIOModule {
-        val b = IO(bundle.cloneType)
-
-        constraint(b)
+    def rand(constraint: T => Bool): Either[RandomizationError, T] = {
+      class RandomBundleWrapper extends RawModule {
+        val clock = IO(Input(Clock()))
+        val b = IO(Input(bundle.cloneType))
+        val c = constraint(b)
+        dontTouch(c)
         dontTouch(b)
+        withClock(clock) {
+          chisel3.experimental.verification.assert(c)
+        }
       }
 
-      val annos = List(
-        ChiselGeneratorAnnotation(() => new dummy)
-      )
-      (new chisel3.stage.ChiselStage).execute(Array.empty, annos)
+      val generatorAnnotation = AnnotationSeq(Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new RandomBundleWrapper)))
+      val chiselAnnosOut = (new Elaborate).transform(generatorAnnotation)
+      val chiselCircuit = chiselAnnosOut.collect { case x: ChiselCircuitAnnotation => x}.head.circuit
+      val chiselModule = chiselCircuit.components.find(_.name == chiselCircuit.name).get.id.asInstanceOf[RandomBundleWrapper]
+      val portNames = DataMirror.fullModulePorts(chiselModule).drop(1) // drop clock
+      println(portNames)
 
-      bundle.cloneType
+      // TODO: avoid double elaboration
+      val fir = (new chisel3.stage.ChiselStage).emitFirrtl(
+        new RandomBundleWrapper, Array("--target-dir", "./rand"), List.empty)
+
+      // TODO: find a way to invoke FIRRTL without the CLI frontend
+      val fir_annos = List(
+        FirrtlSourceAnnotation(fir),
+        TargetDirAnnotation("./rand")
+        // SMTLibEmitter is private, only available in firrtl package
+        //RunFirrtlTransformAnnotation(new SMTLibEmitter),
+        //EmitCircuitAnnotation(classOf[SMTLibEmitter])
+      )
+      val fir_args = Array(
+        "-ll",
+        "error",
+        "-E",
+        "experimental-smt2"
+      )
+      val fir_resp = (new FirrtlStage).execute(fir_args, fir_annos)
+
+      // TODO: Ugly, what's the right way to fetch a specific subtype of Annotation
+      val smtModelAnno = fir_resp.toSeq.find {
+        case a: EmittedSMTModelAnnotation => true
+        case _ => false
+      }.get.asInstanceOf[EmittedSMTModelAnnotation]
+
+      // TODO: don't hardcode the assertion,
+      // This won't work with if there are namespace clashes with k
+      val smtString = smtModelAnno.src +
+        "(declare-fun k () (RandomBundleWrapper_s))\n" +
+        "(assert (= (RandomBundleWrapper_a k) true))\n" +
+        "(check-sat)\n" +
+        "(get-model)"
+
+      var z3out = mutable.MutableList.empty[String]
+      val z3p = Process(Seq("z3", "-in"))
+      val io =
+        BasicIO.standard(true)
+          .withInput { w =>
+            w.write(smtString.getBytes(StandardCharsets.UTF_8))
+            w.close()
+          }
+          .withOutput { i =>
+            Source.fromInputStream(i).getLines().foreach {
+              s: String => z3out += s
+            }
+            i.close()
+          }
+
+      // TODO: implement timeout
+      val ret = z3p.run(io).exitValue()
+      // TODO: check ret
+
+      val z3outSplit = z3out.toIterator
+      val checkSat = z3outSplit.next()
+      if (checkSat == "unsat") {
+        return Left(Unsat())
+      }
+      assert(checkSat == "sat") // TODO: could be indeterminate
+
+
+      // TODO: parse SAT model using library
+      assert(z3outSplit.next().trim() == "(model")
+      val model = mutable.Map[String, Int]() // TODO: can't handle hierchical bundles
+      for (define <- z3outSplit.grouped(2).toList) {
+        if (define.length == 2) {
+          val variable = define(0).trim()
+          val charsUntilSpace = variable.indexOf(' ')
+          val cutDefineFun = variable.substring(charsUntilSpace+1)
+          val nextSpace = cutDefineFun.indexOf(' ')
+          val variableName = cutDefineFun.substring(0, nextSpace)
+          assert(!variableName.contains(' '))
+          if (variableName.startsWith("b")) { // TODO: hardcoded bundle pointer
+            val bundlePath = variableName.stripSuffix("_f")
+            //val bundleFieldName = bundlePath(1)
+            val data = define(1).trim().stripPrefix("#x").stripSuffix(")").toInt // TODO: can't handle larger numbers
+            model += (bundlePath -> data)
+          }
+        }
+      }
+
+      import chisel3.experimental.BundleLiterals._
+      println(model)
+      // TODO: ugly, would like a way to construct a Bundle from a Map without reflection (via macro?)
+      val binding = mutable.Map[Data, Data]()
+      for ((portName, portBind) <- portNames) {
+        portBind match {
+          case u: UInt =>
+            binding += (u -> model(portName).U(u.getWidth))
+          case _ =>
+        }
+      }
+
+      // getElements doesn't return the correct field binding
+     /*
+      for (field <- bundle.getElements) {
+        field match {
+          case u: UInt =>
+            assert(u.widthKnown)
+            assert(u.getWidth != 0)
+            println(u.computeName(None, None))
+            //binding += (u -> model())
+        }
+        println(field)
+      }
+     */
+
+      // Using Scala reflection fails as well
+      /*
+      for (field <- bundle.getClass.getDeclaredFields) {
+        field.setAccessible(true)
+        field.get(bundle).asInstanceOf[Any] match {
+          case _: Bool =>
+            //field.set(randomBundle, model(field.getName).B)
+          case u: UInt =>
+            assert(u.widthKnown)
+            assert(u.getWidth != 0)
+            //u := model(List(field.getName)).U(u.getWidth)
+            println(field.getName, u.getWidth, model(field.getName))
+            binding += (u -> model(field.getName).U(u.getWidth))
+            //field.set(randomBundle, model(field.getName).U(u.getWidth))
+          case _: Data =>
+            println(s"[VERIF] WARNING: Skipping randomization of unknown chisel type,value: " +
+              s"(${field.getName}:${field.getType},${field.get(bundle)})")
+          case _: Any =>
+        }
+      }
+       */
+
+      println(binding)
+      val bindingAsFunctions = binding.toSeq.map { bind =>
+        new Function1[T, (Data, Data)] {
+          def apply(t: T): (Data, Data) = t.getElements(0) -> bind._1
+        }
+      }
+      //val randomBundle = chiselModule.b.cloneType.Lit(bindingAsFunctions:_*)
+      val randomBundle = chiselModule.b.cloneType.Lit(_.getElements(0) -> 8.U, _.getElements(1) -> 10.U)
+      println(randomBundle)
+      Right(randomBundle)
     }
 
     // Pass in constraint map. A listbuffer of cosntraints is mapped to field names (text). Currently, only supports
