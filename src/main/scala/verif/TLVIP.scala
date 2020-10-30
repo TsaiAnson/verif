@@ -12,6 +12,52 @@ import chisel3.experimental.BundleLiterals._
 import scala.collection.mutable
 import scala.collection.mutable.Queue
 
+sealed trait TLTransaction
+case class Get(addr: UInt) extends TLTransaction {
+  override def equals(that: Any): Boolean = {
+    that match {
+      case that: Get => {
+        that.canEqual(this) &&
+          this.addr.litValue() == that.addr.litValue()
+      }
+      case _ => false
+    }
+  }
+}
+case class FullPut(addr: UInt, data: UInt) extends TLTransaction {
+  override def equals(that: Any): Boolean = {
+    that match {
+      case that: FullPut => {
+        that.canEqual(this) &&
+          this.addr.litValue() == that.addr.litValue() &&
+          this.data.litValue() == that.data.litValue()
+      }
+      case _ => false
+    }
+  }
+}
+case class AccessAck() extends TLTransaction {
+  override def equals(that: Any): Boolean = {
+    that match {
+      case that: AccessAck => {
+        true
+      }
+      case _ => false
+    }
+  }
+}
+case class AccessAckData(data: UInt) extends TLTransaction {
+  override def equals(that: Any): Boolean = {
+    that match {
+      case that: AccessAckData => {
+        that.canEqual(this) &&
+          this.data.litValue() == that.data.litValue()
+      }
+      case _ => false
+    }
+  }
+}
+
 trait VerifTLBase {
   def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
     sinkBits = 1, sizeBits = 6,
@@ -48,6 +94,38 @@ trait VerifTLBase {
 
   def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
     new TLBundleE(verifTLUBundleParams).Lit(_.sink -> sink)
+  }
+
+  def TLBundletoTLTransaction(bnd : TLChannel) : TLTransaction = {
+    bnd match {
+      case _: TLBundleA =>
+        val bndc = bnd.asInstanceOf[TLBundleA]
+        if (bndc.opcode.litValue() == 0) {
+          FullPut(addr = bndc.address, data = bndc.data)
+        } else { // Assuming only two opcodes, 0 and 4
+          Get(addr = bndc.address)
+        }
+      case _: TLBundleD =>
+        val bndc = bnd.asInstanceOf[TLBundleD]
+        // Need to figure out how to determine AccessAck vs AccessAckData
+        AccessAckData(data = bndc.data)
+    }
+  }
+
+  def TLTransactiontoTLBundle(txn : TLTransaction) : TLChannel = {
+    txn match {
+      case _: FullPut =>
+        val txnc = txn.asInstanceOf[FullPut]
+        TLUBundleAHelper(opcode = 0.U, address = txnc.addr, data = txnc.data)
+      case _: Get =>
+        val txnc = txn.asInstanceOf[Get]
+        TLUBundleAHelper(opcode = 4.U, address = txnc.addr)
+      case _: AccessAck =>
+        TLUBundleDHelper()
+      case _: AccessAckData =>
+        val txnc = txn.asInstanceOf[AccessAckData]
+        TLUBundleDHelper(data = txnc.data)
+    }
   }
 }
 
@@ -255,7 +333,7 @@ trait VerifTLMasterFunctions extends VerifTLBase {
     val eC = TLChannels.e
     val sink = eC.bits.sink.peek()
 
-    new TLBundleE(verifTLUBundleParams).Lit(_.sink -> sink)
+    TLUBundleEHelper(sink)
   }
 
   def readA(): TLBundleA = {
@@ -347,9 +425,9 @@ class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlave
   val clk = clock
   val TLChannels = interface
 
-  val inputTransactions = Queue[TLBundleA]()
+  val inputTransactions = Queue[TLTransaction]()
 
-  def push(tx: Seq[TLBundleA]): Unit = {
+  def push(tx: Seq[TLTransaction]): Unit = {
     for (t <- tx) {
       inputTransactions += t
     }
@@ -359,7 +437,7 @@ class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlave
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue()
-        writeA(t)
+        writeA(TLTransactiontoTLBundle(t).asInstanceOf[TLBundleA])
         clock.step()
       } else {
         clock.step()
@@ -373,9 +451,9 @@ class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlav
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[TLBundleD]()
+  val txns = Queue[TLTransaction]()
 
-  def getMonitoredTransactions: mutable.MutableList[TLBundleD] = {
+  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
     txns
   }
 
@@ -386,7 +464,7 @@ class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlav
   fork {
     // Reads everything
     while (true) {
-      txns += readD()
+      txns += TLBundletoTLTransaction(readD())
       clock.step()
     }
   }
@@ -404,9 +482,9 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
 
   val TLChannels = interface
 
-  val txns = Queue[TLBundleA]()
+  val txns = Queue[TLTransaction]()
 
-  def getMonitoredTransactions: mutable.MutableList[TLBundleA] = {
+  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
 //    for (x <- hash.keys) {
 //      print(s"(${x}, ${hash(x)}), ")
 //    }
@@ -416,7 +494,7 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
 
   // Process function currently only takes opcode 4 (GET)
   def process(a : TLBundleA) : Unit = {
-    txns += a
+    txns += TLBundletoTLTransaction(a)
 
     if (!(a.opcode.litValue() == 4 || a.opcode.litValue() == 0)) {
       println(s"ONLY FULL-PUT (0) AND GET (4) OPCODE IS PERMITTED. GIVEN OP: ${a.opcode} EXAMPLE TEST.")
@@ -450,13 +528,13 @@ class TLMasterMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMas
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[TLBundleA]()
+  val txns = Queue[TLTransaction]()
 
   def process(a: TLBundleA) : Unit = {
-    txns += a
+    txns += TLBundletoTLTransaction(a)
   }
 
-  def getMonitoredTransactions: mutable.MutableList[TLBundleA] = {
+  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
     txns
   }
 

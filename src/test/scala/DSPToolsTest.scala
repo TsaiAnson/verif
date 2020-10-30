@@ -18,7 +18,7 @@ import freechips.rocketchip.util._
 //case object MyBundleData extends DataKey[UInt]("data")
 //case class MyBundleDataField(width: Int) extends SimpleBundleField(MyBundleData)(Output(UInt(width.W)), 0.U)
 
-class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
+class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 //  implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
   //  implicit val p: Parameters = (new BaseConfig).toInstance
   implicit val p: Parameters = new WithoutTLMonitors
@@ -33,44 +33,44 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
 
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        TLUBundleAHelper(opcode = 4.U, address = 0.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x08.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x10.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x18.U),
+        Get(addr = 0.U),
+        Get(addr = 0x08.U),
+        Get(addr = 0x10.U),
+        Get(addr = 0x18.U),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        TLUBundleAHelper(opcode = 0.U, address = 0.U, data = 0.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x08.U, data = 1.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x10.U, data = 2.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x18.U, data = 3.U),
+        FullPut(addr = 0.U, data = 0.U),
+        FullPut(addr = 0x08.U, data = 1.U),
+        FullPut(addr = 0x10.U, data = 2.U),
+        FullPut(addr = 0x18.U, data = 3.U),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        TLUBundleAHelper(opcode = 4.U, address = 0.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x08.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x10.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x18.U)
+        Get(addr = 0.U),
+        Get(addr = 0x08.U),
+        Get(addr = 0x10.U),
+        Get(addr = 0x18.U)
       )
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray[TLBundleD]
+      val output = passOutAgent.getMonitoredTransactions.toArray
 
       // TODO Add software model here
       val swoutput = Array(
-        TLUBundleDHelper(data = 10.U),
-        TLUBundleDHelper(data = 11.U),
-        TLUBundleDHelper(data = 12.U),
-        TLUBundleDHelper(data = 13.U),
-        TLUBundleDHelper(data = 0.U),
-        TLUBundleDHelper(data = 1.U),
-        TLUBundleDHelper(data = 2.U),
-        TLUBundleDHelper(data = 3.U),
-        TLUBundleDHelper(data = 0.U),
-        TLUBundleDHelper(data = 1.U),
-        TLUBundleDHelper(data = 2.U),
-        TLUBundleDHelper(data = 3.U))
+        AccessAckData(data = 10.U(64.W)),
+        AccessAckData(data = 11.U(64.W)),
+        AccessAckData(data = 12.U(64.W)),
+        AccessAckData(data = 13.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
+        AccessAckData(data = 1.U(64.W)),
+        AccessAckData(data = 2.U(64.W)),
+        AccessAckData(data = 3.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
+        AccessAckData(data = 1.U(64.W)),
+        AccessAckData(data = 2.U(64.W)),
+        AccessAckData(data = 3.U(64.W)))
 
-      assert(outputChecker.checkOutput(output, {t : TLBundleD => t.data.litValue()},
-        swoutput, {t : TLBundleD => t.data.litValue()}))
+      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
+        swoutput, {t : TLTransaction => t}))
     }
   }
 
@@ -85,7 +85,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
 
       c.clock.step(simCycles)
 
-      val output = passInAgent.getMonitoredTransactions.toArray[TLBundleA]
+      val output = passInAgent.getMonitoredTransactions.toArray
 
       // Sanity test to make sure that driver/monitor is correctly getting requests
       assert(output.length == 30)
@@ -144,25 +144,24 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester with VerifTLBase{
 
       c.clock.step(simCycles)
 
-      val output = passInAgent.getMonitoredTransactions.toArray[TLBundleA]
+      val output = passInAgent.getMonitoredTransactions.toArray
 
       // TODO Add software model here
       val swoutput = Array(
-        TLUBundleAHelper(opcode = 4.U, address = 0.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x20.U, data = 10.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x8.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x28.U, data = 11.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x10.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x30.U, data = 12.U),
-        TLUBundleAHelper(opcode = 4.U, address = 0x18.U),
-        TLUBundleAHelper(opcode = 0.U, address = 0x38.U, data = 13.U))
+        Get(addr = 0.U(64.W)),
+        FullPut(addr = 0x20.U(64.W), data = 10.U(64.W)),
+        Get(addr = 0x8.U(64.W)),
+        FullPut(addr = 0x28.U(64.W), data = 11.U(64.W)),
+        Get(addr = 0x10.U(64.W)),
+        FullPut(addr = 0x30.U(64.W), data = 12.U(64.W)),
+        Get(addr = 0x18.U(64.W)),
+        FullPut(addr = 0x38.U(64.W), data = 13.U(64.W)))
 
 //      for (out <- output) {
 //        println(out.getElements)
 //      }
-
-      assert(outputChecker.checkOutput(output, {t : TLBundleA => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())},
-        swoutput, {t : TLBundleA => (t.opcode.litValue(), t.address.litValue(), t.data.litValue())}))
+      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
+        swoutput, {t : TLTransaction => t}))
     }
   }
 }

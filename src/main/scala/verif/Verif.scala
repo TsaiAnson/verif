@@ -216,8 +216,8 @@ package object Randomization {
 }
 
 package object outputChecker {
-  def checkOutput[T](dutOutput : Array[T], dutFn : T => Any,
-                     swOutput : Array[T], swFn : T => Any) : Boolean = {
+  def checkOutput[T](dutOutput : Array[_ <: T], dutFn : T => Any,
+                     swOutput : Array[_ <: T], swFn : T => Any) : Boolean = {
     if (dutOutput.map(t => dutFn(t)).sameElements(swOutput.map(t => swFn(t)))) {
       println("***** PASSED *****")
       val outputsize = dutOutput.length
