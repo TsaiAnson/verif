@@ -20,7 +20,7 @@ import firrtl.AnnotationSeq
 import gemmini._
 
 class GemminiTest extends FlatSpec with ChiselScalatestTester {
-  implicit val p: Parameters = VerifTestUtils.getTraitVerifParameters
+  implicit val p: Parameters = VerifTestUtils.getVerifParameters
 
   val smallGemminiConfig = GemminiArrayConfig[SInt, SInt](
     // val defaultConfig = GemminiArrayConfig[Float, Float](
