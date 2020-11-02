@@ -60,18 +60,12 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
     visibility = Seq(AddressSet(0x1000, 0xfff)))))))
 
   lazy val module = new LazyModuleImp(this) {
-    val bigReg1 = RegInit(10.U(64.W))
-    val bigReg2 = RegInit(11.U(64.W))
-    val bigReg3 = RegInit(12.U(64.W))
-    val bigReg4 = RegInit(13.U(64.W))
+    val regs = RegInit(VecInit(Seq.fill(64)(0.U(64.W))))
 
-    // Will try to implement hardware FIFO (using Queue) for later examples
-    TLSlave.regmap(
-      0x00 -> Seq(RegField(64, bigReg1)),
-      0x08 -> Seq(RegField(64, bigReg2)),
-      0x10 -> Seq(RegField(64, bigReg3)),
-      0x18 -> Seq(RegField(64, bigReg4))
-    )
+    val tuples = regs.zipWithIndex.map { case (reg, i) =>
+      (0x00 + (i * 8)) -> Seq(RegField(64,reg))
+    }
+    TLSlave.regmap(tuples :_*)
   }
 }
 

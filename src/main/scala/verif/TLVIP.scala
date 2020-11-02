@@ -507,6 +507,8 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
     } else {
       if (hash.contains(a.address.litValue().toInt)) {
         result = hash(a.address.litValue().toInt).U
+      } else {
+        result = 0.U
       }
     }
 

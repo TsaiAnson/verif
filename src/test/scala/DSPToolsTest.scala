@@ -56,10 +56,10 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        AccessAckData(data = 10.U(64.W)),
-        AccessAckData(data = 11.U(64.W)),
-        AccessAckData(data = 12.U(64.W)),
-        AccessAckData(data = 13.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
+        AccessAckData(data = 0.U(64.W)),
         AccessAckData(data = 0.U(64.W)),
         AccessAckData(data = 1.U(64.W)),
         AccessAckData(data = 2.U(64.W)),
