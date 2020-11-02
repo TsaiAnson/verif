@@ -74,7 +74,7 @@ object VerifTestUtils {
     //TODO: maybe values here paramterized
     //NOTE: address mask needed to be 0xffffffff so that paddrBits was 32 and not 12 (mask 0xfff)
     dummyOutNode :=
-      TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("f"*(pAddrBits/4), 16))),
+      TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
         supportsGet = transferSize, supportsPutFull = transferSize)), beatBytes)):=
       visibilityNode
 
