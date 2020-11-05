@@ -19,6 +19,7 @@ import freechips.rocketchip.tilelink._
 import firrtl.AnnotationSeq
 import gemmini._
 
+// NOTE: Need to run "sbt -mem 4096" to have enough heap space (4GB) to easily elaborate Gemmini
 class GemminiTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
@@ -60,12 +61,11 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
     pe_latency = 0
   )
 
-  val dut = LazyModule(new Gemmini(OpcodeSet.custom3, smallGemminiConfig) with VerifRoCCStandaloneBlock)
-//  val dut = LazyModule(
-//    new VerifRoCCStandaloneWrapper(
-//      new Gemmini(OpcodeSet.custom3, smallGemminiConfig),
-//      beatBytes=16
-//    ))
+  val dut = LazyModule(
+    new VerifRoCCStandaloneWrapper(
+      () => new Gemmini(OpcodeSet.custom3, smallGemminiConfig),
+      beatBytes=16
+    ))
   it should "Elaborate Gemmini" in {
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       assert(true)

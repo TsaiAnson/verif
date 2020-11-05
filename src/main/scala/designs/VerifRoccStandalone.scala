@@ -9,17 +9,17 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink.TLRegisterNode
 import verif.VerifTLBase
 
-class VerifRoCCStandaloneWrapper(dut: LazyRoCC, beatBytes: Int = 8)(implicit p: Parameters) extends LazyModule with VerifTLBase {
+class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8)(implicit p: Parameters) extends LazyModule with VerifTLBase {
   val ioOutNode = BundleBridgeSink[TLBundle]()
 
-  children = dut::children
+  val dutInside = LazyModule(dut())
 
   ioOutNode :=
     TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
       supportsGet = TransferSizes(1, 64), supportsPutFull = TransferSizes(1,64), supportsPutPartial = TransferSizes(1,64))), beatBytes)) :=
-    dut.tlNode
+    dutInside.tlNode
 
   val out = InModuleBody {ioOutNode.makeIO()}
 
-  lazy val module = new LazyModuleImp(this) {}
+  lazy val module = new LazyModuleImp(this){}
 }
