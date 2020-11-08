@@ -12,51 +12,33 @@ import chisel3.experimental.BundleLiterals._
 import scala.collection.mutable
 import scala.collection.mutable.Queue
 
-sealed trait TLTransaction
-case class Get(addr: UInt) extends TLTransaction {
+trait Transaction { this: Bundle =>
   override def equals(that: Any): Boolean = {
-    that match {
-      case that: Get => {
-        that.canEqual(this) &&
-          this.addr.litValue() == that.addr.litValue()
+    var result = this.getClass() == that.getClass()
+    if (result) {
+      that.asInstanceOf[Bundle].getElements.zipWithIndex.foreach { t : (Data, Int) =>
+        result &= (this.getElements(t._2).litValue() == t._1.litValue())
       }
-      case _ => false
     }
+    result
+  }
+
+  override def toString(): String = {
+    var result = this.className
+    result += "("
+    this.getElements.foreach {t: Data =>
+      result += t.litValue().toString() + ", "
+    }
+    result = result.slice(0, result.length - 2) + ")"
+    result
   }
 }
-case class FullPut(addr: UInt, data: UInt) extends TLTransaction {
-  override def equals(that: Any): Boolean = {
-    that match {
-      case that: FullPut => {
-        that.canEqual(this) &&
-          this.addr.litValue() == that.addr.litValue() &&
-          this.data.litValue() == that.data.litValue()
-      }
-      case _ => false
-    }
-  }
-}
-case class AccessAck() extends TLTransaction {
-  override def equals(that: Any): Boolean = {
-    that match {
-      case that: AccessAck => {
-        true
-      }
-      case _ => false
-    }
-  }
-}
-case class AccessAckData(data: UInt) extends TLTransaction {
-  override def equals(that: Any): Boolean = {
-    that match {
-      case that: AccessAckData => {
-        that.canEqual(this) &&
-          this.data.litValue() == that.data.litValue()
-      }
-      case _ => false
-    }
-  }
-}
+
+sealed trait TLTransaction extends Bundle with Transaction
+case class Get(addr: UInt) extends TLTransaction
+case class FullPut(addr: UInt, data: UInt) extends TLTransaction
+case class AccessAck() extends TLTransaction
+case class AccessAckData(data: UInt) extends TLTransaction
 
 trait VerifTLBase {
   def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
