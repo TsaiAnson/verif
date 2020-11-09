@@ -15,7 +15,7 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
-  it should "VerifTL Test RegBank via SWTLFusser" in {
+  it should "VerifTL Test RegBank via SWTLFuzzer" in {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 

@@ -67,6 +67,22 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
   }
 }
 
+class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
+  val device = new SimpleDevice("VerifTLRAMSlave", Seq("veriftldriver,veriftlmonitor,testmaster"))
+
+  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), beatBytes = 8))
+  val TLSlave = ram.node
+
+  // Filler for now
+  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
+    name = "testmaster",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
 // Example of manual Master
 class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("VerifTLCustomMaster", Seq("veriftldriver,veriftlmonitor,testmaster"))
