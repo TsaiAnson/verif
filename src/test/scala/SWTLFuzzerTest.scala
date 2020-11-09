@@ -9,7 +9,7 @@ import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.diplomacy.LazyModule
+import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 
 class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
@@ -23,7 +23,7 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRegBankSlave.in)
       val simCycles = 150
 
-      val fuz = new SWTLFuzzer(maxAddr = 0x200)
+      val fuz = new SWTLFuzzer(TLRegBankSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)

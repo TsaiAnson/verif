@@ -4,7 +4,7 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chiseltest._
 import firrtl.FirrtlProtos.Firrtl.Statement.Register
-import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
+import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice, TransferSizes}
 import freechips.rocketchip.regmapper.RegField
 import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
@@ -41,10 +41,16 @@ case class AccessAck() extends TLTransaction
 case class AccessAckData(data: UInt) extends TLTransaction
 
 trait VerifTLBase {
-  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
-    sinkBits = 1, sizeBits = 6,
-    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
-    hasBCE = false)
+  // Temporary location for parameters
+  def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
+    supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)
+  def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))
+  def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
+  
+//  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
+//    sinkBits = 1, sizeBits = 6,
+//    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
+//    hasBCE = false)
 //  def verifTLCBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
 //    sinkBits = 1, sizeBits = 6,
 //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
@@ -52,30 +58,30 @@ trait VerifTLBase {
 
   def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
                        mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleA = {
-    new TLBundleA(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+    new TLBundleA(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.mask -> mask, _.data -> data)
   }
 
   def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
                        mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleB = {
-    new TLBundleB(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+    new TLBundleB(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.mask -> mask, _.data -> data)
   }
 
   def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
                         data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleC = {
-    new TLBundleC(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+    new TLBundleC(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.data -> data, _.corrupt -> corrupt)
   }
 
   def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, sink: UInt = 0.U,
                         data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleD = {
-    new TLBundleD(verifTLUBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+    new TLBundleD(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.sink -> sink, _.data -> data, _.corrupt -> corrupt)
   }
 
   def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
-    new TLBundleE(verifTLUBundleParams).Lit(_.sink -> sink)
+    new TLBundleE(verifTLBundleParams).Lit(_.sink -> sink)
   }
 
   def TLBundletoTLTransaction(bnd : TLChannel) : TLTransaction = {

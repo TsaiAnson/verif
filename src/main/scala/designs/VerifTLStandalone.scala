@@ -24,19 +24,17 @@ trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
 //    ioMem
 //  }}
 
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLUBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()
 
   val TLMaster: TLOutwardNode
   val TLSlave: TLInwardNode
 
    ioOutNode :=
-     TLToBundleBridge(TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
-       supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)) :=
-     TLMaster
+     TLToBundleBridge(standaloneSlaveParams) := TLMaster
 
   TLSlave :=
-    BundleBridgeToTL(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))) :=
+    BundleBridgeToTL(standaloneMasterParams) :=
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
