@@ -14,11 +14,10 @@ object ConstrainedRandomTest extends TestSuite {
         test("simple constraint") {
             val proto = A(8)
             val randA = proto.rand { bundle =>
-                (bundle.x === 3.U)
-                //(bundle.x === 3.U) && (bundle.x + bundle.y === 10.U)
+                (bundle.x === 3.U) && (bundle.x + bundle.y === 10.U)
             }.right.get
-            println(randA.x.litValue())
-            println(randA.y.litValue())
+            utest.assert(randA.x.litValue() == 3)
+            utest.assert(randA.y.litValue() == 7)
         }
     }
 }
