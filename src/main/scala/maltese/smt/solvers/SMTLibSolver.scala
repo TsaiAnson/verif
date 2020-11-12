@@ -33,12 +33,17 @@ class Z3SMTLib extends SMTLibSolver(List("z3", "-in")) {
     case None => writeCommand("(set-logic ALL)")
     case Some(_) => // ignore
   }
+
+  def softAssert(expr: smt.BVExpr, weight: Int = 1): Unit = {
+    // TODO: println("TODO: declare free variables automatically")
+    writeCommand(s"(assert-soft ${serialize(expr)} :weight $weight)")
+  }
 }
 
 
 /** provides basic facilities to interact with any SMT solver that supports a SMTLib base textual interface */
 abstract class SMTLibSolver(cmd: List[String]) extends Solver {
-  protected val debug: Boolean = false
+  protected val debug: Boolean = true
 
   override def push(): Unit = {
     writeCommand("(push 1)")
@@ -100,7 +105,7 @@ abstract class SMTLibSolver(cmd: List[String]) extends Solver {
     }
   }
 
-  private def serialize(e: smt.SMTExpr): String = smt.SMTLibSerializer.serialize(e)
+  protected def serialize(e: smt.SMTExpr): String = smt.SMTLibSerializer.serialize(e)
   private def serialize(c: SMTCommand): String = smt.SMTLibSerializer.serialize(c)
 
   private val proc = new InteractiveProcess(cmd, true)
