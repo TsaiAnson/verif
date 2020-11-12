@@ -2,22 +2,18 @@ package verif
 
 import scala.util.Random
 import java.lang.reflect.Field
-import java.nio.charset.StandardCharsets
 
 import chisel3._
 import chisel3.experimental.DataMirror
-import chisel3.stage.ChiselCircuitAnnotation
-import chisel3.stage.phases.Elaborate
 import chisel3.experimental.BundleLiterals._
-import firrtl.AnnotationSeq
-import firrtl.backends.experimental.smt.EmittedSMTModelAnnotation
-import firrtl.stage.{FirrtlSourceAnnotation, FirrtlStage}
-import firrtl.options.TargetDirAnnotation
 
-import scala.collection.mutable
+import maltese.mc.IsBad
+import maltese.passes.Inline
+import maltese.smt.solvers.Z3SMTLib
+import maltese.smt
+
 import scala.collection.mutable.{ListBuffer, Map}
-import scala.io.Source
-import scala.sys.process.{BasicIO, Process}
+
 
 trait VerifRandomGenerator {
   def setSeed(seed: Long): Unit
@@ -102,109 +98,35 @@ package object Randomization {
         }
       }
 
-      // From chisel-testers2/src/main/scala/chiseltest/backends/treadle/TreadleExecutive.scala
-      val generatorAnnotation = AnnotationSeq(Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new RandomBundleWrapper)))
-      val chiselAnnosOut = (new Elaborate).transform(generatorAnnotation)
-      val chiselCircuit = chiselAnnosOut.collect { case x: ChiselCircuitAnnotation => x}.head.circuit
-      val chiselModule = chiselCircuit.components.find(_.name == chiselCircuit.name).get.id.asInstanceOf[RandomBundleWrapper]
-      val portNames = DataMirror.fullModulePorts(chiselModule).drop(2) // drop clock and top-level 'b' IO
+      val (state, module) = ChiselCompiler.elaborate(() => new RandomBundleWrapper)
+      val portNames = DataMirror.fullModulePorts(module).drop(2) // drop clock and top-level 'b' IO
 
-      // TODO: avoid double elaboration
-      val fir = (new chisel3.stage.ChiselStage).emitFirrtl(
-        new RandomBundleWrapper, Array("--target-dir", "./rand"), List.empty)
+      // turn firrtl into a transition system
+      val (sys, _) = FirrtlToFormal(state.circuit, state.annotations)
+      // inline all signals
+      val inlinedSys = Inline.run(sys)
 
-      // TODO: find a way to invoke FIRRTL without the CLI frontend
-      val fir_annos = List(
-        FirrtlSourceAnnotation(fir),
-        TargetDirAnnotation("./rand") // TODO: avoid file emission
-        // SMTLibEmitter is private, only available in firrtl package
-        // RunFirrtlTransformAnnotation(new SMTLibEmitter),
-        // EmitCircuitAnnotation(classOf[SMTLibEmitter])
-      )
-      val fir_args = Array(
-        "-ll",
-        "error",
-        "-E",
-        "experimental-smt2"
-      )
-      val fir_resp = (new FirrtlStage).execute(fir_args, fir_annos)
+      val solver = new Z3SMTLib()
+      solver.setLogic(smt.solvers.QF_ABV)
+      inlinedSys.inputs.foreach(i => solver.runCommand(smt.solvers.DeclareFunction(i, Seq())))
+      val asserts = inlinedSys.signals.filter(_.lbl == IsBad).map(s => smt.BVNot(s.e.asInstanceOf[smt.BVExpr]))
+      asserts.foreach(solver.assert)
+      val res = solver.check()
 
-      val smtModelAnno = fir_resp.collect { case x: EmittedSMTModelAnnotation => x}.head
+      if(res.isUnSat) { return Left(Unsat()) }
+      assert(res.isSat) // TODO: could be indeterminate
 
-      // TODO: don't hardcode the assertion,
-      // This won't work with if there are namespace clashes with k
-      val smtString = smtModelAnno.src +
-        "(declare-fun k () (RandomBundleWrapper_s))\n" +
-        "(assert (= (RandomBundleWrapper_a k) true))\n" +
-        "(check-sat)\n" +
-        "(get-model)"
+      // get values for all inputs
+      val model = inlinedSys.inputs.map { inp =>
+        inp.name -> solver.getValue(inp).get
+      }.toMap
 
-      var z3out = mutable.MutableList.empty[String]
-      val z3p = Process(Seq("z3", "-in"))
-      val io =
-        BasicIO.standard(true)
-          .withInput { w =>
-            w.write(smtString.getBytes(StandardCharsets.UTF_8))
-            w.close()
-          }
-          .withOutput { i =>
-            Source.fromInputStream(i).getLines().foreach {
-              s: String => z3out += s
-            }
-            i.close()
-          }
-
-      // TODO: implement timeout
-      // TODO: check ret
-      val ret = z3p.run(io).exitValue()
-      // Example output from z3
-      /*
-      MutableList(
-      sat,
-      (model,
-         (define-fun k () RandomBundleWrapper_s,
-              RandomBundleWrapper_s!val!0),
-         (define-fun b_x_f ((x!0 RandomBundleWrapper_s)) (_ BitVec 8),
-              #x03),
-         (define-fun b_y_f ((x!0 RandomBundleWrapper_s)) (_ BitVec 8),
-              #x00),
-       ))
-       */
-
-      // TODO: parse SAT model using library
-      val z3outSplit = z3out.toIterator
-      val checkSat = z3outSplit.next()
-      if (checkSat == "unsat") {
-        return Left(Unsat())
-      }
-      assert(checkSat == "sat") // TODO: could be indeterminate
-      assert(z3outSplit.next().trim() == "(model")
-
-      // Map from Data index in bundle to value
-      val model = mutable.Map[Int, Int]() // TODO: can't handle hierchical bundles
-
-      for (define <- z3outSplit.grouped(2).toList) {
-        if (define.length == 2) { // Don't parse the last line '))'
-          val variable = define(0).stripLeading().stripPrefix("(define-fun ").split(' ').head.stripSuffix("_f")
-          if (variable.startsWith("b")) { // TODO: hardcoded bundle pointer
-            // TODO: can't handle larger numbers
-            val data = Integer.parseInt(define(1).stripLeading().stripPrefix("#x").stripSuffix(")"), 16)
-            val matchingField = portNames.zipWithIndex.find {
-              case ((bundleFieldName, dataObject), i) =>
-                bundleFieldName == variable
-            }
-            model += (matchingField.get._2 -> data)
-          }
-        }
-      }
-
-      val modelBinding = model.map {
-        case (bundleIndex, value) =>
+      val modelBinding = portNames.map(_._1).zipWithIndex.map { case (name, index) =>
           new Function1[T, (Data, Data)] {
-            def apply(t: T): (Data, Data) = t.getElements(bundleIndex) -> value.U
+            def apply(t: T): (Data, Data) = t.getElements(index) -> model(name).U
           }
       }
-      val randomBundle = chiselModule.b.cloneType.Lit(modelBinding.toSeq:_*)
+      val randomBundle = module.b.cloneType.Lit(modelBinding.toSeq:_*)
       Right(randomBundle)
     }
 
