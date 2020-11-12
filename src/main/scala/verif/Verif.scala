@@ -102,6 +102,7 @@ package object Randomization {
         }
       }
 
+      // From chisel-testers2/src/main/scala/chiseltest/backends/treadle/TreadleExecutive.scala
       val generatorAnnotation = AnnotationSeq(Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new RandomBundleWrapper)))
       val chiselAnnosOut = (new Elaborate).transform(generatorAnnotation)
       val chiselCircuit = chiselAnnosOut.collect { case x: ChiselCircuitAnnotation => x}.head.circuit
@@ -186,7 +187,8 @@ package object Randomization {
         if (define.length == 2) { // Don't parse the last line '))'
           val variable = define(0).stripLeading().stripPrefix("(define-fun ").split(' ').head.stripSuffix("_f")
           if (variable.startsWith("b")) { // TODO: hardcoded bundle pointer
-            val data = define(1).stripLeading().stripPrefix("#x").stripSuffix(")").toInt // TODO: can't handle larger numbers
+            // TODO: can't handle larger numbers
+            val data = Integer.parseInt(define(1).stripLeading().stripPrefix("#x").stripSuffix(")"), 16)
             val matchingField = portNames.zipWithIndex.find {
               case ((bundleFieldName, dataObject), i) =>
                 bundleFieldName == variable
