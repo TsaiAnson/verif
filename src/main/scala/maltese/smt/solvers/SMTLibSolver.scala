@@ -38,6 +38,11 @@ class Z3SMTLib extends SMTLibSolver(List("z3", "-in")) {
     // TODO: println("TODO: declare free variables automatically")
     writeCommand(s"(assert-soft ${serialize(expr)} :weight $weight)")
   }
+
+  def setTimeout(seconds: Int): Unit = {
+    require(seconds > 0)
+    writeCommand(s"(set-option :timeout $seconds)")
+  }
 }
 
 

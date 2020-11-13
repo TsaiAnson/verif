@@ -9,6 +9,7 @@ package verif
 
 import maltese.smt
 import maltese.smt.solvers.IsSat
+import scala.collection.mutable
 
 /** Implements the smt sampler algorithm using Z3
  *
@@ -21,6 +22,7 @@ import maltese.smt.solvers.IsSat
 class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbol], constraints: List[smt.BVExpr], seed: Long) {
   private val supportBits = support.map(toBits)
   private val random = new scala.util.Random(seed)
+  assert(support.nonEmpty, "Cannot work with empty support!")
 
   def run(): Iterable[Seq[(String, BigInt)]] = {
     // start at a random solution
@@ -30,7 +32,10 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
     val closest = findClosestSolution(start)
     assert(isValid(closest))
 
-    List(modelToAssignments(closest))
+    // find neighbors
+    val neighbors = computeAllNeighboringSolutions(closest)
+
+    neighbors.map(modelToAssignments)
   }
 
   private def findClosestSolution(start: List[BigInt]): List[BigInt] = {
@@ -41,6 +46,46 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
     val model = readModel()
     solver.pop()
     model
+  }
+
+  private def computeAllNeighboringSolutions(start: List[BigInt]): List[List[BigInt]] = {
+    // to avoid duplicates
+    val seen = mutable.HashSet[BigInt]()
+    seen.add(modelToBigInt(start))
+
+    // soft constrain start solution
+    solver.push()
+    assignSoft(start)
+
+    // all bits that we can flip
+    var results = List[List[BigInt]]()
+    supportBits.zip(start).foreach { case (bits, value) =>
+      bits.foreach { case (expr, ii) =>
+        val bitValue = (value >> ii) & 1
+        val constraint = smt.BVEqual(expr, smt.BVLiteral(bitValue, 1))
+        solver.push()
+        solver.assert(smt.BVNot(constraint))
+        val r = solver.check()
+        if(r.isSat) {
+          val model = readModel()
+          val bigInt = modelToBigInt(model)
+          if(!seen(bigInt)) {
+            seen.add(bigInt)
+            results = model +: results
+          }
+        }
+        // remove hard constraints
+        solver.pop()
+      }
+    }
+
+    // remove soft constraints
+    solver.pop()
+
+    // sanity check
+    assert(results.forall(isValid))
+
+    results
   }
 
   private def modelToAssignments(model: List[BigInt]): List[(String, BigInt)] =
@@ -73,6 +118,16 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
     val ctx = smt.LocalEvalCtx(mapping)
     val res = constraints.map(c => smt.SMTExprEval.eval(c)(ctx))
     res.forall(_ == 1)
+  }
+
+  private val shifts = support.map(_.width).dropRight(1)
+  private val singleVar = support.size == 1
+  private def modelToBigInt(model: List[BigInt]): BigInt = {
+    if(singleVar) { model.head } else {
+      model.tail.zip(shifts).foldLeft(model.head) { case (prev, (value, shift)) =>
+        (prev << shift) | value
+      }
+    }
   }
 }
 

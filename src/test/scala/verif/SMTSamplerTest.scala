@@ -11,16 +11,18 @@ class SMTSamplerTest extends FlatSpec {
   behavior of "SMTSampler"
 
 
-  it should "return a valid sample" in {
+  it should "return a valid samples" in {
     val (a, b) = (smt.BVSymbol("a", 8), smt.BVSymbol("b", 8))
     val c0 = smt.BVComparison(smt.Compare.Greater, smt.BVLiteral(3, 8), a, signed = false)
     val c1 = smt.BVComparison(smt.Compare.Greater, b, smt.BVLiteral(3, 8), signed = false)
 
     val sampler = SMTSampler(List(a, b), List(c0, c1)).get
-    val sample = sampler.run().head.toMap
-    assert(sample.contains("a"))
-    assert(sample("a") < 3)
-    assert(sample.contains("b"))
-    assert(sample("b") > 3)
+    val samples = sampler.run()
+    samples.map(_.toMap).foreach { sample =>
+      assert(sample.contains("a"))
+      assert(sample("a") < 3)
+      assert(sample.contains("b"))
+      assert(sample("b") > 3)
+    }
   }
 }
