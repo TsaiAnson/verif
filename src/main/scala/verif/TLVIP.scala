@@ -86,6 +86,7 @@ trait VerifTLBase {
 
   def TLBundletoTLTransaction(bnd : TLChannel) : TLTransaction = {
     bnd match {
+      // TODO Check fields if correct (spec erorrs) (check parameters incase dut error)
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
         if (bndc.opcode.litValue() == 0) {
@@ -222,13 +223,15 @@ trait VerifTLSlaveFunctions extends VerifTLBase {
   def readD(): TLBundleD = {
     val dC = TLChannels.d
 
-    dC.ready.poke(true.B)
+    // Quick fix:
+    // Removed for monitor (should not poke interface)
+//    dC.ready.poke(true.B)
 
     while(!dC.valid.peek().litToBoolean) {
       clk.step(1)
     }
     clk.step(1)
-    dC.ready.poke(false.B)
+//    dC.ready.poke(false.B)
 
     peekD()
   }
@@ -422,6 +425,8 @@ class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlave
   }
 
   fork {
+    //
+    interface.d.ready.poke(true.B)
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue()
@@ -449,7 +454,7 @@ class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlav
     txns.clear()
   }
 
-  fork {
+  fork.withRegion(Monitor) {
     // Reads everything
     while (true) {
       txns += TLBundletoTLTransaction(readD())
