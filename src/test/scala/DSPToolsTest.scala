@@ -38,10 +38,10 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
         Get(addr = 0x10.U),
         Get(addr = 0x18.U),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        FullPut(addr = 0.U, data = 0.U),
-        FullPut(addr = 0x08.U, data = 1.U),
-        FullPut(addr = 0x10.U, data = 2.U),
-        FullPut(addr = 0x18.U, data = 3.U),
+        PutFull(addr = 0.U, data = 0.U),
+        PutFull(addr = 0x08.U, data = 1.U),
+        PutFull(addr = 0x10.U, data = 2.U),
+        PutFull(addr = 0x18.U, data = 3.U),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
         Get(addr = 0.U),
         Get(addr = 0x08.U),
@@ -60,10 +60,10 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
         AccessAckData(data = 0.U(64.W)),
         AccessAckData(data = 0.U(64.W)),
         AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 1.U(64.W)),
-        AccessAckData(data = 2.U(64.W)),
-        AccessAckData(data = 3.U(64.W)),
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
         AccessAckData(data = 0.U(64.W)),
         AccessAckData(data = 1.U(64.W)),
         AccessAckData(data = 2.U(64.W)),
@@ -149,13 +149,13 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       // TODO Add software model here
       val swoutput = Array(
         Get(addr = 0.U(64.W)),
-        FullPut(addr = 0x20.U(64.W), data = 10.U(64.W)),
+        PutFull(addr = 0x20.U(64.W), data = 10.U(64.W)),
         Get(addr = 0x8.U(64.W)),
-        FullPut(addr = 0x28.U(64.W), data = 11.U(64.W)),
+        PutFull(addr = 0x28.U(64.W), data = 11.U(64.W)),
         Get(addr = 0x10.U(64.W)),
-        FullPut(addr = 0x30.U(64.W), data = 12.U(64.W)),
+        PutFull(addr = 0x30.U(64.W), data = 12.U(64.W)),
         Get(addr = 0x18.U(64.W)),
-        FullPut(addr = 0x38.U(64.W), data = 13.U(64.W)))
+        PutFull(addr = 0x38.U(64.W), data = 13.U(64.W)))
 
 //      for (out <- output) {
 //        println(out.getElements)

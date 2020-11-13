@@ -8,6 +8,7 @@ import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, Si
 import freechips.rocketchip.regmapper.RegField
 import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
+import chisel3.util.isPow2
 
 import scala.collection.mutable
 import scala.collection.mutable.Queue
@@ -25,18 +26,23 @@ trait Transaction { this: Bundle =>
 
   override def toString(): String = {
     var result = this.className
-    result += "("
-    this.getElements.foreach {t: Data =>
-      result += t.litValue().toString() + ", "
+    if (this.getElements.size > 0) {
+      result += "("
+      this.getElements.foreach { t: Data =>
+        result += t.litValue().toString() + ", "
+      }
+      result = result.slice(0, result.length - 2) + ")"
     }
-    result = result.slice(0, result.length - 2) + ")"
     result
   }
 }
 
+// TODO Add source/sink fields when working with buses
 sealed trait TLTransaction extends Bundle with Transaction
 case class Get(addr: UInt) extends TLTransaction
-case class FullPut(addr: UInt, data: UInt) extends TLTransaction
+case class PutFull(addr: UInt, data: UInt) extends TLTransaction
+case class PutPartial(addr: UInt, mask: UInt, data: UInt) extends TLTransaction
+// TODO: Add denied field
 case class AccessAck() extends TLTransaction
 case class AccessAckData(data: UInt) extends TLTransaction
 
@@ -46,7 +52,7 @@ trait VerifTLBase {
     supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)
   def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))
   def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
-  
+
 //  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
 //    sinkBits = 1, sizeBits = 6,
 //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
@@ -56,16 +62,16 @@ trait VerifTLBase {
 //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
 //    hasBCE = true)
 
-  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
-                       mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleA = {
+  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U, source: UInt = 1.U, address: UInt = 0.U,
+                       mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleA = {
     new TLBundleA(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.address -> address, _.mask -> mask, _.data -> data)
+      _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
   }
 
   def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
-                       mask: UInt = 0xff.U, data: UInt = 0.U) : TLBundleB = {
+                       mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleB = {
     new TLBundleB(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.address -> address, _.mask -> mask, _.data -> data)
+      _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
   }
 
   def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
@@ -74,38 +80,115 @@ trait VerifTLBase {
       _.address -> address, _.data -> data, _.corrupt -> corrupt)
   }
 
-  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, sink: UInt = 0.U,
-                        data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleD = {
+  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U, source: UInt = 1.U, sink: UInt = 0.U,
+                        data: UInt = 0.U, denied: Bool = false.B, corrupt: Bool = false.B) : TLBundleD = {
     new TLBundleD(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.sink -> sink, _.data -> data, _.corrupt -> corrupt)
+      _.sink -> sink, _.data -> data, _.denied -> denied, _.corrupt -> corrupt)
   }
 
   def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
     new TLBundleE(verifTLBundleParams).Lit(_.sink -> sink)
   }
 
-  def TLBundletoTLTransaction(bnd : TLChannel) : TLTransaction = {
+  // Helper functions for message checking
+  def aligned(data : UInt, base : UInt) : Boolean = {
+    val dataI = data.litValue()
+    val baseI = base.litValue() - 1
+    ((dataI & baseI) == 0) && contiguous(baseI.U)
+  }
+
+  def alignedLg(data : UInt, base : UInt) : Boolean = {
+    aligned(data, (1 << base.litValue().toInt).U)
+  }
+
+  def contiguous(data : UInt) : Boolean = {
+    val dataI = data.litValue()
+    ((dataI + 1) & ~dataI) == (dataI + 1)
+  }
+
+  def contains(sizes: TransferSizes, x: UInt) : Boolean = {
+    (x.litValue() >= sizes.min && x.litValue() <= sizes.max && isPow2(x.litValue()))
+  }
+
+  def containsLg(sizes: TransferSizes, lg: UInt) : Boolean = {
+    contains(sizes, (1 << lg.litValue().toInt).U)
+  }
+
+  // Throws assertions if DUT responds with incorrect fields
+  // NOTE: Currently only supports TL-UL
+  def TLBundletoTLTransaction(bnd : TLChannel, TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
     bnd match {
-      // TODO Check fields if correct (spec erorrs) (check parameters incase dut error)
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
         if (bndc.opcode.litValue() == 0) {
-          FullPut(addr = bndc.address, data = bndc.data)
-        } else { // Assuming only two opcodes, 0 and 4
+
+          assert(TLSParam.supportsPutFull != TransferSizes.none, "Channel does not support PUTFULL requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
+          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+//          assert(alignedLg(bndc.mask, bndc.size), "PUTFULL MASK is not aligned")
+          assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
+          PutFull(addr = bndc.address, data = bndc.data)
+
+        } else if (bndc.opcode.litValue() == 1) {
+
+          assert(TLSParam.supportsPutPartial != TransferSizes.none, "Channel does not support PUTPARTIAL requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTPARTIAL TLBundle")
+          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), "PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO Check that high bits are aligned
+          PutPartial(addr = bndc.address, mask = bndc.mask, data = bndc.data)
+
+        } else if (bndc.opcode.litValue() == 4) {
+
+          assert(TLSParam.supportsGet != TransferSizes.none, "Channel does not support GET requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for GET TLBundle")
+          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
+          // Need to check
+//          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(contiguous(bndc.mask), "GET MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "Corrupt GET TLBundle")
           Get(addr = bndc.address)
+
+        } else {
+
+          assert(false, "Invalid OPCODE on A Channel")
+          Get(addr = 0.U)
+
         }
       case _: TLBundleD =>
         val bndc = bnd.asInstanceOf[TLBundleD]
-        // Need to figure out how to determine AccessAck vs AccessAckData
-        AccessAckData(data = bndc.data)
+        if (bndc.opcode.litValue() == 0) {
+
+          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "Corrupt ACCESSACK TLBundle")
+          AccessAck()
+
+        } else if (bndc.opcode.litValue() == 1) {
+
+          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACKDATA TLBundle")
+          if (bndc.denied.litToBoolean) {
+            assert(bndc.corrupt.litToBoolean, "ACCESSACKDATA denied but not corrupt")
+          }
+          AccessAckData(data = bndc.data)
+
+        } else {
+
+          assert(false, "Invalid OPCODE on D Channel")
+          AccessAck()
+
+        }
     }
   }
 
   def TLTransactiontoTLBundle(txn : TLTransaction) : TLChannel = {
     txn match {
-      case _: FullPut =>
-        val txnc = txn.asInstanceOf[FullPut]
+      case _: PutFull =>
+        val txnc = txn.asInstanceOf[PutFull]
         TLUBundleAHelper(opcode = 0.U, address = txnc.addr, data = txnc.data)
+      case _: PutPartial =>
+        val txnc = txn.asInstanceOf[PutPartial]
+        TLUBundleAHelper(opcode = 0.U, address = txnc.addr, mask = txnc.mask, data = txnc.data)
       case _: Get =>
         val txnc = txn.asInstanceOf[Get]
         TLUBundleAHelper(opcode = 4.U, address = txnc.addr)
@@ -469,6 +552,7 @@ class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlav
 // WIP, currently just a hardcoded example
 class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
   // Acting like "regmap"
+  // TODO: Add byte-level addressing
   var hash = mutable.HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
 
   val clk = clock
@@ -485,7 +569,8 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
     txns
   }
 
-  // Process function currently only takes opcode 4 (GET)
+  // Process function currently only takes opcode 0 (FullPut) and 4 (Get)
+  // TODO: Implement PartialPut requests
   def process(a : TLBundleA) : Unit = {
     txns += TLBundletoTLTransaction(a)
 
@@ -493,19 +578,26 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
       println(s"ONLY FULL-PUT (0) AND GET (4) OPCODE IS PERMITTED. GIVEN OP: ${a.opcode} EXAMPLE TEST.")
     }
 
-    var result = 0.U;
+    var result = 0.U
+    var opcode = 0.U
+    var corrupt = false.B
     if (a.opcode.litValue() == 0) {
       hash(a.address.litValue().toInt) = a.data.litValue().toInt
       result = a.data
-    } else {
+    } else if (a.opcode.litValue() == 4) {
       if (hash.contains(a.address.litValue().toInt)) {
         result = hash(a.address.litValue().toInt).U
       } else {
         result = 0.U
       }
+      opcode = 1.U
+    } else {
+      assert(false, s"Unknown opcode: ${a.opcode.litValue()}")
+      // Marking corrupt as indicator
+      corrupt = true.B
     }
 
-    writeD(TLUBundleDHelper(a.opcode, a.param, a.size, a.source, 0.U, result, false.B))
+    writeD(TLUBundleDHelper(opcode, a.param, a.size, a.source, 0.U, result, corrupt))
   }
 
   // Currently just processes the requests from master

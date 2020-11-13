@@ -47,7 +47,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // Find a better way to handle address step size
         address = getRandomLegalAddress(params.address, addrStep)
         data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
-        genTxns = genTxns :+ FullPut(address.U(64.W), data.U(64.W)) // Add mask once requirement is implemented
+        genTxns = genTxns :+ PutFull(address.U(64.W), data.U(64.W)) // Add mask once requirement is implemented
       }
     }
 

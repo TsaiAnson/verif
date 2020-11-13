@@ -7,7 +7,7 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 
 class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
   // Quick HashMap hack that only works for aligned memory
-  // TODO: Implement byte-level memory
+  // TODO: Implement byte-level memory and PartialPut
   val internalBank = HashMap[Int, Int]()
 
   def process (txns : Seq[TLTransaction]) : Seq[TLTransaction] = {
@@ -29,8 +29,8 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           } else {
             results += AccessAckData(data = 0.U(64.W))
           }
-        case _: FullPut =>
-          val txni = txn.asInstanceOf[FullPut]
+        case _: PutFull =>
+          val txni = txn.asInstanceOf[PutFull]
           val addr = txni.addr.litValue().toInt
 
           // Legal Address checking (only for aligned addresses)
@@ -39,7 +39,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           }
 
           internalBank(addr) = txni.data.litValue().toInt
-          results += AccessAckData(data = txni.data)
+          results += AccessAck()
       }
     }
 

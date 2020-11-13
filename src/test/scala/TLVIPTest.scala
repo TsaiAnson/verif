@@ -24,7 +24,7 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
 
       // Checking non-equality
       assert(g != Get(addr = randGen.nextInt(Int.MaxValue).U))
-      assert(g != FullPut(addr = randomAddrUInt, data = randomUInt))
+      assert(g != PutFull(addr = randomAddrUInt, data = randomUInt))
       assert(g != AccessAck())
       assert(g != AccessAckData(data = randomUInt))
     }
@@ -34,14 +34,14 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       randomAddrUInt = randGen.nextInt(Int.MaxValue).U
       randomUInt = randGen.nextInt(Int.MaxValue).U
       // Checking identity
-      val fp = FullPut(addr = randomAddrUInt, data = randomUInt)
+      val fp = PutFull(addr = randomAddrUInt, data = randomUInt)
       assert(fp == fp)
 
       // Checking equality
-      assert(fp == FullPut(addr = randomAddrUInt, data = randomUInt))
+      assert(fp == PutFull(addr = randomAddrUInt, data = randomUInt))
 
       // Checking non-equality
-      assert(fp != FullPut(addr = randGen.nextInt(Int.MaxValue).U, data = randGen.nextInt(Int.MaxValue).U))
+      assert(fp != PutFull(addr = randGen.nextInt(Int.MaxValue).U, data = randGen.nextInt(Int.MaxValue).U))
       assert(fp != Get(addr = randomAddrUInt))
       assert(fp != AccessAck)
       assert(fp != AccessAckData(data = randomUInt))
@@ -61,7 +61,7 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
 
       // Checking non-equality
       assert(ack != Get(addr = randomAddrUInt))
-      assert(ack != FullPut(addr = randomAddrUInt, data = randomUInt))
+      assert(ack != PutFull(addr = randomAddrUInt, data = randomUInt))
       assert(ack != AccessAckData(data = randomUInt))
       assert(ack != AccessAckData(data = 0.U))
     }
@@ -80,7 +80,7 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       // Checking non-equality
       assert(ackd != AccessAckData(data = randGen.nextInt(Int.MaxValue).U))
       assert(ackd != Get(addr = randomUInt))
-      assert(ackd != FullPut(addr = randomAddrUInt, data = randomUInt))
+      assert(ackd != PutFull(addr = randomAddrUInt, data = randomUInt))
       assert(ackd != AccessAck)
 
     }
