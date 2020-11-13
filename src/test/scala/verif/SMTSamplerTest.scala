@@ -16,8 +16,10 @@ class SMTSamplerTest extends FlatSpec {
     val c0 = smt.BVComparison(smt.Compare.Greater, smt.BVLiteral(3, 8), a, signed = false)
     val c1 = smt.BVComparison(smt.Compare.Greater, b, smt.BVLiteral(3, 8), signed = false)
 
-    val sampler = SMTSampler(List(a, b), List(c0, c1)).get
+    val opt = SMTSamplerOptions(alphaMin = 0.5, maxCombine = 5, maxSamples = 40)
+    val sampler = SMTSampler(List(a, b), List(c0, c1), opt, seed = 100).get
     val samples = sampler.run()
+    assert(samples.size == opt.maxSamples)
     samples.map(_.toMap).foreach { sample =>
       assert(sample.contains("a"))
       assert(sample("a") < 3)
