@@ -18,16 +18,13 @@ import maltese.smt.solvers.IsSat
  *  in 40th International Conference on Software Engineering (ICSE'18), IEEE, 2018 .
  *
  * */
-class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: Seq[smt.BVSymbol], seed: Long) {
-  val width = support.map(_.width).sum
-  private val supportBits = support.flatMap(toBits).reverse.zipWithIndex
-  assert(supportBits.length == width)
+class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbol], seed: Long) {
+  private val supportBits = support.map(toBits)
   private val random = new scala.util.Random(seed)
-
 
   def run(): Iterable[Seq[(String, BigInt)]] = {
     // start at a random solution
-    val start = BigInt(width, random)
+    val start = getRandomAssignment
 
     // find closest solution
     val closest = findClosestSolution(start)
@@ -35,17 +32,7 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: Seq[smt.BVSymbol
     List(modelToAssignments(closest))
   }
 
-  private def modelToAssignments(model: BigInt): Seq[(String, BigInt)] = {
-    var res = model
-    support.reverse.map { sym =>
-      val mask = (BigInt(1) << sym.width) - 1
-      val value = res & mask
-      res = res >> sym.width
-      sym.name -> value
-    }.reverse
-  }
-
-  private def findClosestSolution(start: BigInt): BigInt = {
+  private def findClosestSolution(start: List[BigInt]): List[BigInt] = {
     solver.push()
     assignSoft(start)
     val r = solver.check()
@@ -55,34 +42,32 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: Seq[smt.BVSymbol
     model
   }
 
-  private def readModel(): BigInt = {
-    var res = BigInt(0)
-    var resNext = BigInt(0)
-    support.reverse.foreach { sym =>
-      val value = solver.getValue(sym).get
-      res = (resNext | value)
-      resNext = (res << sym.width)
-    }
-    res
-  }
+  private def modelToAssignments(model: List[BigInt]): List[(String, BigInt)] =
+    model.zip(support).map{ case (value, sym) => sym.name -> value }
 
-  private def assignSoft(bits: BigInt): Unit = {
-    supportBits.foreach { case (expr, ii) =>
-      val value = (bits >> ii) & 1
-      val constraint = smt.BVEqual(expr, smt.BVLiteral(value, 1))
-      solver.softAssert(constraint)
+  private def getRandomAssignment: List[BigInt] = support.map(sym => BigInt(sym.width, random))
+
+  private def readModel(): List[BigInt] = support.map { solver.getValue(_).get }
+
+  private def assignSoft(values: List[BigInt]): Unit = {
+    supportBits.zip(values).foreach { case (bits, value) =>
+      bits.foreach { case (expr, ii) =>
+        val bitValue = (value >> ii) & 1
+        val constraint = smt.BVEqual(expr, smt.BVLiteral(bitValue, 1))
+        solver.softAssert(constraint)
+      }
     }
   }
 
-  private def toBits(sym: smt.BVSymbol): List[smt.BVExpr] = {
-    if(sym.width == 1) { List(sym) } else {
-      (0 until sym.width).map(i => smt.BVSlice(sym, i, i)).toList
+  private def toBits(sym: smt.BVSymbol): List[(smt.BVExpr, Int)] = {
+    if(sym.width == 1) { List(sym -> 0) } else {
+      (0 until sym.width).map(i => smt.BVSlice(sym, i, i)).zipWithIndex.toList
     }
   }
 }
 
 object SMTSampler {
-  def apply(support: Seq[smt.BVSymbol], constraints: Seq[smt.BVExpr], seed: Long = 0): Option[SMTSampler] = {
+  def apply(support: List[smt.BVSymbol], constraints: Iterable[smt.BVExpr], seed: Long = 0): Option[SMTSampler] = {
     val solver = new smt.solvers.Z3SMTLib()
     solver.setLogic(smt.solvers.QF_BV)
     // declare all variables in the support
