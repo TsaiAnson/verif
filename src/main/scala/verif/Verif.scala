@@ -6,8 +6,7 @@ import java.lang.reflect.Field
 import chisel3._
 import chisel3.experimental.DataMirror
 import chisel3.experimental.BundleLiterals._
-
-import maltese.mc.IsBad
+import maltese.mc.{IsBad, IsConstraint}
 import maltese.passes.Inline
 import maltese.smt.solvers.Z3SMTLib
 import maltese.smt
@@ -94,7 +93,7 @@ package object Randomization {
         dontTouch(c)
         dontTouch(b)
         withClock(clock) {
-          chisel3.experimental.verification.assert(c)
+          chisel3.experimental.verification.assume(c)
         }
       }
 
@@ -106,28 +105,23 @@ package object Randomization {
       // inline all signals
       val inlinedSys = Inline.run(sys)
 
-      val solver = new Z3SMTLib()
-      solver.setLogic(smt.solvers.QF_ABV)
-      inlinedSys.inputs.foreach(i => solver.runCommand(smt.solvers.DeclareFunction(i, Seq())))
-      val asserts = inlinedSys.signals.filter(_.lbl == IsBad).map(s => smt.BVNot(s.e.asInstanceOf[smt.BVExpr]))
-      asserts.foreach(solver.assert)
-      val res = solver.check()
+      val support = inlinedSys.inputs
+      val constraints = inlinedSys.signals.filter(_.lbl == IsConstraint).map(_.e.asInstanceOf[smt.BVExpr])
+      SMTSampler(support, constraints) match {
+        case Some(sampler) =>
+          val samples = sampler.run()
+          // TODO: use more than one sample
+          val model = samples.head.toMap
 
-      if(res.isUnSat) { return Left(Unsat()) }
-      assert(res.isSat) // TODO: could be indeterminate
-
-      // get values for all inputs
-      val model = inlinedSys.inputs.map { inp =>
-        inp.name -> solver.getValue(inp).get
-      }.toMap
-
-      val modelBinding = portNames.map(_._1).zipWithIndex.map { case (name, index) =>
-          new Function1[T, (Data, Data)] {
-            def apply(t: T): (Data, Data) = t.getElements(index) -> model(name).U
+          val modelBinding = portNames.map(_._1).zipWithIndex.map { case (name, index) =>
+            new Function1[T, (Data, Data)] {
+              def apply(t: T): (Data, Data) = t.getElements(index) -> model(name).U
+            }
           }
+          val randomBundle = module.b.cloneType.Lit(modelBinding.toSeq:_*)
+          Right(randomBundle)
+        case None => Left(Unsat())
       }
-      val randomBundle = module.b.cloneType.Lit(modelBinding.toSeq:_*)
-      Right(randomBundle)
     }
 
     // Pass in constraint map. A listbuffer of cosntraints is mapped to field names (text). Currently, only supports
