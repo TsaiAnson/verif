@@ -67,6 +67,10 @@ class DummyVerifRandomGenerator extends VerifRandomGenerator {
   }
 }
 
+sealed trait RandomizationError
+case class Unsat() extends RandomizationError
+case class Timeout() extends RandomizationError
+
 package object Randomization {
   implicit class VerifBundle[T <: Bundle](bundle: T) extends Bundle {
     // Caching no longer seems to work within implicit class, seems like the variable is cleared each time
@@ -80,10 +84,6 @@ package object Randomization {
     def addConstraint(fieldName: String, constraint: Data => Bool): Unit = {
       constraints(fieldName) += constraint
     }
-
-    sealed trait RandomizationError
-    case class Unsat() extends RandomizationError
-    case class Timeout() extends RandomizationError
 
     def rand(constraint: T => Bool): Either[RandomizationError, T] = {
       class RandomBundleWrapper extends RawModule {
