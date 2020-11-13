@@ -6,6 +6,8 @@ import verif._
 import scala.collection.mutable.{HashMap, ListBuffer}
 
 class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
+  // Quick HashMap hack that only works for aligned memory
+  // TODO: Implement byte-level memory
   val internalBank = HashMap[Int, Int]()
 
   def process (txns : Seq[TLTransaction]) : Seq[TLTransaction] = {
@@ -17,7 +19,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           val txni = txn.asInstanceOf[Get]
           val addr = txni.addr.litValue().toInt
 
-          // Legal Address checking
+          // Legal Address checking (only for aligned addresses)
           if (addr > regCount * regSizeBytes || addr % regSizeBytes != 0) {
             throw new RuntimeException(s"ILLEGAL GET ADDRESS: ${addr}")
           }
@@ -31,7 +33,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           val txni = txn.asInstanceOf[FullPut]
           val addr = txni.addr.litValue().toInt
 
-          // Legal Address checking
+          // Legal Address checking (only for aligned addresses)
           if (addr > regCount * regSizeBytes || addr % regSizeBytes != 0) {
             throw new RuntimeException(s"ILLEGAL FULLPUT ADDRESS: ${addr}")
           }
