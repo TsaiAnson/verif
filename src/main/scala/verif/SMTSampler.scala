@@ -18,7 +18,7 @@ import maltese.smt.solvers.IsSat
  *  in 40th International Conference on Software Engineering (ICSE'18), IEEE, 2018 .
  *
  * */
-class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbol], seed: Long) {
+class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbol], constraints: List[smt.BVExpr], seed: Long) {
   private val supportBits = support.map(toBits)
   private val random = new scala.util.Random(seed)
 
@@ -28,6 +28,7 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
 
     // find closest solution
     val closest = findClosestSolution(start)
+    assert(isValid(closest))
 
     List(modelToAssignments(closest))
   }
@@ -49,6 +50,7 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
 
   private def readModel(): List[BigInt] = support.map { solver.getValue(_).get }
 
+  // this models the SMTbit approach where every bit is individually constrained
   private def assignSoft(values: List[BigInt]): Unit = {
     supportBits.zip(values).foreach { case (bits, value) =>
       bits.foreach { case (expr, ii) =>
@@ -64,10 +66,18 @@ class SMTSampler private(solver: smt.solvers.Z3SMTLib, support: List[smt.BVSymbo
       (0 until sym.width).map(i => smt.BVSlice(sym, i, i)).zipWithIndex.toList
     }
   }
+
+  // check whether the plugging the model into the formula will result in a true result
+  private def isValid(model: List[BigInt]): Boolean = {
+    val mapping = support.zip(model).map(t => t._1.name -> t._2).toMap
+    val ctx = smt.LocalEvalCtx(mapping)
+    val res = constraints.map(c => smt.SMTExprEval.eval(c)(ctx))
+    res.forall(_ == 1)
+  }
 }
 
 object SMTSampler {
-  def apply(support: List[smt.BVSymbol], constraints: Iterable[smt.BVExpr], seed: Long = 0): Option[SMTSampler] = {
+  def apply(support: List[smt.BVSymbol], constraints: List[smt.BVExpr], seed: Long = 0): Option[SMTSampler] = {
     val solver = new smt.solvers.Z3SMTLib()
     solver.setLogic(smt.solvers.QF_BV)
     // declare all variables in the support
@@ -76,7 +86,7 @@ object SMTSampler {
     constraints.foreach(c => solver.assert(c))
     // sanity check to see if the formula is actually satisfiable (if not, there is no use in trying to sample it)
     solver.check() match {
-      case IsSat => Some(new SMTSampler(solver, support, seed))
+      case IsSat => Some(new SMTSampler(solver, support, constraints, seed))
       case _ => None
     }
   }
