@@ -10,15 +10,17 @@ import org.scalatest._
 import chisel3._
 import chisel3.util._
 
+import chipyard.{RocketConfig}
+
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.rocket._
+import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
-import freechips.rocketchip.subsystem._
 
 case object VerifTileParams extends TileParams {
   val name: Option[String] = Some("verif_tile")
@@ -41,10 +43,13 @@ object VerifTestUtils {
       blockBytes: Int = 64,
       pAddrBits: Int = 32,
       transferSize: TransferSizes = TransferSizes(1, 64)): Parameters = {
-    val origParams = Parameters.empty
+
+    val origParams = new RocketConfig
+    //val origParams = Parameters.empty
 
     // augment the parameters
     implicit val p = origParams.alterPartial {
+      case MonitorsEnabled => false
       case TileKey => VerifTileParams
       case XLen => xLen // Have to use xLen to avoid errors with naming
       case PgLevels => if (xLen == 64) 3 else 2
