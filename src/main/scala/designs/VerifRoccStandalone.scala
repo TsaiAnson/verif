@@ -29,14 +29,9 @@ class VerifRoCCStandaloneWrapperModule(outer: VerifRoCCStandaloneWrapper) extend
   import outer.dutInside
   import outer.ioOutNode
 
-  val io = IO(new Bundle {
-    val cmdIn = Flipped(Decoupled(new RoCCCommand))
-  })
+  val io = IO(new RoCCIO(dutInside.nPTWPorts))
 
   val tlOut = ioOutNode.makeIO()
 
-  val cmdQueue = Module(new RoCCCommandQueue(depth = 4))
-  cmdQueue.io.in <> io.cmdIn
-  dutInside.module.io.cmd <> cmdQueue.io.out
-
+  io <> dutInside.module.io
 }

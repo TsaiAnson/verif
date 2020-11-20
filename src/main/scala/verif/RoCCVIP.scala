@@ -11,6 +11,8 @@ import freechips.rocketchip.tile.{RoCCCommand, RoCCInstruction}
 import chisel3.experimental.BundleLiterals._
 import chisel3.util._
 
+import scala.collection.mutable
+import scala.collection.mutable.Queue
 
 object RoCCVerifUtils {
   def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
@@ -26,22 +28,16 @@ object RoCCVerifUtils {
   }
 }
 
-// Hardware based RoCC Cmd Queue
-class RoCCCommandQueue(depth: Int = 4)(implicit p: Parameters) extends Module {
-  val io = IO(new Bundle {
-    val in = Flipped(Decoupled(new RoCCCommand))
-    val out = Decoupled(new RoCCCommand)
-  })
+// RoCCCommandDriver
+class RoCCCommandDriver(clock: Clock, interface: DecoupledIO[RoCCCommand]) {
 
-  val queue = Module(new Queue(new RoCCCommand, depth))
-  queue.io.enq <> io.in
-  io.out <> queue.io.deq
-}
+  val txns = Queue[RoCCCommand]()
 
-// RoCCDriver with no internal queue
-class RoCCDriver(clock: Clock, interface: DecoupledIO[RoCCCommand]) {
+  def push(c: RoCCCommand): Unit = {
+    txns += c
+  }
 
-  def push(i: RoCCInstruction): Unit = {
+  def drive(i: RoCCInstruction): Unit = {
     interface.bits.inst.funct.poke(i.funct)
     interface.bits.inst.rs2.poke(i.rs2)
     interface.bits.inst.rs1.poke(i.rs1)
@@ -52,17 +48,28 @@ class RoCCDriver(clock: Clock, interface: DecoupledIO[RoCCCommand]) {
     interface.bits.inst.opcode.poke(i.opcode)
   }
 
-  def push(c: RoCCCommand): Unit = {
+  def drive(c: RoCCCommand): Unit = {
     while (!interface.ready.peek().litToBoolean) {
       clock.step()
     }
 
     timescope {
-      push(c.inst)
+      drive(c.inst)
       interface.bits.rs1.poke(c.rs1)
       interface.bits.rs2.poke(c.rs2)
       interface.valid.poke(true.B)
       clock.step()
+    }
+  }
+
+  fork {
+    while (true) {
+      if (!txns.isEmpty) {
+        val c = txns.dequeue()
+        drive(c)
+      } else {
+        clock.step()
+      }
     }
   }
 }
