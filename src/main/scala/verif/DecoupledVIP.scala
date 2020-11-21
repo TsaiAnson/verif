@@ -12,6 +12,10 @@ case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycle
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val inputTransactions = Queue[DecoupledTX[T]]()
 
+  def push(t: DecoupledTX[T]): Unit = {
+    inputTransactions += t
+  }
+
   def push(tx:Seq[DecoupledTX[T]]): Unit = {
     for (t <- tx) {
       inputTransactions += t
@@ -80,6 +84,15 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
     }
   }
 
+  def getOldestMonitoredTransaction: Option[DecoupledTX[T]] = {
+    // Returns oldest T if non-empty, else None
+    if (!txns.isEmpty) {
+      return Some(txns.dequeue())
+    } else {
+      return None
+    }
+  }
+
   def getMonitoredTransactions: MutableList[DecoupledTX[T]] = {
     txns
   }
@@ -92,7 +105,7 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
     var cycleCount = 0
     var idleCyclesD = 0
     while (true) {
-      interface.ready.poke(0.B)
+      interface.ready.poke(false.B)
       while (idleCyclesD > 0) {
         idleCyclesD -= 1
         cycleCount += 1

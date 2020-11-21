@@ -1,0 +1,24 @@
+syntax = "proto3";
+package RoCCCoSim;
+
+message RoCCInstruction {
+    uint32 funct = 1;
+    uint32 rs2 = 2;
+    uint32 rs1 = 3;
+    bool xd = 4;
+    bool xs1 = 5;
+    bool xs2 = 6;
+    uint32 rd = 7;
+    uint32 opcode = 7;
+  }
+
+message RoCCCommand {
+  RoCCInstruction inst = 1;
+  uint64 rs1 = 2;
+  uint64 rs2 = 3;
+}
+
+message RoCCResponse {
+  uint32 rd = 1;
+  uint64 data = 2;
+}
