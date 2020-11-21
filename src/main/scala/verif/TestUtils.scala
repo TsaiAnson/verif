@@ -8,6 +8,7 @@ package verif
 import org.scalatest._
 
 import chisel3._
+import chisel3.experimental.BundleLiterals._
 import chisel3.util._
 
 import chipyard.{RocketConfig}
@@ -31,6 +32,20 @@ case object VerifTileParams extends TileParams {
   val btb: Option[BTBParams] = None
   val dcache: Option[DCacheParams] = Some(DCacheParams())
   val icache: Option[ICacheParams] = Some(ICacheParams())
+}
+
+object VerifRoCCUtils {
+  def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
+                       (implicit p: Parameters): RoCCCommand = {
+    new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2)
+  }
+
+  def RoCCInstructionHelper(funct: UInt = 0.U, rs2: UInt = 0.U, rs1: UInt = 0.U, xd: Bool = false.B,
+                            xs1: Bool = false.B, xs2: Bool = false.B, rd: UInt = 0.U,
+                            opcode: UInt = 0.U): RoCCInstruction = {
+    new RoCCInstruction().Lit(_.funct -> funct, _.rs2 -> rs2, _.rs1 -> rs1, _.xd -> xd, _.xs1 -> xs1,
+      _.xs2 -> xs2, _.rd -> rd, _.opcode -> opcode)
+  }
 }
 
 /**

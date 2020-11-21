@@ -34,25 +34,23 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
             clock.step()
           }
         }
-        interface.bits.poke(t.data)
-        interface.valid.poke(1.B)
-        if (interface.ready.peek().litToBoolean) {
+        while (!interface.ready.peek().litToBoolean) {
           cycleCount += 1
           clock.step()
-          interface.valid.poke(0.B)
-          // For debugging use
-          // println("EDUT", t.data.litValue(), cycleCount)
-          idleCycles = t.postSendCycles.litValue().toInt
-        } else {
-          while (!interface.ready.peek().litToBoolean) {
-            cycleCount += 1
-            clock.step()
-          }
-          interface.valid.poke(0.B)
-          // For debugging use
-          // println("EDUT", t.data.litValue(), cycleCount)
-          idleCycles = t.postSendCycles.litValue().toInt
         }
+
+        cycleCount += 1
+        timescope {
+          if (t.data.isInstanceOf[Bundle]) {
+            interface.bits.asInstanceOf[Bundle].pokePartial(t.data.asInstanceOf[Bundle])
+          } else {
+            interface.bits.poke(t.data)
+          }
+          interface.valid.poke(true.B)
+          clock.step()
+        }
+
+        idleCycles = t.postSendCycles.litValue().toInt
       } else {
         if (idleCycles > 0) idleCycles -= 1
         cycleCount += 1

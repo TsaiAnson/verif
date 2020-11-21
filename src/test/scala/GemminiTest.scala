@@ -30,14 +30,16 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
     ))
   it should "Elaborate Gemmini" in {
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val commandPassInAgent = new RoCCCommandDriver(c.clock, dut.module.io.cmd)
+      val commandPassInAgent = new DecoupledDriver[RoCCCommand](c.clock, dut.module.io.cmd)
+      val ptwReqPassOutAgent = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, dut.module.io.ptw(0).req)
       val tlPassOutAgent = new TLClientMonitorBasic(c.clock, dut.module.tlOut)
 
       // MVIN 1 ROW and 1 COL
-      commandPassInAgent.push(RoCCVerifUtils.RoCCCommandHelper(
-        inst = RoCCVerifUtils.RoCCInstructionHelper(funct = 2.U),
+      commandPassInAgent.push(Seq(DecoupledTX(
+        VerifRoCCUtils.RoCCCommandHelper(
+        inst = VerifRoCCUtils.RoCCInstructionHelper(funct = 2.U),
         rs2 = fromBigIntToLiteral((BigInt(2) << 48) + (BigInt(1) << 32)).asUInt
-      ))
+      ))))
       c.clock.step(500)
       assert(true)
       // open socket
