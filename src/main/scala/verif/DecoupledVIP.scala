@@ -10,7 +10,12 @@ case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycle
 }
 
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
-  AbstractDriver[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
+  AbstractDriver[DecoupledIO[T], DecoupledTX[T], T](clock, interface) {
+
+  def convertRawDataToStorage(t: T): DecoupledTX[T] = {
+    DecoupledTX(t)
+  }
+
   fork {
     var cycleCount = 0
     var idleCycles = 0

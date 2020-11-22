@@ -10,7 +10,12 @@ case class ValidTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: U
 }
 
 class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) extends
-  AbstractDriver[ValidIO[T], ValidTX[T]](clock, interface) {
+  AbstractDriver[ValidIO[T], ValidTX[T], T](clock, interface) {
+
+  def convertRawDataToStorage(t: T): ValidTX[T] = {
+    ValidTX(t)
+  }
+
   fork {
     var cycleCount = 0
     var idleCycles = 0

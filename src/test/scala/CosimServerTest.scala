@@ -9,21 +9,33 @@ import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.{Parameters}
-import freechips.rocketchip.tile.{RoCCCommand}
+import freechips.rocketchip.tile.{RoCCCommand, RoCCIO}
 
 import cosim._
 import com.verif._
 
 
 class CosimServerTest extends FlatSpec with ChiselScalatestTester {
-  it should "Cosim Server Test" in {
+  implicit val p: Parameters = VerifTestUtils.getVerifParameters()
+
+  it should "Cosim Driver Server Test" in {
     test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val server = new CosimServer()
+      val io = new RoCCIO(1)
+      val qInAgent = new DecoupledDriver[RoCCCommand](c.clock, io.cmd)
+      val server = new CosimDriverServer(qInAgent,
+        com.verif.RoCCProtos.RoCCCommand.parseFrom,
+        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand))
+
+      val cmd = RoCCProtos.RoCCCommand.newBuilder()
+        .setRs2(((BigInt(2) << 48) + (BigInt(1) << 32)).toLong)
+        .setInst(
+          RoCCProtos.RoCCInstruction.newBuilder()
+            .setFunct(2))
+        .build()
 
       server.start
 
-      CosimClient.main(str = "First Message")
-      CosimClient.main(str = "Second Message")
+      CosimClient.sendProto(cmd)
 
       server.terminate
 
