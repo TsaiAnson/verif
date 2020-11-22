@@ -41,7 +41,7 @@ object VerifProtoBufUtils {
     .paramLists
     .flatten
 
-  // Map doesn't preserve ordering
+  // Zip used because does not preserve ordering
   def getArgsZip(args: List[Symbol]) = args.map(x => x.name.toString())
     .zip(args.map(x => x.typeSignature))
 
@@ -58,9 +58,11 @@ object VerifProtoBufUtils {
    * Requires that ever field set in the proto has a exact match (by field name) in a constructor defined as <BundleName>Helper within
    * VerifBundleUtils. Note the the BundleName and the ProtoName must also match. Finally all non-primitive items must be defined (i.e.
    * you cannot leave the RoCCInstruction within a RoCCCommand entirely undefined. All primitive undefined values are set to 0.
+   *
+   * As more bundle types are added more conversions within the case statements and default values will need to be defined
    */
   def ProtoToBundle[T](proto: com.google.protobuf.Message, returnType: T)
-                                (implicit p: Parameters): Unit = {
+                                (implicit p: Parameters): T = {
 
     // Get the helper method that matches this item type
     val protoName = proto.getDescriptorForType().getName()
