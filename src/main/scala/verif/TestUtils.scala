@@ -60,7 +60,7 @@ object VerifProtoBufUtils {
    * you cannot leave the RoCCInstruction within a RoCCCommand entirely undefined. All primitive undefined values are set to 0.
    */
   def ProtoToBundle[T](proto: com.google.protobuf.Message, returnType: T)
-                                (implicit p: Parameters): T = {
+                                (implicit p: Parameters): Unit = {
 
     // Get the helper method that matches this item type
     val protoName = proto.getDescriptorForType().getName()
@@ -97,15 +97,9 @@ object VerifProtoBufUtils {
       }
     })
 
-    // Get a zip of argument -> type for our helper function. Fill undeclared values with 0s
-    println(getArgsZip(getArgs(helper)))
-    println(protoArgs)
-
+    // Get a zip of argument -> type for our helper function.
+    // Fill undeclared values with 0s and set the implicit parameters to p
     val args = getArgsZip(getArgs(helper))
-      .filter(tuple => {
-        val (arg, typ) = tuple
-        !(typ =:= typeOf[freechips.rocketchip.config.Parameters])
-      })
       .map(tuple => {
         val (arg, typ) = tuple
         if (protoArgs.contains(arg)) {
@@ -114,13 +108,16 @@ object VerifProtoBufUtils {
           typ match {
             case t if t =:= typeOf[chisel3.UInt] => 0.U
             case t if t =:= typeOf[chisel3.Bool] => false.B
+            case t if t =:= typeOf[freechips.rocketchip.config.Parameters] => p
           }
         }
       })
 
-    println(args.toList)
-
-    return currentMirror.reflect(VerifBundleUtils).reflectMethod(helper).apply(args.toList: _*).asInstanceOf[T]
+    return currentMirror
+      .reflect(VerifBundleUtils)
+      .reflectMethod(helper)
+      .apply(args.toList: _*)
+      .asInstanceOf[T]
   }
 }
 

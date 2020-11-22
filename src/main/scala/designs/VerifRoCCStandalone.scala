@@ -20,8 +20,6 @@ class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8)(implic
       supportsGet = TransferSizes(1, 64), supportsPutFull = TransferSizes(1,64), supportsPutPartial = TransferSizes(1,64))), beatBytes)) :=
     dutInside.tlNode
 
-  //val tlOut = InModuleBody { ioOutNode.makeIO() }
-
   lazy val module = new VerifRoCCStandaloneWrapperModule(this)
 }
 
