@@ -5,6 +5,8 @@ import chisel3._
 import chiseltest._
 import scala.util.Random
 
+import VerifTLUtils._
+
 class TLVIPTest extends FlatSpec with ChiselScalatestTester {
   it should "Test Transaction MIXIN Equality" in {
     val randGen = new Random()
@@ -83,6 +85,14 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       assert(ackd != PutFull(addr = randomAddrUInt, data = randomUInt))
       assert(ackd != AccessAck)
 
+    }
+  }
+
+  // Non-ideal to use BigInts for data field
+  it should "Basic Unittest Burst TLTransaction to TLBundle conversion" in {
+    val results = TLTransactiontoTLBundles(PutFull(addr = 0x0.U, data = 0x00112222333344445555666677778888.U(128.W), mask = 0xffff.U, size = 4.U))
+    for (tnx <- results) {
+      print(tnx)
     }
   }
 }

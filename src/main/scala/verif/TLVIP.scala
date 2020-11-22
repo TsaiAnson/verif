@@ -10,8 +10,11 @@ import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util.isPow2
 
+import VerifTLUtils._
+
+import scala.math.ceil
 import scala.collection.mutable
-import scala.collection.mutable.Queue
+import scala.collection.mutable.{ListBuffer, Queue}
 
 trait Transaction { this: Bundle =>
   override def equals(that: Any): Boolean = {
@@ -38,15 +41,16 @@ trait Transaction { this: Bundle =>
 }
 
 // TODO Add source/sink fields when working with buses
+// Note: Adding default values to size and mask for now
 sealed trait TLTransaction extends Bundle with Transaction
-case class Get(addr: UInt) extends TLTransaction
-case class PutFull(addr: UInt, data: UInt) extends TLTransaction
-case class PutPartial(addr: UInt, mask: UInt, data: UInt) extends TLTransaction
+case class Get(addr: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
+case class PutFull(addr: UInt, data: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
+case class PutPartial(addr: UInt, data: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
 // TODO: Add denied field
 case class AccessAck() extends TLTransaction
-case class AccessAckData(data: UInt) extends TLTransaction
+case class AccessAckData(data: UInt, size: UInt = 3.U) extends TLTransaction
 
-trait VerifTLBase {
+package object VerifTLUtils {
   // Temporary location for parameters
   def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)
@@ -199,11 +203,53 @@ trait VerifTLBase {
         TLUBundleDHelper(data = txnc.data)
     }
   }
+
+  // Converts TLTransaction to List of TLBundles (for burst messages)
+  // Will replace old "TLTransactiontoTLBundle" method later
+  def TLTransactiontoTLBundles(txn : TLTransaction) : List[TLChannel] = {
+    var result = new ListBuffer[TLChannel]()
+    // Currently hardcoded beatBytes (will change when configurability is added)
+    val beatBytes = 8
+    val beatBits = 8 * beatBytes
+    val beatMask = (1 << beatBits) - 1
+
+    txn match {
+      case _: PutFull =>
+        val txnc = txn.asInstanceOf[PutFull]
+        // Breaking down into multiple TLChannels
+        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
+          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size,
+            // Mask is in terms of bytes, data is in terms of bits
+            mask = (txnc.mask.litValue() & (beatMask << (i * beatBytes))).U,
+            data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        }
+      case _: PutPartial =>
+        val txnc = txn.asInstanceOf[PutPartial]
+        // Breaking down into multiple TLChannels
+        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
+          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size,
+            // Mask is in terms of bytes, data is in terms of bits
+            mask = (txnc.mask.litValue() & (beatMask << (i * beatBytes))).U,
+            data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        }
+      case _: Get =>
+        val txnc = txn.asInstanceOf[Get]
+        result += TLUBundleAHelper(opcode = 4.U, mask = txnc.mask, address = txnc.addr)
+      case _: AccessAck =>
+        result += TLUBundleDHelper()
+      case _: AccessAckData =>
+        val txnc = txn.asInstanceOf[AccessAckData]
+        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
+          result += TLUBundleDHelper(size = txnc.size, data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        }
+    }
+    result.toList
+  }
 }
 
 // Functions for TL Master VIP
 // Currently supports TL-UL, (TL-UH)
-trait VerifTLMasterFunctions extends VerifTLBase {
+trait VerifTLMasterFunctions {
   def clk: Clock
   def TLChannels: TLBundle
 
@@ -348,7 +394,7 @@ trait VerifTLMasterFunctions extends VerifTLBase {
 
 // Functions for TL Slave VIP
 // Currently supports TL-UL, (TL-UH)
-trait VerifTLSlaveFunctions extends VerifTLBase {
+trait VerifTLSlaveFunctions {
   def clk: Clock
   def TLChannels: TLBundle
 

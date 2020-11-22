@@ -7,9 +7,9 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
-import verif.VerifTLBase
+import verif.VerifTLUtils._
 
-trait VerifTLStandaloneBlock extends LazyModule with VerifTLBase {
+trait VerifTLStandaloneBlock extends LazyModule {
   // Commented out for now
 //  //Diplomatic node for mem interface (OPTIONAL)
 //  val mem: Option[MixedNode[TLMasterPortParameters, TLSlavePortParameters, TLEdgeIn, TLBundle,
