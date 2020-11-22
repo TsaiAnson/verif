@@ -126,7 +126,7 @@ trait VerifTLBase {
           assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
           assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-//          assert(alignedLg(bndc.mask, bndc.size), "PUTFULL MASK is not aligned")
+          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
           assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
           PutFull(addr = bndc.address, data = bndc.data)
 
@@ -135,7 +135,7 @@ trait VerifTLBase {
           assert(TLSParam.supportsPutPartial != TransferSizes.none, "Channel does not support PUTPARTIAL requests.")
           assert(bndc.param.litValue() == 0, "Non-zero param field for PUTPARTIAL TLBundle")
           assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
-          assert(alignedLg(bndc.address, bndc.size), "PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(alignedLg(bndc.address, bndc.size), s"PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Check that high bits are aligned
           PutPartial(addr = bndc.address, mask = bndc.mask, data = bndc.data)
 
@@ -201,9 +201,9 @@ trait VerifTLBase {
   }
 }
 
-// Used to interface with Slave Nodes
-// Does not fully support TL-C yet
-trait VerifTLSlaveFunctions extends VerifTLBase {
+// Functions for TL Master VIP
+// Currently supports TL-UL, (TL-UH)
+trait VerifTLMasterFunctions extends VerifTLBase {
   def clk: Clock
   def TLChannels: TLBundle
 
@@ -346,12 +346,9 @@ trait VerifTLSlaveFunctions extends VerifTLBase {
   }
 }
 
-// Used to interface with Master Nodes
-trait VerifTLMasterFunctions extends VerifTLBase {
-//  // One strategy is to have a register node as slave to drive master
-//  // Would need use TLXBar to connect multiple masters
-//  def regMan: TLRegisterNode
-
+// Functions for TL Slave VIP
+// Currently supports TL-UL, (TL-UH)
+trait VerifTLSlaveFunctions extends VerifTLBase {
   def clk: Clock
   def TLChannels: TLBundle
 
@@ -494,8 +491,8 @@ trait VerifTLMasterFunctions extends VerifTLBase {
   def process(req: TLBundleA): Unit
 }
 
-// Basic Driver -- no cycle tracking, only AChannel as Input
-class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
+// TLDriver acting as a Master node
+class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -508,7 +505,7 @@ class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlave
   }
 
   fork {
-    //
+    // Ready always high (TL monitor always receiving in transactions)
     interface.d.ready.poke(true.B)
     while (true) {
       if (!inputTransactions.isEmpty) {
@@ -522,8 +519,8 @@ class TLSlaveDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLSlave
   }
 }
 
-// Basic Monitor -- no cycle tracking, only DChannel as Output
-class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
+// TLMonitor acting as a Master node
+class TLMonitorMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -546,11 +543,9 @@ class TLSlaveMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLSlav
   }
 }
 
-// Basic Driver -- no cycle tracking, only AChannel as Input
-// Interface must be Master
-// TODO Allow user to write transactions to fill in "regMap"
-// WIP, currently just a hardcoded example
-class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
+// TLDriver acting as a Slave node
+// TODO Currently drives DChannel (results)
+class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
   // Acting like "regmap"
   // TODO: Add byte-level addressing
   var hash = mutable.HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
@@ -610,8 +605,8 @@ class TLMasterDriverBasic(clock: Clock, interface: TLBundle) extends VerifTLMast
   }
 }
 
-// Basic Monitor -- no cycle tracking, currently only records the requests from the master
-class TLMasterMonitorBasic(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
+// TLMonitor acting as a Slave node
+class TLMonitorSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
   val clk = clock
   val TLChannels = interface
 

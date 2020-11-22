@@ -27,8 +27,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val passInAgent = new TLSlaveDriverBasic(c.clock, TLRegBankSlave.in)
-      val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRegBankSlave.in)
+      val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
       val simCycles = 100
 
       val inputTransactions = Seq(
@@ -79,7 +79,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLMasterDriverBasic(c.clock, TLMasterFuzzer.out)
+      val passInAgent = new TLDriverSlave(c.clock, TLMasterFuzzer.out)
       //      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
       val simCycles = 100
 
@@ -138,7 +138,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLMasterDriverBasic(c.clock, TLCustomMaster.out)
+      val passInAgent = new TLDriverSlave(c.clock, TLCustomMaster.out)
 //      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
       val simCycles = 80
 

@@ -17,8 +17,8 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val passInAgent = new TLSlaveDriverBasic(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRAMSlave.in)
+      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
       val fuz = new SWTLFuzzer(TLRAMSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))

@@ -20,14 +20,11 @@ class CamTest extends FlatSpec with ChiselScalatestTester {
 					protoTx.Lit(_.en -> false.B, _.we -> true.B, _.keyRe -> 0.U, _.keyWr -> 10.U, _.dataWr -> 123.U, _.found -> false.B, _.dataRe -> 0.U),
 					protoTx.Lit(_.en -> true.B, _.we -> false.B, _.keyRe -> 10.U, _.keyWr -> 0.U, _.dataWr -> 0.U, _.found -> false.B, _.dataRe -> 0.U)
 				)
-	//      println(inputTransactions)
+
 				camInAgent.push(inputTransactions)
 				c.clock.step(inputTransactions.length + 1)
 				val output = camOutAgent.getMonitoredTransactions.toArray[CAMIO]
-	//			for (t <- output) {
-	//				print(t.found.litValue())
-	//				println(t.dataRe.litValue())
-	//			}
+
 				val model = new SWAssocCAM(8,8,8)
 				val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[CAMIO]
 

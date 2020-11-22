@@ -19,8 +19,8 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val passInAgent = new TLSlaveDriverBasic(c.clock, TLRegBankSlave.in)
-      val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRegBankSlave.in)
+      val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
       val simCycles = 150
 
       val fuz = new SWTLFuzzer(TLRegBankSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
