@@ -11,11 +11,6 @@ import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation
 import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.tile.{RoCCCommand}
 
-import scala.collection.JavaConversions._
-
-import reflect.runtime._
-import universe._
-
 import com.verif._
 
 class ProtoTest extends FlatSpec with ChiselScalatestTester {
