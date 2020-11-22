@@ -88,11 +88,10 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
     }
   }
 
-  // Non-ideal to use BigInts for data field
   it should "Basic Unittest Burst TLTransaction to TLBundle conversion" in {
-    val results = TLTransactiontoTLBundles(PutFull(addr = 0x0.U, data = 0x00112222333344445555666677778888.U(128.W), mask = 0xffff.U, size = 4.U))
+    val results = TLTransactiontoTLBundles(PutFullBurst(addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W)), size = 4.U))
     for (tnx <- results) {
-      print(tnx)
+      println(tnx)
     }
   }
 }

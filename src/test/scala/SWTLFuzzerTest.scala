@@ -23,7 +23,7 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
       val simCycles = 150
 
-      val fuz = new SWTLFuzzer(TLRegBankSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val fuz = new SWTLFuzzer(TLRegBankSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)

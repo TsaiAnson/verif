@@ -10,19 +10,8 @@ import freechips.rocketchip.tilelink.TLRegisterNode
 import verif.VerifTLUtils._
 
 trait VerifTLStandaloneBlock extends LazyModule {
-  // Commented out for now
-//  //Diplomatic node for mem interface (OPTIONAL)
-//  val mem: Option[MixedNode[TLMasterPortParameters, TLSlavePortParameters, TLEdgeIn, TLBundle,
-//    TLMasterPortParameters, TLSlavePortParameters, TLEdgeOut, TLBundle]]
-//
-//  val ioMem = mem.map { m => {
-//    val ioMemNode = BundleBridgeSource(() => TLBundle(standaloneParams))
-//    m :=
-//      BundleBridgeToTL(TLMasterPortParameters(Seq(TLMasterParameters("bundleBridgeToTL")))) :=
-//      ioMemNode
-//    val ioMem = InModuleBody { ioMemNode.makeIO() }
-//    ioMem
-//  }}
+  val masterParams = standaloneMasterParams
+  val slaveParams = standaloneSlaveParams
 
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()

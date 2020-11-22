@@ -21,7 +21,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      val fuz = new SWTLFuzzer(TLRAMSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val fuz = new SWTLFuzzer(TLRAMSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)

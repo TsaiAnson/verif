@@ -42,13 +42,18 @@ trait Transaction { this: Bundle =>
 
 // TODO Add source/sink fields when working with buses
 // Note: Adding default values to size and mask for now
+// *Burst for burst (multi-beat) operations
 sealed trait TLTransaction extends Bundle with Transaction
 case class Get(addr: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
-case class PutFull(addr: UInt, data: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
-case class PutPartial(addr: UInt, data: UInt, mask: UInt = 0xff.U, size: UInt = 3.U) extends TLTransaction
+// Hardcoded mask for now
+case class PutFull(addr: UInt, data: UInt, mask: UInt = 0xff.U) extends TLTransaction
+case class PutFullBurst(addr: UInt, masks: List[UInt], datas: List[UInt], size: UInt) extends TLTransaction
+case class PutPartial(addr: UInt, mask: UInt, data: UInt) extends TLTransaction
+case class PutPartialBurst(addr: UInt, masks: List[UInt], datas: List[UInt], size: UInt) extends TLTransaction
 // TODO: Add denied field
 case class AccessAck() extends TLTransaction
 case class AccessAckData(data: UInt, size: UInt = 3.U) extends TLTransaction
+case class AccessAckDataBurst(datas: List[UInt], size: UInt = 3.U) extends TLTransaction
 
 package object VerifTLUtils {
   // Temporary location for parameters
@@ -204,43 +209,37 @@ package object VerifTLUtils {
     }
   }
 
-  // Converts TLTransaction to List of TLBundles (for burst messages)
-  // Will replace old "TLTransactiontoTLBundle" method later
-  def TLTransactiontoTLBundles(txn : TLTransaction) : List[TLChannel] = {
+  def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
-    // Currently hardcoded beatBytes (will change when configurability is added)
-    val beatBytes = 8
-    val beatBits = 8 * beatBytes
-    val beatMask = (1 << beatBits) - 1
-
     txn match {
       case _: PutFull =>
         val txnc = txn.asInstanceOf[PutFull]
-        // Breaking down into multiple TLChannels
-        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
-          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size,
-            // Mask is in terms of bytes, data is in terms of bits
-            mask = (txnc.mask.litValue() & (beatMask << (i * beatBytes))).U,
-            data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, data = txnc.data)
+      case _: PutFullBurst =>
+        val txnc = txn.asInstanceOf[PutFullBurst]
+        for ((m, d) <- (txnc.masks zip txnc.datas)) {
+          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size, mask = m, data = d)
         }
       case _: PutPartial =>
         val txnc = txn.asInstanceOf[PutPartial]
-        // Breaking down into multiple TLChannels
-        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
-          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size,
-            // Mask is in terms of bytes, data is in terms of bits
-            mask = (txnc.mask.litValue() & (beatMask << (i * beatBytes))).U,
-            data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+      case _: PutPartialBurst =>
+        val txnc = txn.asInstanceOf[PutPartialBurst]
+        for ((m, d) <- (txnc.masks zip txnc.datas)) {
+          result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, size = txnc.size, mask = m, data = d)
         }
       case _: Get =>
         val txnc = txn.asInstanceOf[Get]
-        result += TLUBundleAHelper(opcode = 4.U, mask = txnc.mask, address = txnc.addr)
+        result += TLUBundleAHelper(opcode = 4.U, address = txnc.addr)
       case _: AccessAck =>
         result += TLUBundleDHelper()
       case _: AccessAckData =>
         val txnc = txn.asInstanceOf[AccessAckData]
-        for (i <- 0 until ceil(txnc.data.getWidth / beatBits.toDouble).toInt) {
-          result += TLUBundleDHelper(size = txnc.size, data = (txnc.data.litValue() & (beatMask << (i * beatBits))).U)
+        result += TLUBundleDHelper(data = txnc.data)
+      case _: AccessAckDataBurst =>
+        val txnc = txn.asInstanceOf[AccessAckDataBurst]
+        for (d <- txnc.datas) {
+          result += TLUBundleDHelper(size = txnc.size, data = d)
         }
     }
     result.toList
