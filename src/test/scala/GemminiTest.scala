@@ -44,8 +44,8 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
 
       // MVIN 2 ROW and 1 COL
       commandDriver.push(DecoupledTX(
-        VerifBundleUtils.RoCCCommandHelper(
-        inst = VerifBundleUtils.RoCCInstructionHelper(funct = 2.U),
+        VerifRoCCUtils.RoCCCommandHelper(
+        inst = VerifRoCCUtils.RoCCInstructionHelper(funct = 2.U),
         rs2 = fromBigIntToLiteral((BigInt(2) << 48) + (BigInt(1) << 32)).asUInt
       )))
 

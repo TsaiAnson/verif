@@ -25,6 +25,7 @@ import freechips.rocketchip.util._
 import reflect.runtime._
 import scala.collection.JavaConversions._
 import scala.collection.mutable.{ListBuffer}
+import scala.reflect.ClassTag
 import universe._
 import com.google.protobuf.Descriptors.FieldDescriptor.Type._
 
@@ -45,34 +46,28 @@ object VerifProtoBufUtils {
   def getArgsZip(args: List[Symbol]) = args.map(x => x.name.toString())
     .zip(args.map(x => x.typeSignature))
 
-  def RoCCInstructionProtoToBundle(proto: com.google.protobuf.Message): RoCCInstruction = {
-    return VerifBundleUtils.RoCCInstructionHelper()
-  }
-
-  def RoCCCommandProtoToBundle(proto: com.google.protobuf.Message)(implicit p: Parameters): RoCCCommand = {
-    return VerifBundleUtils.RoCCCommandHelper()
-  }
-
   /**
    * WIP: Generic Proto to Bundle function.
    * Requires that ever field set in the proto has a exact match (by field name) in a constructor defined as <BundleName>Helper within
-   * VerifBundleUtils. Note the the BundleName and the ProtoName must also match. Finally all non-primitive items must be defined (i.e.
+   * some object pass in as helpers. Note the the BundleName and the ProtoName must also match. Finally all non-primitive items must be defined (i.e.
    * you cannot leave the RoCCInstruction within a RoCCCommand entirely undefined. All primitive undefined values are set to 0.
    *
    * As more bundle types are added more conversions within the case statements and default values will need to be defined
    */
-  def ProtoToBundle[T](proto: com.google.protobuf.Message, returnType: T)
-                                (implicit p: Parameters): T = {
+  def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helperType: T,
+                                                helperClass: C, returnType: R)
+                                (implicit p: Parameters): R = {
 
     // Get the helper method that matches this item type
     val protoName = proto.getDescriptorForType().getName()
-    val helper = getHelper(VerifBundleUtils, protoName)
+    val helper = getHelper(helperType, protoName)
 
-    return ProtoToBundle(proto, helper, returnType)
+    return ProtoToBundle(proto, helper, helperType, helperClass, returnType)
   }
 
-  def ProtoToBundle[T](proto: com.google.protobuf.Message, helper: MethodSymbol, returnType: T)
-                                (implicit p: Parameters): T = {
+  def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helper: MethodSymbol,
+                                                helperType: T, helperClass: C, returnType: R)
+                                (implicit p: Parameters): R = {
 
     // Extract fields from the protobuf
     val protoArgs = collection.mutable.Map[String, Any]()
@@ -84,8 +79,8 @@ object VerifProtoBufUtils {
           // Recursive case needs some extra spice
           val subProto = value.asInstanceOf[com.google.protobuf.Message]
           val subProtoName = subProto.getDescriptorForType().getName()
-          val subHelper = getHelper(VerifBundleUtils, subProtoName)
-          protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, subHelper.returnType))
+          val subHelper = getHelper(helperType, subProtoName)
+          protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, helperType, helperClass, subHelper.returnType))
         }
         case UINT32 => {
           protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
@@ -116,14 +111,14 @@ object VerifProtoBufUtils {
       })
 
     return currentMirror
-      .reflect(VerifBundleUtils)
+      .reflect(helperClass)
       .reflectMethod(helper)
       .apply(args.toList: _*)
-      .asInstanceOf[T]
+      .asInstanceOf[R]
   }
 }
 
-object VerifBundleUtils {
+object VerifRoCCUtils {
   def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
                        (implicit p: Parameters): RoCCCommand = {
     new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2)
