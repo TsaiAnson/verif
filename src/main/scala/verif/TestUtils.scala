@@ -62,7 +62,7 @@ object VerifProtoBufUtils {
     val protoName = proto.getDescriptorForType().getName()
     val helper = getHelper(helperType, protoName)
 
-    return ProtoToBundle(proto, helper, helperType, helperClass, returnType)
+    ProtoToBundle(proto, helper, helperType, helperClass, returnType)
   }
 
   def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helper: MethodSymbol,
@@ -110,7 +110,7 @@ object VerifProtoBufUtils {
         }
       })
 
-    return currentMirror
+    currentMirror
       .reflect(helperClass)
       .reflectMethod(helper)
       .apply(args.toList: _*)

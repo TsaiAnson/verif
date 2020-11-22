@@ -9,21 +9,14 @@ case class ValidTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: U
   override def cloneType = ValidTX(data, waitCycles, postSendCycles).asInstanceOf[this.type]
 }
 
-class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) {
-  val inputTransactions = Queue[ValidTX[T]]()
-
-  def push(tx:Seq[ValidTX[T]]): Unit = {
-    for (t <- tx) {
-      inputTransactions += t
-    }
-  }
-
+class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) extends
+  AbstractDriver[ValidIO[T], ValidTX[T]](clock, interface) {
   fork {
     var cycleCount = 0
     var idleCycles = 0
     while (true) {
-      if (!inputTransactions.isEmpty && idleCycles == 0) {
-        val t = inputTransactions.dequeue
+      if (hasNextTransaction() && idleCycles == 0) {
+        val t = getNextTransaction()
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
@@ -58,37 +51,14 @@ class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) {
   }
 }
 
-class ValidMonitor[T <: Data](clock: Clock, interface: ValidIO[T]) {
-  val txns = Queue[ValidTX[T]]()
-
-  def setConfig(variableName: String, newValue : Int) : Unit = {
-    var found = false
-    for (f <- this.getClass.getDeclaredFields) {
-      f.setAccessible(true)
-      if (f.getName == variableName) {
-        f.set(this, newValue)
-        found = true
-      }
-    }
-    if (!found) {
-      throw new IllegalArgumentException("Config variable not found.")
-    }
-  }
-
-  def getMonitoredTransactions: MutableList[ValidTX[T]] = {
-    txns
-  }
-
-  def clearMonitoredTransactions(): Unit = {
-    txns.clear()
-  }
-
+class ValidMonitor[T <: Data](clock: Clock, interface: ValidIO[T]) extends
+  AbstractMonitor[ValidIO[T], ValidTX[T]](clock, interface) {
   fork {
     var cycleCount = 0
     while (true) {
       if (interface.valid.peek().litToBoolean) {
         val t = ValidTX[T](interface.bits.peek(), cycleStamp = cycleCount)
-        txns += t
+        addMonitoredTransaction(t)
       }
       cycleCount += 1
       clock.step()
