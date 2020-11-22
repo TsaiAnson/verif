@@ -19,6 +19,8 @@ import freechips.rocketchip.tilelink._
 import firrtl.AnnotationSeq
 import gemmini._
 
+import com.verif._
+
 // NOTE: Need to run "sbt -mem 4096" to have enough heap space (4GB) to easily elaborate Gemmini
 class GemminiTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
@@ -42,8 +44,8 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
 
       // MVIN 2 ROW and 1 COL
       commandDriver.push(DecoupledTX(
-        VerifRoCCUtils.RoCCCommandHelper(
-        inst = VerifRoCCUtils.RoCCInstructionHelper(funct = 2.U),
+        VerifBundleUtils.RoCCCommandHelper(
+        inst = VerifBundleUtils.RoCCInstructionHelper(funct = 2.U),
         rs2 = fromBigIntToLiteral((BigInt(2) << 48) + (BigInt(1) << 32)).asUInt
       )))
 

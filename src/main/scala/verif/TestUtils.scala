@@ -22,19 +22,109 @@ import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import reflect.runtime._
+import scala.collection.JavaConversions._
+import scala.collection.mutable.{ListBuffer}
+import universe._
+import com.google.protobuf.Descriptors.FieldDescriptor.Type._
 
-case object VerifTileParams extends TileParams {
-  val name: Option[String] = Some("verif_tile")
-  val hartId: Int = 0
-  val core: RocketCoreParams = RocketCoreParams()
-  val beuAddr: Option[BigInt] = None
-  val blockerCtrlAddr: Option[BigInt] = None
-  val btb: Option[BTBParams] = None
-  val dcache: Option[DCacheParams] = Some(DCacheParams())
-  val icache: Option[ICacheParams] = Some(ICacheParams())
+import com.verif._
+
+object VerifProtoBufUtils {
+  def getHelper[T: TypeTag](obj: T, target: String) = typeOf[T]
+    .decls
+    .filter(x => x.fullName contains target)
+    .head
+    .asMethod
+
+  def getArgs(method: MethodSymbol) = method
+    .paramLists
+    .flatten
+
+  // Map doesn't preserve ordering
+  def getArgsZip(args: List[Symbol]) = args.map(x => x.name.toString())
+    .zip(args.map(x => x.typeSignature))
+
+  def RoCCInstructionProtoToBundle(proto: com.google.protobuf.Message): RoCCInstruction = {
+    return VerifBundleUtils.RoCCInstructionHelper()
+  }
+
+  def RoCCCommandProtoToBundle(proto: com.google.protobuf.Message)(implicit p: Parameters): RoCCCommand = {
+    return VerifBundleUtils.RoCCCommandHelper()
+  }
+
+  /**
+   * WIP: Generic Proto to Bundle function.
+   * Requires that ever field set in the proto has a exact match (by field name) in a constructor defined as <BundleName>Helper within
+   * VerifBundleUtils. Note the the BundleName and the ProtoName must also match. Finally all non-primitive items must be defined (i.e.
+   * you cannot leave the RoCCInstruction within a RoCCCommand entirely undefined. All primitive undefined values are set to 0.
+   */
+  def ProtoToBundle[T](proto: com.google.protobuf.Message, returnType: T)
+                                (implicit p: Parameters): T = {
+
+    // Get the helper method that matches this item type
+    val protoName = proto.getDescriptorForType().getName()
+    val helper = getHelper(VerifBundleUtils, protoName)
+
+    return ProtoToBundle(proto, helper, returnType)
+  }
+
+  def ProtoToBundle[T](proto: com.google.protobuf.Message, helper: MethodSymbol, returnType: T)
+                                (implicit p: Parameters): T = {
+
+    // Extract fields from the protobuf
+    val protoArgs = collection.mutable.Map[String, Any]()
+    proto.getAllFields().foreach(kv => {
+      val (field, value) = kv
+      val fieldName = field.getName()
+      field.getType() match {
+        case MESSAGE => {
+          // Recursive case needs some extra spice
+          val subProto = value.asInstanceOf[com.google.protobuf.Message]
+          val subProtoName = subProto.getDescriptorForType().getName()
+          val subHelper = getHelper(VerifBundleUtils, subProtoName)
+          protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, subHelper.returnType))
+        }
+        case UINT32 => {
+          protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
+        }
+        case UINT64 => {
+          protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
+        }
+        case BOOL => {
+          protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
+        }
+      }
+    })
+
+    // Get a zip of argument -> type for our helper function. Fill undeclared values with 0s
+    println(getArgsZip(getArgs(helper)))
+    println(protoArgs)
+
+    val args = getArgsZip(getArgs(helper))
+      .filter(tuple => {
+        val (arg, typ) = tuple
+        !(typ =:= typeOf[freechips.rocketchip.config.Parameters])
+      })
+      .map(tuple => {
+        val (arg, typ) = tuple
+        if (protoArgs.contains(arg)) {
+          protoArgs.get(arg).get
+        } else {
+          typ match {
+            case t if t =:= typeOf[chisel3.UInt] => 0.U
+            case t if t =:= typeOf[chisel3.Bool] => false.B
+          }
+        }
+      })
+
+    println(args.toList)
+
+    return currentMirror.reflect(VerifBundleUtils).reflectMethod(helper).apply(args.toList: _*).asInstanceOf[T]
+  }
 }
 
-object VerifRoCCUtils {
+object VerifBundleUtils {
   def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
                        (implicit p: Parameters): RoCCCommand = {
     new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2)
@@ -46,6 +136,20 @@ object VerifRoCCUtils {
     new RoCCInstruction().Lit(_.funct -> funct, _.rs2 -> rs2, _.rs1 -> rs1, _.xd -> xd, _.xs1 -> xs1,
       _.xs2 -> xs2, _.rd -> rd, _.opcode -> opcode)
   }
+}
+
+/**
+ * Dummy tile params for out of context elaboration
+ */
+case object VerifTileParams extends TileParams {
+  val name: Option[String] = Some("verif_tile")
+  val hartId: Int = 0
+  val core: RocketCoreParams = RocketCoreParams()
+  val beuAddr: Option[BigInt] = None
+  val blockerCtrlAddr: Option[BigInt] = None
+  val btb: Option[BTBParams] = None
+  val dcache: Option[DCacheParams] = Some(DCacheParams())
+  val icache: Option[ICacheParams] = Some(ICacheParams())
 }
 
 /**

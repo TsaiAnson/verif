@@ -1,5 +1,8 @@
 syntax = "proto3";
-package RoCCCoSim;
+package verif;
+
+option java_package = "com.verif";
+option java_outer_classname = "RoCCProtos";
 
 message RoCCInstruction {
     uint32 funct = 1;
@@ -9,7 +12,7 @@ message RoCCInstruction {
     bool xs1 = 5;
     bool xs2 = 6;
     uint32 rd = 7;
-    uint32 opcode = 7;
+    uint32 opcode = 8;
   }
 
 message RoCCCommand {
