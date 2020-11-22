@@ -21,8 +21,8 @@ class CosimServerTest extends FlatSpec with ChiselScalatestTester {
   it should "Cosim Driver Server Test" in {
     test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       val io = new RoCCIO(1)
-      val qInAgent = new DecoupledDriver[RoCCCommand](c.clock, io.cmd)
-      val server = new CosimDriverServer(qInAgent,
+      val cmdDriver = new DecoupledDriver[RoCCCommand](c.clock, io.cmd)
+      val server = new CosimDriverServer(cmdDriver,
         com.verif.RoCCProtos.RoCCCommand.parseFrom,
         (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand))
 

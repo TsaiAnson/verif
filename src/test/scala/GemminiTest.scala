@@ -1,23 +1,19 @@
 package verif
 
-import org.scalatest._
-import designs._
 import chisel3._
 import chiseltest._
 import chisel3.util._
-import chisel3.stage.ChiselGeneratorAnnotation
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation, WriteVcdAnnotation}
-import testchipip.{TLHelper}
-import freechips.rocketchip.config._
-import freechips.rocketchip.rocket._
-import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.system._
-import freechips.rocketchip.subsystem._
-import freechips.rocketchip.tile._
-import freechips.rocketchip.tilelink._
+import cosim._
+import designs._
 import firrtl.AnnotationSeq
+import freechips.rocketchip.config.{Parameters}
+import freechips.rocketchip.diplomacy.{LazyModule}
+import freechips.rocketchip.tile.{RoCCCommand, OpcodeSet}
+import freechips.rocketchip.rocket.{PTWResp, PTWReq}
 import gemmini._
+import org.scalatest._
 
 import com.verif._
 
@@ -42,18 +38,27 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
       val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, dut.module.io.ptw(0).req)
       val tlMonitor = new TLClientMonitorBasic(c.clock, dut.module.tlOut)
 
-      // MVIN 2 ROW and 1 COL
-      commandDriver.push(DecoupledTX(
-        VerifRoCCUtils.RoCCCommandHelper(
-        inst = VerifRoCCUtils.RoCCInstructionHelper(funct = 2.U),
-        rs2 = fromBigIntToLiteral((BigInt(2) << 48) + (BigInt(1) << 32)).asUInt
-      )))
+      // Cosim servers
+      val commandServer = new CosimDriverServer(commandDriver,
+        com.verif.RoCCProtos.RoCCCommand.parseFrom,
+        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand))
+
+      // MVIN, 2 ROW and 1 COL
+      val cmd = RoCCProtos.RoCCCommand.newBuilder()
+        .setRs2(((BigInt(2) << 48) + (BigInt(1) << 32)).toLong)
+        .setInst(
+          RoCCProtos.RoCCInstruction.newBuilder()
+            .setFunct(2))
+        .build()
+
+      commandServer.start
+
+      CosimClient.sendProto(cmd)
+
+      commandServer.terminate
 
       c.clock.step(500)
       assert(true)
-      // open socket
-      // send ack over socket
-      // assert false if doesn't exits
     }
   }
 }
