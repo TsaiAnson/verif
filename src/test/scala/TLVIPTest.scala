@@ -94,4 +94,27 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       println(tnx)
     }
   }
+
+  it should "Basic Unittest groupTLBundles" in {
+    val results = groupTLBundles(List(TLUBundleAHelper(size = 4.U),TLUBundleAHelper(size = 4.U),TLUBundleDHelper(size = 5.U),TLUBundleDHelper(size = 5.U),TLUBundleDHelper(size = 5.U),TLUBundleDHelper(size = 5.U),TLUBundleAHelper(size = 3.U)))
+    for (tnx <- results) {
+      println(tnx)
+      println()
+    }
+  }
+
+  it should "Basic Unittest TLTransaction to TLBundles to TLTransaction" in {
+    val testTxns = List(AccessAck(), AccessAckData(data = 0x1.U(64.W)), AccessAckDataBurst(datas = List(0x02.U(64.W), 0x03.U(64.W)), size = 4.U),
+      PutFull(addr = 0x10.U, data = 0x11.U(64.W)), PutFullBurst(addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W)), size = 4.U),
+      Get(addr = 0x15.U), Get(addr = 0x20.U, size = 4.U)
+    )
+    var i = 0
+    for (txn <- testTxns) {
+      println(s"Test ${i}, txn: ${txn}")
+      val result = TLBundlestoTLTransaction(TLTransactiontoTLBundles(txn))
+      println(s"Result: ${result}")
+//      assert (txn == result)
+      i += 1
+    }
+  }
 }

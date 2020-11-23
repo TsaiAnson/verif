@@ -14,9 +14,9 @@ import VerifTLUtils._
 
 import scala.math.ceil
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, Queue}
+import scala.collection.mutable.{Queue,ListBuffer}
 
-trait Transaction { this: Bundle =>
+trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
   override def equals(that: Any): Boolean = {
     var result = this.getClass() == that.getClass()
     if (result) {
@@ -31,8 +31,19 @@ trait Transaction { this: Bundle =>
     var result = this.className
     if (this.getElements.size > 0) {
       result += "("
-      this.getElements.foreach { t: Data =>
-        result += t.litValue().toString() + ", "
+      this.getElements.foreach {
+        t: Any =>
+          t match {
+            case _: List[UInt] =>
+              result += "("
+              val list = t.asInstanceOf[List[Data]]
+              for (d <- list) {
+                result += d.litValue().toString()
+              }
+              result += ")"
+            case _: Data =>
+              result += t.asInstanceOf[Data].litValue().toString() + ", "
+          }
       }
       result = result.slice(0, result.length - 2) + ")"
     }
@@ -230,19 +241,190 @@ package object VerifTLUtils {
         }
       case _: Get =>
         val txnc = txn.asInstanceOf[Get]
-        result += TLUBundleAHelper(opcode = 4.U, address = txnc.addr)
+        result += TLUBundleAHelper(opcode = 4.U, address = txnc.addr, size = txnc.size)
       case _: AccessAck =>
         result += TLUBundleDHelper()
       case _: AccessAckData =>
         val txnc = txn.asInstanceOf[AccessAckData]
-        result += TLUBundleDHelper(data = txnc.data)
+        result += TLUBundleDHelper(opcode = 1.U, data = txnc.data)
       case _: AccessAckDataBurst =>
         val txnc = txn.asInstanceOf[AccessAckDataBurst]
         for (d <- txnc.datas) {
-          result += TLUBundleDHelper(size = txnc.size, data = d)
+          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, data = d)
         }
     }
     result.toList
+  }
+
+  // Helper method to get size of TLChannel
+  def getTLBundleDataSizeBytes (bnd : TLChannel): Int = {
+    bnd match {
+      case _: TLBundleA =>
+        val bndc = bnd.asInstanceOf[TLBundleA]
+        1 << bndc.size.litValue().toInt
+      case _: TLBundleD =>
+        val bndc = bnd.asInstanceOf[TLBundleD]
+        1 << bndc.size.litValue().toInt
+    }
+  }
+
+  // Helper method to group together burst TLBundles
+  def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
+    // Hardcoded for now, update when configurability is added
+    val beatBytes = 8
+    val txnsQ = new Queue[TLChannel]()
+    txnsQ ++= txns
+    var result = new ListBuffer[List[TLChannel]]
+
+    while (txnsQ.nonEmpty) {
+      val txnCount = ceil(getTLBundleDataSizeBytes(txnsQ.front) / beatBytes.toDouble).toInt
+      val newList = new ListBuffer[TLChannel]
+      for ( _ <- 0 until txnCount) {
+        newList += txnsQ.dequeue()
+      }
+      result += newList.toList
+    }
+
+    result.toList
+  }
+
+  def TLBundlestoTLTransaction(bnds : List[TLChannel], TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
+    val bndsq = new Queue[TLChannel]()
+    bndsq ++= bnds
+    val bnd = bndsq.dequeue()
+
+    bnd match {
+      case _: TLBundleA =>
+        val bndc = bnd.asInstanceOf[TLBundleA]
+        if (bndc.opcode.litValue() == 0) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsPutFull != TransferSizes.none, "Channel does not support PUTFULL requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
+          // Only for TL-UL
+//          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO FIX, MASK IS BYTE BASED
+//          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
+          assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            PutFullBurst(addr = bndc.address, masks = masks.toList, datas = datas.toList, size = bndc.size)
+          } else {
+            PutFull(addr = bndc.address, data = bndc.data)
+          }
+        } else if (bndc.opcode.litValue() == 1) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsPutPartial != TransferSizes.none, "Channel does not support PUTPARTIAL requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTPARTIAL TLBundle")
+          // Only for TL-UL
+//          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), s"PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO Check that high bits are aligned
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            PutPartialBurst(addr = bndc.address, masks = masks.toList, datas = datas.toList, size = bndc.size)
+          } else {
+            PutPartial(addr = bndc.address, mask = bndc.mask, data = bndc.data)
+          }
+
+
+        } else if (bndc.opcode.litValue() == 4) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsGet != TransferSizes.none, "Channel does not support GET requests.")
+          assert(bndc.param.litValue() == 0, "Non-zero param field for GET TLBundle")
+          // Only for TL-UL
+//          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(contiguous(bndc.mask), "GET MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "Corrupt GET TLBundle")
+          Get(addr = bndc.address, size = bndc.size)
+
+        } else {
+
+          assert(false, "Invalid OPCODE on A Channel")
+          Get(addr = 0.U)
+
+        }
+      case _: TLBundleD =>
+        val bndc = bnd.asInstanceOf[TLBundleD]
+        if (bndc.opcode.litValue() == 0) {
+
+          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "Corrupt ACCESSACK TLBundle")
+          AccessAck()
+
+        } else if (bndc.opcode.litValue() == 1) {
+
+          // Assertions checking on first TLBundle
+          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACKDATA TLBundle")
+          if (bndc.denied.litToBoolean) {
+            assert(bndc.corrupt.litToBoolean, "ACCESSACKDATA denied but not corrupt")
+          }
+
+          if (bndsq.size > 0) {
+            var datas = new ListBuffer[UInt]
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleD]
+
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              datas += other_bndc.data
+            }
+            AccessAckDataBurst(datas = datas.toList, size = bndc.size)
+          } else {
+            AccessAckData(data = bndc.data)
+          }
+
+
+        } else {
+
+          assert(false, "Invalid OPCODE on D Channel")
+          AccessAck()
+
+        }
+    }
   }
 }
 
