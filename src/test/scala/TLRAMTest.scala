@@ -13,53 +13,53 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 class TLRAMTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
-//  it should "VerifTL Test TLRAM via SWTLFuzzer" in {
-//    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
-//    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-//
-//      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-//      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
-//      val simCycles = 150
-//
-//      val fuz = new SWTLFuzzer(TLRAMSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
-//      val inputTransactions = fuz.generateTransactions(60)
-//
-//      passInAgent.push(inputTransactions)
-//      c.clock.step(simCycles)
-//
-//      val output = passOutAgent.getMonitoredTransactions.toArray
-//
-//      for (out <- output) {
-//        println(out)
-//      }
-////      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
-////        swoutput, {t : TLTransaction => t}))
-//    }
-//  }
+  it should "VerifTL Test TLRAM via SWTLFuzzer" in {
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-//  it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
-//    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
-//    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-//
-//      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-//      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
-//      val simCycles = 150
-//
-//      val inputTransactions = Seq(
-//        PutFullBurst(size = 4.U, addr = 0x10.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x5678.U)),
-//        Get(size = 4.U, addr = 0x10.U, mask = 0xff.U)
-//      )
-//
-//      passInAgent.push(inputTransactions)
-//      c.clock.step(simCycles)
-//
-//      val output = passOutAgent.getMonitoredTransactions.toArray
-//
-//      for (out <- output) {
-//        println(out)
-//      }
-//    }
-//  }
+      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val simCycles = 150
+
+      val fuz = new SWTLFuzzer(TLRAMSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val inputTransactions = fuz.generateTransactions(60)
+
+      passInAgent.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = passOutAgent.getMonitoredTransactions.toArray
+
+      for (out <- output) {
+        println(out)
+      }
+//      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
+//        swoutput, {t : TLTransaction => t}))
+    }
+  }
+
+  it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val simCycles = 150
+
+      val inputTransactions = Seq(
+        PutFullBurst(size = 4.U, addr = 0x10.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x5678.U)),
+        Get(size = 4.U, addr = 0x10.U, mask = 0xff.U)
+      )
+
+      passInAgent.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = passOutAgent.getMonitoredTransactions.toArray
+
+      for (out <- output) {
+        println(out)
+      }
+    }
+  }
 
   it should "Basic Unittest of UH Transactions (Atomics, Hints)" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
