@@ -17,6 +17,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
       txn match {
         case _: Get =>
           val txni = txn.asInstanceOf[Get]
+          val size = txni.size
           val addr = txni.addr.litValue().toInt
 
           // Legal Address checking (only for aligned addresses)
@@ -25,12 +26,13 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           }
 
           if (internalBank.contains(addr)) {
-            results += AccessAckData(data = internalBank(addr).U(64.W))
+            results += AccessAckData(size = size, denied = false.B, data = internalBank(addr).U(64.W))
           } else {
-            results += AccessAckData(data = 0.U(64.W))
+            results += AccessAckData(size = size, denied = false.B, data = 0.U(64.W))
           }
         case _: PutFull =>
           val txni = txn.asInstanceOf[PutFull]
+          val size = 3.U // Hardcoded for now
           val addr = txni.addr.litValue().toInt
 
           // Legal Address checking (only for aligned addresses)
@@ -39,7 +41,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           }
 
           internalBank(addr) = txni.data.litValue().toInt
-          results += AccessAck()
+          results += AccessAck(size = size, denied = false.B)
       }
     }
 

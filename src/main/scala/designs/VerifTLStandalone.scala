@@ -59,8 +59,8 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
 class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
   val device = new SimpleDevice("VerifTLRAMSlave", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
-  val model = LazyModule(new TLRAMModel("TLFuzzRAM"))
-  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), beatBytes = 8))
+  val model = LazyModule(new TLRAMModel("TLRAMModel"))
+  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   ram.node := model.node
   val TLSlave = model.node
 

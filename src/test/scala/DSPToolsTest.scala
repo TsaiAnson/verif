@@ -33,20 +33,20 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(addr = 0.U),
-        Get(addr = 0x08.U),
-        Get(addr = 0x10.U),
-        Get(addr = 0x18.U),
+        Get(size = 3.U, addr = 0.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x08.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x10.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x18.U, mask = 0xff.U),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        PutFull(addr = 0.U, data = 0.U),
-        PutFull(addr = 0x08.U, data = 1.U),
-        PutFull(addr = 0x10.U, data = 2.U),
-        PutFull(addr = 0x18.U, data = 3.U),
+        PutFull(addr = 0.U, mask = 0xff.U, data = 0.U),
+        PutFull(addr = 0x08.U, mask = 0xff.U, data = 1.U),
+        PutFull(addr = 0x10.U, mask = 0xff.U, data = 2.U),
+        PutFull(addr = 0x18.U, mask = 0xff.U, data = 3.U),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(addr = 0.U),
-        Get(addr = 0x08.U),
-        Get(addr = 0x10.U),
-        Get(addr = 0x18.U)
+        Get(size = 3.U, addr = 0.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x08.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x10.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x18.U, mask = 0xff.U)
       )
 
       passInAgent.push(inputTransactions)
@@ -56,18 +56,18 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 0.U(64.W)),
-        AccessAck(),
-        AccessAck(),
-        AccessAck(),
-        AccessAck(),
-        AccessAckData(data = 0.U(64.W)),
-        AccessAckData(data = 1.U(64.W)),
-        AccessAckData(data = 2.U(64.W)),
-        AccessAckData(data = 3.U(64.W)))
+        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
+        AccessAck(size = 3.U, denied = false.B),
+        AccessAck(size = 3.U, denied = false.B),
+        AccessAck(size = 3.U, denied = false.B),
+        AccessAck(size = 3.U, denied = false.B),
+        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 1.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 2.U(64.W)),
+        AccessAckData(size = 3.U, denied = false.B, data = 3.U(64.W)))
 
       assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
         swoutput, {t : TLTransaction => t}))
@@ -148,14 +148,14 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        Get(addr = 0.U(64.W)),
-        PutFull(addr = 0x20.U(64.W), data = 10.U(64.W)),
-        Get(addr = 0x8.U(64.W)),
-        PutFull(addr = 0x28.U(64.W), data = 11.U(64.W)),
-        Get(addr = 0x10.U(64.W)),
-        PutFull(addr = 0x30.U(64.W), data = 12.U(64.W)),
-        Get(addr = 0x18.U(64.W)),
-        PutFull(addr = 0x38.U(64.W), data = 13.U(64.W)))
+        Get(size = 3.U, addr = 0.U(64.W), mask = 0xff.U),
+        PutFull(addr = 0x20.U(64.W), mask = 0xff.U, data = 10.U(64.W)),
+        Get(size = 3.U, addr = 0x8.U(64.W), mask = 0xff.U),
+        PutFull(addr = 0x28.U(64.W), mask = 0xff.U, data = 11.U(64.W)),
+        Get(size = 3.U, addr = 0x10.U(64.W), mask = 0xff.U),
+        PutFull(addr = 0x30.U(64.W), mask = 0xff.U, data = 12.U(64.W)),
+        Get(size = 3.U, addr = 0x18.U(64.W), mask = 0xff.U),
+        PutFull(addr = 0x38.U(64.W), mask = 0xff.U, data = 13.U(64.W)))
 
 //      for (out <- output) {
 //        println(out.getElements)
