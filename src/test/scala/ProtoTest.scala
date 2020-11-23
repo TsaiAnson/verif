@@ -25,7 +25,7 @@ class ProtoTest extends FlatSpec with ChiselScalatestTester {
             .setFunct(2))
         .build()
 
-      val bundle = VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand)
+      val bundle = VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand)
 
       println("--- PROTO MESSAGE ---")
       println(cmd)

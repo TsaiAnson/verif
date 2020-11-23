@@ -41,7 +41,7 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
       // Cosim servers
       val commandServer = new CosimDriverServer(commandDriver,
         com.verif.RoCCProtos.RoCCCommand.parseFrom,
-        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand))
+        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand))
 
       // MVIN, 2 ROW and 1 COL
       val cmd = RoCCProtos.RoCCCommand.newBuilder()

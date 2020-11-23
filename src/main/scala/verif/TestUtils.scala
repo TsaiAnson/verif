@@ -54,15 +54,14 @@ object VerifProtoBufUtils {
    *
    * As more bundle types are added more conversions within the case statements and default values will need to be defined
    */
-  def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helperType: T,
-                                                helperClass: C, returnType: R)
-                                (implicit p: Parameters): R = {
+  def ProtoToBundle[R, H](proto: com.google.protobuf.Message, helpers: H, returnType: R)
+                                (implicit p: Parameters, helperType: TypeTag[H], helperClass: ClassTag[H]): R = {
 
     // Get the helper method that matches this item type
     val protoName = proto.getDescriptorForType().getName()
-    val helper = getHelper(helperType, protoName)
+    val helper = getHelper(helpers, protoName)
 
-    ProtoToBundle(proto, helper, helperType, helperClass, returnType)
+    ProtoToBundle(proto, helper, helpers, helpers, returnType)
   }
 
   def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helper: MethodSymbol,

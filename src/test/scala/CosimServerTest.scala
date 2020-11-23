@@ -24,7 +24,7 @@ class CosimServerTest extends FlatSpec with ChiselScalatestTester {
       val cmdDriver = new DecoupledDriver[RoCCCommand](c.clock, io.cmd)
       val server = new CosimDriverServer(cmdDriver,
         com.verif.RoCCProtos.RoCCCommand.parseFrom,
-        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, VerifRoCCUtils, new RoCCCommand))
+        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand))
 
       val cmd = RoCCProtos.RoCCCommand.newBuilder()
         .setRs2(((BigInt(2) << 48) + (BigInt(1) << 32)).toLong)
