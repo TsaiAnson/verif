@@ -136,7 +136,8 @@ package object VerifTLUtils {
 
   // Throws assertions if DUT responds with incorrect fields
   // NOTE: Currently only supports TL-UL
-  def TLBundletoTLTransaction(bnd : TLChannel, TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
+  // WILL BE DEPRECATED ONCE SLAVE MODEL HAS BEEN UPDATED
+  def TLBundletoTLTransactionOLD(bnd : TLChannel, TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
     bnd match {
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
@@ -146,7 +147,7 @@ package object VerifTLUtils {
           assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
           assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
+//          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
           assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
           PutFull(addr = bndc.address, data = bndc.data)
 
@@ -201,7 +202,8 @@ package object VerifTLUtils {
     }
   }
 
-  def TLTransactiontoTLBundle(txn : TLTransaction) : TLChannel = {
+  // WILL BE DEPRECATED ONCE SLAVE MODEL HAS BEEN UPDATED
+  def TLTransactiontoTLBundleOLD(txn : TLTransaction) : TLChannel = {
     txn match {
       case _: PutFull =>
         val txnc = txn.asInstanceOf[PutFull]
@@ -220,6 +222,7 @@ package object VerifTLUtils {
     }
   }
 
+  // UGRADED FROM TLTransactiontoTLBundle
   def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
     txn match {
@@ -288,6 +291,7 @@ package object VerifTLUtils {
     result.toList
   }
 
+  // UPDGRADED FROM TLBundletoTLTransaction
   def TLBundlestoTLTransaction(bnds : List[TLChannel], TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
     val bndsq = new Queue[TLChannel]()
     bndsq ++= bnds
@@ -723,11 +727,11 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
   val clk = clock
   val TLChannels = interface
 
-  val inputTransactions = Queue[TLTransaction]()
+  val inputTransactions = Queue[TLChannel]()
 
   def push(tx: Seq[TLTransaction]): Unit = {
     for (t <- tx) {
-      inputTransactions += t
+      inputTransactions ++= TLTransactiontoTLBundles(t)
     }
   }
 
@@ -737,7 +741,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue()
-        writeA(TLTransactiontoTLBundle(t).asInstanceOf[TLBundleA])
+        writeA(t.asInstanceOf[TLBundleA])
         clock.step()
       } else {
         clock.step()
@@ -751,10 +755,14 @@ class TLMonitorMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFu
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[TLTransaction]()
+  val txns = Queue[TLChannel]()
 
-  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
-    txns
+  def getMonitoredTransactions: List[TLTransaction] = {
+    val result = new ListBuffer[TLTransaction]
+    for (g <- groupTLBundles(txns.toList)) {
+      result += TLBundlestoTLTransaction(g)
+    }
+    result.toList
   }
 
   def clearMonitoredTransactions(): Unit = {
@@ -764,7 +772,7 @@ class TLMonitorMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFu
   fork.withRegion(Monitor) {
     // Reads everything
     while (true) {
-      txns += TLBundletoTLTransaction(readD())
+      txns += readD()
       clock.step()
     }
   }
@@ -794,7 +802,7 @@ class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunct
   // Process function currently only takes opcode 0 (FullPut) and 4 (Get)
   // TODO: Implement PartialPut requests
   def process(a : TLBundleA) : Unit = {
-    txns += TLBundletoTLTransaction(a)
+    txns += TLBundletoTLTransactionOLD(a)
 
     if (!(a.opcode.litValue() == 4 || a.opcode.litValue() == 0)) {
       println(s"ONLY FULL-PUT (0) AND GET (4) OPCODE IS PERMITTED. GIVEN OP: ${a.opcode} EXAMPLE TEST.")
@@ -840,7 +848,7 @@ class TLMonitorSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunc
   val txns = Queue[TLTransaction]()
 
   def process(a: TLBundleA) : Unit = {
-    txns += TLBundletoTLTransaction(a)
+    txns += TLBundletoTLTransactionOLD(a)
   }
 
   def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {

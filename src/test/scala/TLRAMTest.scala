@@ -36,4 +36,28 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
 //        swoutput, {t : TLTransaction => t}))
     }
   }
+
+  it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val simCycles = 150
+
+      val inputTransactions = Seq(
+        PutFullBurst(addr = 0x10.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x5678.U), size = 4.U),
+        Get(addr = 0x10.U, size = 4.U)
+      )
+
+      passInAgent.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = passOutAgent.getMonitoredTransactions.toArray
+
+      for (out <- output) {
+        println(out)
+      }
+    }
+  }
 }
