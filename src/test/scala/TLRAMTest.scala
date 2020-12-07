@@ -5,7 +5,7 @@ import chisel3._
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
@@ -15,7 +15,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test TLRAM via SWTLFuzzer" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
-    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
@@ -39,13 +39,15 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
 
   it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
-    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
       val inputTransactions = Seq(
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
         PutFullBurst(size = 4.U, addr = 0x10.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x5678.U)),
         Get(size = 4.U, addr = 0x10.U, mask = 0xff.U)
       )
@@ -63,7 +65,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
 
   it should "Basic Unittest of UH Transactions (Atomics, Hints)" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
-    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
