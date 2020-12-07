@@ -51,29 +51,33 @@ trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
   }
 }
 
-// TODO Add source/sink fields when working with buses
+// TODO Add source/sink fields when working with buses (refactor source fields)
 // *Burst for burst (multi-beat) operations
 sealed trait TLTransaction extends Bundle with Transaction
-case class Get(size: UInt, addr: UInt, mask: UInt) extends TLTransaction
-case class PutFull(addr: UInt, mask: UInt, data: UInt) extends TLTransaction
-case class PutFullBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt]) extends TLTransaction
-case class PutPartial(addr: UInt, mask: UInt, data: UInt) extends TLTransaction
-case class PutPartialBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt]) extends TLTransaction
-case class ArithData(param: UInt, addr: UInt, mask: UInt, data: UInt) extends TLTransaction
-case class ArithDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt]) extends TLTransaction
-case class LogicData(param: UInt, addr: UInt, mask: UInt, data: UInt) extends TLTransaction
-case class LogicDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt]) extends TLTransaction
-case class Intent(param: UInt, size: UInt, addr: UInt, mask: UInt) extends TLTransaction
-case class AccessAck(size: UInt, denied: Bool) extends TLTransaction
-case class AccessAckData(size: UInt, denied: Bool, data: UInt) extends TLTransaction
-case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt]) extends TLTransaction
-case class HintAck(size: UInt, denied: Bool) extends TLTransaction
+case class Get(size: UInt, addr: UInt, mask: UInt, source: UInt = 0.U) extends TLTransaction
+case class PutFull(addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
+case class PutFullBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
+case class PutPartial(addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
+case class PutPartialBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
+case class ArithData(param: UInt, addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
+case class ArithDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
+case class LogicData(param: UInt, addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
+case class LogicDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
+case class Intent(param: UInt, size: UInt, addr: UInt, mask: UInt, source: UInt = 0.U) extends TLTransaction
+case class AccessAck(size: UInt, denied: Bool, source: UInt = 0.U) extends TLTransaction
+case class AccessAckData(size: UInt, denied: Bool, data: UInt, source: UInt = 0.U) extends TLTransaction
+case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt], source: UInt = 0.U) extends TLTransaction
+case class HintAck(size: UInt, denied: Bool, source: UInt = 0.U) extends TLTransaction
 
 package object VerifTLUtils {
   // Temporary location for parameters
   def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
-    supportsGet = TransferSizes(1, 8), supportsPutFull = TransferSizes(1,8))), beatBytes = 8)
-  def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))
+    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
+    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))), beatBytes = 8)
+  def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "bundleBridgetoTL")))
+//    supportsProbe = TransferSizes(1, 32),
+//    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
+//    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))))
   def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
 
 //  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
@@ -85,8 +89,10 @@ package object VerifTLUtils {
 //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
 //    hasBCE = true)
 
-  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U, source: UInt = 1.U, address: UInt = 0.U,
+  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
                        mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleA = {
+//    assert(verifTLBundleParams.sizeBits >= size.getWidth)
+//    println(s"${verifTLBundleParams.sizeBits}, ${size.getWidth}")
     new TLBundleA(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
   }
@@ -231,55 +237,56 @@ package object VerifTLUtils {
     txn match {
       case _: PutFull =>
         val txnc = txn.asInstanceOf[PutFull]
-        result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, data = txnc.data)
+        result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
       case _: PutFullBurst =>
         val txnc = txn.asInstanceOf[PutFullBurst]
         for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, address = txnc.addr, mask = m, data = d)
+          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
         }
       case _: PutPartial =>
         val txnc = txn.asInstanceOf[PutPartial]
-        result += TLUBundleAHelper(opcode = 0.U, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
       case _: PutPartialBurst =>
         val txnc = txn.asInstanceOf[PutPartialBurst]
         for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, address = txnc.addr, mask = m, data = d)
+          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
         }
       case _: ArithData =>
         val txnc = txn.asInstanceOf[ArithData]
-        result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
       case _: ArithDataBurst =>
         val txnc = txn.asInstanceOf[ArithDataBurst]
         for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, size = txnc.size, address = txnc.addr, mask = m, data = d)
+          result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
         }
       case _: LogicData =>
         val txnc = txn.asInstanceOf[LogicData]
-        result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
       case _: LogicDataBurst =>
         val txnc = txn.asInstanceOf[LogicDataBurst]
         for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, size = txnc.size, address = txnc.addr, mask = m, data = d)
+          result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
         }
       case _: Get =>
         val txnc = txn.asInstanceOf[Get]
-        result += TLUBundleAHelper(opcode = 4.U, size = txnc.size, address = txnc.addr)
+        result += TLUBundleAHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
       case _: Intent =>
         val txnc = txn.asInstanceOf[Intent]
-        result += TLUBundleAHelper(opcode = 5.U, param = txnc.param, size = txnc.size, address = txnc.addr, mask = txnc.mask)
+        result += TLUBundleAHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
       case _: AccessAck =>
-        result += TLUBundleDHelper()
+        val txnc = txn.asInstanceOf[AccessAck]
+        result += TLUBundleDHelper(source = txnc.source)
       case _: AccessAckData =>
         val txnc = txn.asInstanceOf[AccessAckData]
-        result += TLUBundleDHelper(opcode = 1.U, data = txnc.data)
+        result += TLUBundleDHelper(opcode = 1.U, source = txnc.source, data = txnc.data)
       case _: AccessAckDataBurst =>
         val txnc = txn.asInstanceOf[AccessAckDataBurst]
         for (d <- txnc.datas) {
-          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, data = d)
+          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, data = d)
         }
       case _: HintAck =>
         val txnc = txn.asInstanceOf[HintAck]
-        result += TLUBundleDHelper(opcode = 2.U, size = txnc.size)
+        result += TLUBundleDHelper(opcode = 2.U, size = txnc.size, source = txnc.source)
     }
     result.toList
   }
@@ -356,9 +363,9 @@ package object VerifTLUtils {
               masks += other_bndc.mask
               datas += other_bndc.data
             }
-            PutFullBurst(size = bndc.size, addr = bndc.address, masks = masks.toList, datas = datas.toList)
+            PutFullBurst(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList)
           } else {
-            PutFull(addr = bndc.address, mask = bndc.mask, data = bndc.data)
+            PutFull(source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data)
           }
         } else if (bndc.opcode.litValue() == 1) {
 
@@ -389,9 +396,9 @@ package object VerifTLUtils {
               masks += other_bndc.mask
               datas += other_bndc.data
             }
-            PutPartialBurst(size = bndc.size, addr = bndc.address, masks = masks.toList, datas = datas.toList)
+            PutPartialBurst(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList)
           } else {
-            PutPartial(addr = bndc.address, mask = bndc.mask, data = bndc.data)
+            PutPartial(source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data)
           }
 
         } else if (bndc.opcode.litValue() == 2) {
@@ -421,10 +428,10 @@ package object VerifTLUtils {
               masks += other_bndc.mask
               datas += other_bndc.data
             }
-            ArithDataBurst(param = bndc.param, size = bndc.size, addr = bndc.address, masks = masks.toList,
+            ArithDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList,
               datas = datas.toList)
           } else {
-            ArithData(param = bndc.param, addr = bndc.address, mask = bndc.mask, data = bndc.data)
+            ArithData(param = bndc.param, source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data)
           }
 
         } else if (bndc.opcode.litValue() == 3) {
@@ -454,10 +461,10 @@ package object VerifTLUtils {
               masks += other_bndc.mask
               datas += other_bndc.data
             }
-            LogicDataBurst(param = bndc.param, size = bndc.size, addr = bndc.address, masks = masks.toList,
+            LogicDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList,
               datas = datas.toList)
           } else {
-            LogicData(param = bndc.param, addr = bndc.address, mask = bndc.mask, data = bndc.data)
+            LogicData(param = bndc.param, source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data)
           }
 
         } else if (bndc.opcode.litValue() == 4) {
@@ -471,7 +478,7 @@ package object VerifTLUtils {
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(contiguous(bndc.mask), "GET MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "Corrupt GET TLBundle")
-          Get(size = bndc.size, mask = bndc.mask, addr = bndc.address)
+          Get(size = bndc.size, source = bndc.source, mask = bndc.mask, addr = bndc.address)
 
         } else if (bndc.opcode.litValue() == 5) {
 
@@ -482,7 +489,7 @@ package object VerifTLUtils {
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "Corrupt INTENT TLBundle")
 
-          Intent(param = bndc.param, size = bndc.size, addr = bndc.address, mask = bndc.mask)
+          Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
 
         } else {
 
@@ -496,7 +503,7 @@ package object VerifTLUtils {
 
           assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACK TLBundle")
           assert(!bndc.corrupt.litToBoolean, "Corrupt ACCESSACK TLBundle")
-          AccessAck(size = bndc.size, denied = bndc.denied)
+          AccessAck(size = bndc.size, source = bndc.source, denied = bndc.denied)
 
         } else if (bndc.opcode.litValue() == 1) {
 
@@ -519,21 +526,21 @@ package object VerifTLUtils {
 
               datas += other_bndc.data
             }
-            AccessAckDataBurst(size = bndc.size, denied = bndc.denied, datas = datas.toList)
+            AccessAckDataBurst(size = bndc.size, source = bndc.source, denied = bndc.denied, datas = datas.toList)
           } else {
-            AccessAckData(size = bndc.size, denied = bndc.denied, data = bndc.data)
+            AccessAckData(size = bndc.size, source = bndc.source, denied = bndc.denied, data = bndc.data)
           }
 
         } else if (bndc.opcode.litValue() == 2) {
 
           assert(bndc.param.litValue() == 0, "Non-zero param field for HINTACK TLBundle")
           assert(!bndc.corrupt.litToBoolean, "Corrupt HINTACK TLBundle")
-          HintAck(size = bndc.size, denied = bndc.denied)
+          HintAck(size = bndc.size, source = bndc.source, denied = bndc.denied)
 
         } else {
 
           assert(false, "Invalid OPCODE on D Channel")
-          AccessAck(size = 0.U, denied = true.B)
+          AccessAck(size = 0.U, source = bndc.source, denied = true.B)
 
         }
     }
@@ -645,15 +652,9 @@ trait VerifTLMasterFunctions {
   def readD(): TLBundleD = {
     val dC = TLChannels.d
 
-    // Quick fix:
-    // Removed for monitor (should not poke interface)
-//    dC.ready.poke(true.B)
-
     while(!dC.valid.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
-//    dC.ready.poke(false.B)
 
     peekD()
   }
