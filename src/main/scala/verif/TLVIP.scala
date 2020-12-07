@@ -9,6 +9,7 @@ import freechips.rocketchip.regmapper.RegField
 import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util.isPow2
+import java.lang.reflect.Field
 
 import VerifTLUtils._
 
@@ -20,9 +21,17 @@ trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
   override def equals(that: Any): Boolean = {
     var result = this.getClass() == that.getClass()
     if (result) {
-      that.asInstanceOf[Bundle].getElements.zipWithIndex.foreach { t : (Data, Int) =>
-        result &= (this.getElements(t._2).litValue() == t._1.litValue())
+      val fields = this.getClass.getDeclaredFields
+      for (field <- fields) {
+        field.setAccessible(true)
+        result &= field.get(this).asInstanceOf[Data].litValue() == field.get(that).asInstanceOf[Data].litValue()
       }
+
+      // Version using getElements
+      // Has a strange bug where elements are sometimes out of order, and equivalent objects would return false
+//      that.asInstanceOf[Bundle].getElements.zipWithIndex.foreach { t : (Data, Int) =>
+//        result &= (this.getElements(t._2).litValue() == t._1.litValue())
+//      }
     }
     result
   }
