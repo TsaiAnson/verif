@@ -74,6 +74,89 @@ class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
   lazy val module = new LazyModuleImp(this) {}
 }
 
+class VerifTLXbarRAMSimpleSlave(implicit p: Parameters) extends LazyModule {
+
+  val model = LazyModule(new TLRAMModel("TLRAMModelXbarSimple"))
+  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
+  val xbar = LazyModule(new TLXbar)
+
+  ram.node := model.node := TLBuffer() := xbar.node
+  val TLSlave = xbar.node
+
+  // Filler for now
+  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
+    name = "testmaster",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
+// TL Multi-Slave Xbar RAM Slave Node with References Standalone
+class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends LazyModule {
+  // Multi RAM
+  val model1 = LazyModule(new TLRAMModel("TLRAMModel1"))
+  val ram1  = LazyModule(new TLRAM(AddressSet(0x0, 0xff), cacheable = false, atomics = true, beatBytes = 8))
+  val model2 = LazyModule(new TLRAMModel("TLRAMModel2"))
+  val ram2  = LazyModule(new TLRAM(AddressSet(0x100, 0xff), cacheable = false, atomics = true, beatBytes = 8))
+  val xbar = LazyModule(new TLXbar)
+  ram1.node := model1.node := TLBuffer() := xbar.node
+  ram2.node := model2.node := TLBuffer() := xbar.node
+  val TLSlave = xbar.node
+
+  // RAM Reference
+  val model = LazyModule(new TLRAMModel("TLRAMModelReference"))
+  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
+  ram.node := model.node
+  val TLReference = model.node
+
+  // Connections
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNodeRef = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+
+  TLSlave :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNode
+  TLReference :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNodeRef
+
+  val in = InModuleBody { ioInNode.makeIO() }
+  val inRef = InModuleBody { ioInNodeRef.makeIO() }
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
+// TL Multi-Master Xbar RAM Slave Node Standalone
+class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule {
+  def standaloneMasterParamsOne: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "one", sourceId = IdRange(0,1))))
+  def standaloneMasterParamsTwo: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "two", sourceId = IdRange(1,2))))
+
+  // TLRAM
+  val model = LazyModule(new TLRAMModel("TLRAMModel"))
+  val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
+  val xbar = LazyModule(new TLXbar)
+  ram.node := model.node := TLBuffer() := xbar.node
+  val TLReference = model.node
+
+  // Connections
+  val ioInNodeOne = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsOne, standaloneSlaveParams)))
+  val ioInNodeTwo = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsTwo, standaloneSlaveParams)))
+
+  xbar.node := TLBuffer() :=
+    BundleBridgeToTL(standaloneMasterParamsOne) :=
+    ioInNodeOne
+  xbar.node := TLBuffer() :=
+    BundleBridgeToTL(standaloneMasterParamsTwo) :=
+    ioInNodeTwo
+
+  val inOne = InModuleBody { ioInNodeOne.makeIO() }
+  val inTwo = InModuleBody { ioInNodeTwo.makeIO() }
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
 // Example of manual Master
 class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("VerifTLCustomMaster", Seq("veriftldriver,veriftlmonitor,testmaster"))
