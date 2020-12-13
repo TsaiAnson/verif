@@ -5,7 +5,7 @@ import chisel3._
 import chiseltest._
 import scala.util.Random
 
-import VerifTLUtils._
+import verifTLUtils._
 
 class TLVIPTest extends FlatSpec with ChiselScalatestTester {
   // Will fix up once I figure out bug with new Burst transactions

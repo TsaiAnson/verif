@@ -11,7 +11,7 @@ import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verif.VerifTLUtils._
+import verifTLUtils._
 
 class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -22,7 +22,7 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
     test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 150
 
       val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
@@ -31,7 +31,7 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       val model = new SWRegBank(regCount = 64, regSizeBytes = 8)
       val swoutput = model.process(inputTransactions).toArray

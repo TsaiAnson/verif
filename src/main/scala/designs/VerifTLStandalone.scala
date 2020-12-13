@@ -7,7 +7,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
-import verif.VerifTLUtils._
+import verif.verifTLUtils._
 
 // Keeping as reference
 trait VerifTLStandaloneBlock extends LazyModule {

@@ -5,7 +5,7 @@ import chiseltest._
 import freechips.rocketchip.tilelink._
 import scala.collection.mutable
 import scala.collection.mutable.{Queue,ListBuffer}
-import VerifTLUtils._
+import verifTLUtils._
 
 // Functions for TL Master VIP
 // Currently supports TL-UL, (TL-UH)
@@ -290,6 +290,106 @@ trait VerifTLSlaveFunctions {
 
   def process(req: TLBundleA): Unit
 }
+trait VerifTLMonitorFunctions {
+  def clk: Clock
+  def TLChannels: TLBundle
+
+  def peekA(): TLBundleA = {
+    val aC = TLChannels.a
+    val opcode = aC.bits.opcode.peek()
+    val param = aC.bits.param.peek()
+    val size = aC.bits.size.peek()
+    val source = aC.bits.source.peek()
+    val address = aC.bits.address.peek()
+    val mask = aC.bits.mask.peek()
+    val data = aC.bits.data.peek()
+
+    TLUBundleAHelper(opcode, param, size, source, address, mask, data)
+  }
+
+  def peekB(): TLBundleB = {
+    val bC = TLChannels.b
+    val opcode = bC.bits.opcode.peek()
+    val param = bC.bits.param.peek()
+    val size = bC.bits.size.peek()
+    val source = bC.bits.source.peek()
+    val address = bC.bits.address.peek()
+    val mask = bC.bits.mask.peek()
+    val data = bC.bits.data.peek()
+
+    TLUBundleBHelper(opcode, param, size, source, address, mask, data)
+  }
+
+  def peekC(): TLBundleC = {
+    val cC = TLChannels.c
+    val opcode = cC.bits.opcode.peek()
+    val param = cC.bits.param.peek()
+    val size = cC.bits.size.peek()
+    val source = cC.bits.source.peek()
+    val address = cC.bits.address.peek()
+    val data = cC.bits.data.peek()
+    val corrupt = cC.bits.corrupt.peek()
+
+    TLUBundleCHelper(opcode, param, size, source, address, data, corrupt)
+  }
+
+  def peekD(): TLBundleD = {
+    val dC = TLChannels.d
+    val opcode = dC.bits.opcode.peek()
+    val param = dC.bits.param.peek()
+    val size = dC.bits.size.peek()
+    val source = dC.bits.source.peek()
+    val sink = dC.bits.sink.peek()
+    val data = dC.bits.data.peek()
+    val corrupt = dC.bits.corrupt.peek()
+
+    TLUBundleDHelper(opcode, param, size, source, sink, data, corrupt)
+  }
+
+  def peekE(): TLBundleE = {
+    val eC = TLChannels.e
+    val sink = eC.bits.sink.peek()
+
+    TLUBundleEHelper(sink)
+  }
+
+  // For TL-UL, TL-UH
+  def readAD(): List[TLChannel] = {
+    var results = ListBuffer[TLChannel]()
+
+    if (TLChannels.a.valid.peek().litToBoolean) {
+      results += peekA()
+    }
+    if (TLChannels.d.valid.peek().litToBoolean) {
+      results += peekD()
+    }
+
+    results.toList
+  }
+
+  // For TL-C
+  def readABCDE(): List[TLChannel] = {
+    var results = ListBuffer[TLChannel]()
+
+    if (TLChannels.a.valid.peek().litToBoolean) {
+      results += peekA()
+    }
+    if (TLChannels.b.valid.peek().litToBoolean) {
+      results += peekD()
+    }
+    if (TLChannels.c.valid.peek().litToBoolean) {
+      results += peekD()
+    }
+    if (TLChannels.d.valid.peek().litToBoolean) {
+      results += peekD()
+    }
+    if (TLChannels.e.valid.peek().litToBoolean) {
+      results += peekD()
+    }
+
+    results.toList
+  }
+}
 
 // TLDriver acting as a Master node
 class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
@@ -315,34 +415,6 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
       } else {
         clock.step()
       }
-    }
-  }
-}
-
-// TLMonitor acting as a Master node
-class TLMonitorMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
-  val clk = clock
-  val TLChannels = interface
-
-  val txns = Queue[TLChannel]()
-
-  def getMonitoredTransactions: List[TLTransaction] = {
-    val result = new ListBuffer[TLTransaction]
-    for (g <- groupTLBundles(txns.toList)) {
-      result += TLBundlestoTLTransaction(g)
-    }
-    result.toList
-  }
-
-  def clearMonitoredTransactions(): Unit = {
-    txns.clear()
-  }
-
-  fork.withRegion(Monitor) {
-    // Reads everything
-    while (true) {
-      txns += readD()
-      clock.step()
     }
   }
 }
@@ -409,26 +481,34 @@ class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunct
   }
 }
 
-// TLMonitor acting as a Slave node
-class TLMonitorSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
+// General TL Monitor
+class TLMonitor(clock: Clock, interface: TLBundle, hasBCE: Boolean = false) extends VerifTLMonitorFunctions {
   val clk = clock
   val TLChannels = interface
 
-  val txns = Queue[TLTransaction]()
+  val txns = ListBuffer[TLChannel]()
 
-  def process(a: TLBundleA) : Unit = {
-    txns += TLBundletoTLTransactionOLD(a)
+  def getMonitoredTransactions (filter: TLChannel => Boolean = {(_: TLChannel) => true}) : List[TLTransaction] = {
+    val result = new ListBuffer[TLTransaction]
+    val filtered = txns.filter(filter)
+    for (g <- groupTLBundles(filtered.toList)) {
+      result += TLBundlestoTLTransaction(g)
+    }
+    result.toList
   }
 
-  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
-    txns
+  def clearMonitoredTransactions(): Unit = {
+    txns.clear()
   }
 
-  fork {
-    // Reads all requests
+  fork.withRegion(Monitor) {
     while (true) {
-      process(readA())
-      clock.step()
+      if (hasBCE) {
+        txns ++= readABCDE()
+      } else {
+        txns ++= readAD()
+      }
+      clk.step()
     }
   }
 }

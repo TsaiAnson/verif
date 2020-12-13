@@ -9,6 +9,7 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
+import verifTLUtils._
 
 class TLXbarTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -19,7 +20,7 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
 
       // Multi Driver/Monitor
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 500
 
       val inputTransactions = Seq(
@@ -32,7 +33,7 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       for (out <- output) {
         println(out)
@@ -46,11 +47,11 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
 
       // XBar DUT
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
 
       // HW Reference
       val passInAgentRef = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
-      val passOutAgentRef = new TLMonitorMaster(c.clock, TLRAMSlave.inRef)
+      val passOutAgentRef = new TLMonitor(c.clock, TLRAMSlave.inRef)
 
       val simCycles = 500
 
@@ -67,8 +68,8 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
       passInAgentRef.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
-      val outputRef = passOutAgentRef.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val outputRef = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
         outputRef, {t : TLTransaction => t}))
@@ -81,11 +82,11 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
 
       // Master 1
       val passInAgentOne = new TLDriverMaster(c.clock, TLRAMSlave.inOne)
-      val passOutAgentOne = new TLMonitorMaster(c.clock, TLRAMSlave.inOne)
+      val passOutAgentOne = new TLMonitor(c.clock, TLRAMSlave.inOne)
 
       // Master 2
       val passInAgentTwo = new TLDriverMaster(c.clock, TLRAMSlave.inTwo)
-      val passOutAgentTwo = new TLMonitorMaster(c.clock, TLRAMSlave.inTwo)
+      val passOutAgentTwo = new TLMonitor(c.clock, TLRAMSlave.inTwo)
 
       val simCycles = 500
 
@@ -115,8 +116,8 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
       passInAgentTwo.push(inputTransactionsTwo)
       c.clock.step(simCycles)
 
-      val outputOne = passOutAgentOne.getMonitoredTransactions.toArray
-      val outputTwo = passOutAgentTwo.getMonitoredTransactions.toArray
+      val outputOne = passOutAgentOne.getMonitoredTransactions(filterD).toArray
+      val outputTwo = passOutAgentTwo.getMonitoredTransactions(filterD).toArray
 
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX

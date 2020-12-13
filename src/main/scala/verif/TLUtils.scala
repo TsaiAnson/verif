@@ -70,7 +70,7 @@ case class AccessAckData(size: UInt, denied: Bool, data: UInt, source: UInt = 0.
 case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt], source: UInt = 0.U) extends TLTransaction
 case class HintAck(size: UInt, denied: Bool, source: UInt = 0.U) extends TLTransaction
 
-package object VerifTLUtils {
+package object verifTLUtils {
   // Temporary location for parameters
   def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
@@ -304,10 +304,15 @@ package object VerifTLUtils {
     }
   }
 
-  // Helper method to see if transaction is AccessAck
-  def isAccessAck (bnd : TLChannel): Boolean = {
+  // Helper method to see if transaction is non-Burst
+  // Only checking A and D bundles
+  def isNoneBurst (bnd : TLChannel): Boolean = {
     bnd match {
       case _: TLBundleA =>
+        val bndc = bnd.asInstanceOf[TLBundleA]
+        if (bndc.opcode.litValue() == 4) {
+          return true
+        }
         false
       case _: TLBundleD =>
         val bndc = bnd.asInstanceOf[TLBundleD]
@@ -329,7 +334,7 @@ package object VerifTLUtils {
     while (txnsQ.nonEmpty) {
       var txnCount = ceil(getTLBundleDataSizeBytes(txnsQ.front) / beatBytes.toDouble).toInt
       // Overriding txnCount to 1 if just AccessAck
-      txnCount = if (isAccessAck(txnsQ.front)) 1 else txnCount
+      txnCount = if (isNoneBurst(txnsQ.front)) 1 else txnCount
       val newList = new ListBuffer[TLChannel]
       for ( _ <- 0 until txnCount) {
         newList += txnsQ.dequeue()
@@ -560,6 +565,42 @@ package object VerifTLUtils {
           AccessAck(size = 0.U, source = bndc.source, denied = true.B)
 
         }
+    }
+  }
+
+  // Helper methods for filtering monitored transactions
+  def filterA (txn : TLChannel) : Boolean = {
+    txn match {
+      case _: TLBundleA => true
+      case _ => false
+    }
+  }
+
+  def filterB (txn : TLChannel) : Boolean = {
+    txn match {
+      case _: TLBundleB => true
+      case _ => false
+    }
+  }
+
+  def filterC (txn : TLChannel) : Boolean = {
+    txn match {
+      case _: TLBundleC => true
+      case _ => false
+    }
+  }
+
+  def filterD (txn : TLChannel) : Boolean = {
+    txn match {
+      case _: TLBundleD => true
+      case _ => false
+    }
+  }
+
+  def filterE (txn : TLChannel) : Boolean = {
+    txn match {
+      case _: TLBundleE => true
+      case _ => false
     }
   }
 }

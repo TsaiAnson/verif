@@ -14,6 +14,7 @@ import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import freechips.rocketchip.util._
+import verifTLUtils._
 
 //case object MyBundleData extends DataKey[UInt]("data")
 //case class MyBundleDataField(width: Int) extends SimpleBundleField(MyBundleData)(Output(UInt(width.W)), 0.U)
@@ -28,7 +29,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 100
 
       val inputTransactions = Seq(
@@ -52,7 +53,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       // TODO Add software model here
       val swoutput = Array(

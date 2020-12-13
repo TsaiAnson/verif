@@ -9,7 +9,7 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verif.VerifTLUtils._
+import verifTLUtils._
 
 class TLRAMTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -19,7 +19,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
       val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
@@ -28,7 +28,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       // No SW output checking as RAMModel checks for correctness
     }
@@ -39,7 +39,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
       val inputTransactions = Seq(
@@ -52,7 +52,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       for (out <- output) {
         println(out)
@@ -65,7 +65,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
       // Note that there are no hints - Some assertions fail in Model when used.
@@ -81,7 +81,7 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions.toArray
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
 
       for (out <- output) {
         println(out)
