@@ -9,19 +9,20 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
+import verif.VerifTLUtils._
 
 class TLRAMTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test TLRAM via SWTLFuzzer" in {
-    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      val fuz = new SWTLFuzzer(TLRAMSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)
@@ -29,16 +30,12 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
 
       val output = passOutAgent.getMonitoredTransactions.toArray
 
-      for (out <- output) {
-        println(out)
-      }
-//      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
-//        swoutput, {t : TLTransaction => t}))
+      // No SW output checking as RAMModel checks for correctness
     }
   }
 
   it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
-    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
@@ -64,14 +61,13 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
   }
 
   it should "Basic Unittest of UH Transactions (Atomics, Hints)" in {
-    val TLRAMSlave = LazyModule(new VerifTLRAMSlave with VerifTLStandaloneBlock)
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      // Note that there are no bursts - Will add once I figure out issue
       // Note that there are no hints - Some assertions fail in Model when used.
       val inputTransactions = Seq(
 //        Intent(param = 1.U, size = 3.U, addr = 0x0.U, mask = 0xff.U), PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x1234.U),

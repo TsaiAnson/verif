@@ -9,6 +9,7 @@ import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
 import verif.VerifTLUtils._
 
+// Keeping as reference
 trait VerifTLStandaloneBlock extends LazyModule {
   val masterParams = standaloneMasterParams
   val slaveParams = standaloneSlaveParams
@@ -20,7 +21,8 @@ trait VerifTLStandaloneBlock extends LazyModule {
   val TLSlave: TLInwardNode
 
    ioOutNode :=
-     TLToBundleBridge(standaloneSlaveParams) := TLMaster
+     TLToBundleBridge(standaloneSlaveParams) :=
+     TLMaster
 
   TLSlave :=
     BundleBridgeToTL(standaloneMasterParams) :=
@@ -39,12 +41,13 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
     beatBytes = 8,
     concurrency = 1)
 
-  // Filler for now
-  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
-    name = "testmaster",
-    sourceId = IdRange(0,1),
-    requestFifo = true,
-    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+  // Standalone Connections
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val in = InModuleBody { ioInNode.makeIO() }
+
+  TLSlave :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNode
 
   lazy val module = new LazyModuleImp(this) {
     val regs = RegInit(VecInit(Seq.fill(64)(0.U(64.W))))
@@ -57,19 +60,20 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
 }
 
 class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
-  val device = new SimpleDevice("VerifTLRAMSlave", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
   val model = LazyModule(new TLRAMModel("TLRAMModel"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
-  ram.node := model.node
-  val TLSlave = model.node
+  val frag = TLFragmenter(8, 32)
+  ram.node := model.node := frag
+  val TLSlave = frag
 
-  // Filler for now
-  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
-    name = "testmaster",
-    sourceId = IdRange(0,1),
-    requestFifo = true,
-    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+  // Standalone Connections
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val in = InModuleBody { ioInNode.makeIO() }
+
+  TLSlave :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNode
 
   lazy val module = new LazyModuleImp(this) {}
 }
@@ -83,12 +87,13 @@ class VerifTLXbarRAMSimpleSlave(implicit p: Parameters) extends LazyModule {
   ram.node := model.node := TLBuffer() := xbar.node
   val TLSlave = xbar.node
 
-  // Filler for now
-  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
-    name = "testmaster",
-    sourceId = IdRange(0,1),
-    requestFifo = true,
-    visibility = Seq(AddressSet(0x1000, 0xfff)))))))
+  // Standalone Connections
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val in = InModuleBody { ioInNode.makeIO() }
+
+  TLSlave :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNode
 
   lazy val module = new LazyModuleImp(this) {}
 }
@@ -114,6 +119,8 @@ class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends L
   // Connections
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
   val ioInNodeRef = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val in = InModuleBody { ioInNode.makeIO() }
+  val inRef = InModuleBody { ioInNodeRef.makeIO() }
 
   TLSlave :=
     BundleBridgeToTL(standaloneMasterParams) :=
@@ -121,9 +128,6 @@ class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends L
   TLReference :=
     BundleBridgeToTL(standaloneMasterParams) :=
     ioInNodeRef
-
-  val in = InModuleBody { ioInNode.makeIO() }
-  val inRef = InModuleBody { ioInNodeRef.makeIO() }
 
   lazy val module = new LazyModuleImp(this) {}
 }
@@ -143,6 +147,8 @@ class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule
   // Connections
   val ioInNodeOne = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsOne, standaloneSlaveParams)))
   val ioInNodeTwo = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsTwo, standaloneSlaveParams)))
+  val inOne = InModuleBody { ioInNodeOne.makeIO() }
+  val inTwo = InModuleBody { ioInNodeTwo.makeIO() }
 
   xbar.node := TLBuffer() :=
     BundleBridgeToTL(standaloneMasterParamsOne) :=
@@ -151,28 +157,25 @@ class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule
     BundleBridgeToTL(standaloneMasterParamsTwo) :=
     ioInNodeTwo
 
-  val inOne = InModuleBody { ioInNodeOne.makeIO() }
-  val inTwo = InModuleBody { ioInNodeTwo.makeIO() }
-
   lazy val module = new LazyModuleImp(this) {}
 }
 
 // Example of manual Master
 class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLCustomMaster", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
-  // Filler for now
-  val TLSlave = TLRegisterNode(
-    address = Seq(AddressSet(0x0, 0xfff)),
-    device = device,
-    beatBytes = 8,
-    concurrency = 1)
+  val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
+    name = "testmaster",
+    sourceId = IdRange(0,1),
+    requestFifo = true,
+    visibility = Seq(AddressSet(0x0, 0xfff)))))))
 
-    val TLMaster = TLClientNode(Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(
-      name = "testmaster",
-      sourceId = IdRange(0,1),
-      requestFifo = true,
-      visibility = Seq(AddressSet(0x0, 0xfff)))))))
+  // Standalone Connections
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val out = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode :=
+    TLToBundleBridge(standaloneSlaveParams) :=
+    TLMaster
 
   lazy val module = new LazyModuleImp(this) {
     val (out, edge) = TLMaster.out(0)
@@ -207,17 +210,17 @@ class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
 }
 
 class VerifTLMasterPattern(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLMasterPattern", Seq("veriftldriver,veriftlmonitor,testmaster"))
-
-  // Filler for now
-  val TLSlave = TLRegisterNode(
-    address = Seq(AddressSet(0x0, 0xfff)),
-    device = device,
-    beatBytes = 8,
-    concurrency = 1)
 
   val patternp = LazyModule(new TLPatternPusher("patternpusher", txns))
   val TLMaster = patternp.node
+
+  // Standalone Connections
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val out = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode :=
+    TLToBundleBridge(standaloneSlaveParams) :=
+    TLMaster
 
   lazy val module = new LazyModuleImp(this) {
     val testIO = IO(new Bundle {
@@ -231,16 +234,16 @@ class VerifTLMasterPattern(txns: Seq[Pattern])(implicit p: Parameters) extends L
 }
 
 class VerifTLMasterFuzzer(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLMasterFuzzer", Seq("veriftldriver,veriftlmonitor,testmaster"))
-
-  // Filler for now
-  val TLSlave = TLRegisterNode(
-    address = Seq(AddressSet(0x0, 0xfff)),
-    device = device,
-    beatBytes = 8,
-    concurrency = 1)
 
   val TLMaster = TLFuzzer(30, inFlight=1)
+
+  // Standalone Connections
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val out = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode :=
+    TLToBundleBridge(standaloneSlaveParams) :=
+    TLMaster
 
   lazy val module = new LazyModuleImp(this) {}
 }

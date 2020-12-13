@@ -7,14 +7,14 @@ import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
+import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 
 class TLXbarTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test TLXbarRAM with directed transactions basic" in {
-    val TLRAMSlave = LazyModule(new VerifTLXbarRAMSimpleSlave with VerifTLStandaloneBlock)
+    val TLRAMSlave = LazyModule(new VerifTLXbarRAMSimpleSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Multi Driver/Monitor

@@ -7,23 +7,25 @@ import chisel3._
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
+import verif.VerifTLUtils._
 
 class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
-  it should "VerifTL Test RegBank via SWTLFuzzer" in {
-    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
-    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+  // Ignoring test since SWRegBank is outdated
+  it should "VerifTL Test RegBank via SWTLFuzzer" ignore {
+    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
+    test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
       val simCycles = 150
 
-      val fuz = new SWTLFuzzer(TLRegBankSlave.slaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)

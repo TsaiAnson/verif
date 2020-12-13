@@ -6,7 +6,7 @@ import chisel3.util.Decoupled
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.system.BaseConfig
@@ -24,8 +24,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test Slave" in {
-    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave with VerifTLStandaloneBlock)
-    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
+    test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitorMaster(c.clock, TLRegBankSlave.in)
@@ -75,8 +75,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
   }
 
   it should "VerifTL Test Master Fuzzer" in {
-    val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer with VerifTLStandaloneBlock)
-    test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
+    test(TLMasterFuzzer.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
       val passInAgent = new TLDriverSlave(c.clock, TLMasterFuzzer.out)
@@ -103,7 +103,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 //      ReadExpectPattern(0x8, 3, 11), WritePattern(0x28, 3, 11),
 //      ReadExpectPattern(0x10, 3, 12),WritePattern(0x30, 3, 12),
 //      ReadExpectPattern(0x18, 3, 13), WritePattern(0x38, 3, 13))
-//    val TLMasterPattern = LazyModule(new VerifTLMasterPattern(mastertxns) with VerifTLStandaloneBlock)
+//    val TLMasterPattern = LazyModule(new VerifTLMasterPattern(mastertxns))
 //    test(TLMasterPattern.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 //
 //      // Currently just recording requests, only Driver is needed
@@ -134,8 +134,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 //  }
 
   it should "VerifTL Test Master" in {
-    val TLCustomMaster = LazyModule(new VerifTLCustomMaster with VerifTLStandaloneBlock)
-    test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
+    test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
       val passInAgent = new TLDriverSlave(c.clock, TLCustomMaster.out)
