@@ -5,13 +5,13 @@ import chisel3._
 import chiseltest._
 import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.util.ShiftQueue
 
 class ShiftQueueTest extends FlatSpec with ChiselScalatestTester {
 
   it should "ShiftQueue Test" in {
-    test(new ShiftQueue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(new ShiftQueue(UInt(8.W), 8)).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)

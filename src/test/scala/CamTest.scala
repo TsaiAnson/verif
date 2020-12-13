@@ -4,14 +4,14 @@ import org.scalatest._
 import chisel3._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import designs.{CAMIO, ParameterizedCAMAssociative}
 import chisel3.experimental.BundleLiterals._
 
 class CamTest extends FlatSpec with ChiselScalatestTester {
 	it should "cam test" in {
 		test(new ParameterizedCAMAssociative(8,8,8))
-			.withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+			.withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 				implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 				val camInAgent = new GenericDriver[CAMIO](c.clock, c.io)
 				val camOutAgent = new GenericMonitor[CAMIO](c.clock, c.io)

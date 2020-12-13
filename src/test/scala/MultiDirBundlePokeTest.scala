@@ -9,7 +9,7 @@ import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
 import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.DataMirror._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.VerilatorBackendAnnotation
 
 
 // Defining module here for simplicity
@@ -31,7 +31,7 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
   // Cannot poke duplex bundle using "poke"
   it should "fail multi dir bundle poke test" in {
     assertThrows[chiseltest.UnpokeableException] {
-      test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+      test(new MultiDirBundleIOModule).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
 
         val protoTx = MultiDirBundleIO()
         val inputTransactions = Seq(
@@ -52,7 +52,7 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
 
   // Can poke duplex bundle using data mirror (optimized with caching input fields)
   it should "data mirror multi dir bundle poke test" in {
-    test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+    test(new MultiDirBundleIOModule).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
 
       val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
@@ -82,7 +82,7 @@ class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
 
   // Can poke using pokePartial implementation (which uses data mirror under the hood)
   it should "partial poke multi dir bundle poke test" in {
-    test(new MultiDirBundleIOModule).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+    test(new MultiDirBundleIOModule).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
 
       val protoTx = MultiDirBundleIO()
       val inputTransactions = Seq(
