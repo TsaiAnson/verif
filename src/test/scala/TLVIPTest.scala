@@ -156,4 +156,42 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       println("")
     }
   }
+
+  // TODO Figure out if Master/Slave feedback can work
+  it should "Temp Sanity Test for Driver Feedback" ignore {
+    val TLFeedback = LazyModule(new VerifTLMasterSlaveFeedback)
+    test(TLFeedback.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      // Drivers/Monitors
+      val mDriver = new TLDriverMaster(c.clock, TLFeedback.in)
+      val sDriver = new TLDriverSlaveNew(c.clock, TLFeedback.out, testResponse)
+
+      val monitor = new TLMonitor(c.clock, TLFeedback.in)
+
+
+      val simCycles = 500
+
+      val inputTransactions = Seq(
+        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U)
+      )
+
+      mDriver.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = monitor.getMonitoredTransactions().toArray
+
+      // Transactions
+      for (out <- output) {
+        println(out)
+      }
+
+      // State Map
+      val hash = sDriver.getState()
+      for (x <- hash.keys) {
+        print(s"(${x}, ${hash(x)}), ")
+      }
+      println("")
+    }
+  }
 }

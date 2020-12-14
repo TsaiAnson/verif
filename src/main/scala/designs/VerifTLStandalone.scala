@@ -247,3 +247,21 @@ class VerifTLMasterFuzzer(implicit p: Parameters) extends LazyModule  {
 
   lazy val module = new LazyModuleImp(this) {}
 }
+
+// Connects Master and Slave Drivers together
+class VerifTLMasterSlaveFeedback(implicit p: Parameters) extends LazyModule  {
+
+  // IO Connections (Master and Slave are directly connected)
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val in = InModuleBody { ioInNode.makeIO() }
+  val out = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode :=
+    TLToBundleBridge(standaloneSlaveParams) :=
+    TLIdentityNode() :=
+    BundleBridgeToTL(standaloneMasterParams) :=
+    ioInNode
+
+  lazy val module = new LazyModuleImp(this) {}
+}
