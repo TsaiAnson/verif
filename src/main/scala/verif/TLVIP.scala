@@ -3,8 +3,7 @@ package verif
 import chisel3._
 import chiseltest._
 import freechips.rocketchip.tilelink._
-import scala.collection.mutable
-import scala.collection.mutable.{Queue,ListBuffer}
+import scala.collection.mutable.{Queue,ListBuffer,MutableList,HashMap}
 import verifTLUtils._
 
 // Functions for TL Master VIP
@@ -420,11 +419,71 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
 }
 
 // TLDriver acting as a Slave node
+// Takes in a response function for processing requests
+class TLDriverSlaveNew(clock: Clock, interface: TLBundle, response: (TLTransaction, HashMap[Int, Int]) =>
+  (TLTransaction, HashMap[Int, Int])) extends VerifTLSlaveFunctions {
+
+  val clk = clock
+  val TLChannels = interface
+  val txns = ListBuffer[TLChannel]()
+  var state = HashMap[Int,Int]()
+
+  def initState (init : HashMap[Int,Int]) : Unit = {
+    state = init;
+  }
+
+  def getState () : HashMap[Int,Int] = {
+    state
+  }
+
+  // Responsible for collecting requests and calling on the user-defined response method
+  def process(a : TLBundleA) : Unit = {
+    // Adding request to buffer (to collect for burst)
+    txns += a
+
+    // Checking if list buffer has complete TLTransaction
+    if (isCompleteTLTxn(txns.toList)) {
+      // Converting to TLTransaction
+      val tltxn = TLBundlestoTLTransaction(txns.toList)
+      txns.clear()
+
+      // Calling on response function
+      val tuple = response(tltxn, state)
+      state = tuple._2
+
+      // Converting back to TLChannels
+      val responses = TLTransactiontoTLBundles(tuple._1)
+
+      // Writing response(s)
+      for (resp <- responses) {
+        writeD(resp.asInstanceOf[TLBundleD])
+
+        // Clock step called here
+        // We won't be getting any requests since A ready is low
+        clk.step()
+      }
+
+    } else {
+      // Step clock even if no response is driven (for burst requests)
+      clock.step()
+    }
+  }
+
+  // Currently just processes the requests from master
+  fork {
+    reset()
+    while (true) {
+      process(readA())
+    }
+  }
+}
+
+// TLDriver acting as a Slave node
 // TODO Currently drives DChannel (results)
 class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
   // Acting like "regmap"
   // TODO: Add byte-level addressing
-  var hash = mutable.HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
+  var hash = HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
 
   val clk = clock
 
@@ -432,7 +491,7 @@ class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunct
 
   val txns = Queue[TLTransaction]()
 
-  def getMonitoredTransactions: mutable.MutableList[TLTransaction] = {
+  def getMonitoredTransactions: MutableList[TLTransaction] = {
 //    for (x <- hash.keys) {
 //      print(s"(${x}, ${hash(x)}), ")
 //    }

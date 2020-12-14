@@ -1,13 +1,19 @@
 package verif
 
+import chipsalliance.rocketchip.config.Parameters
 import org.scalatest._
 import chisel3._
 import chiseltest._
-import scala.util.Random
-
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import designs.{VerifTLCustomMaster, VerifTLMasterSlaveFeedback}
+import freechips.rocketchip.diplomacy.LazyModule
+import freechips.rocketchip.subsystem.WithoutTLMonitors
+import chiseltest.experimental.TestOptionBuilder._
 import verifTLUtils._
 
 class TLVIPTest extends FlatSpec with ChiselScalatestTester {
+  implicit val p: Parameters = new WithoutTLMonitors
+
   // Will fix up once I figure out bug with new Burst transactions
 //  it should "Test Transaction MIXIN Equality" in {
 //    val randGen = new Random()
@@ -121,6 +127,33 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       println(s"Result: ${result}")
 //      assert (txn == result)
       i += 1
+    }
+  }
+
+  it should "Temp Sanity Test for New SDriver Skeleton" in {
+    val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
+    test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      // Currently just recording requests, only Driver is needed
+      val sDriver = new TLDriverSlaveNew(c.clock, TLCustomMaster.out, testResponse)
+      val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
+      val simCycles = 80
+
+      c.clock.step(simCycles)
+
+      val output = monitor.getMonitoredTransactions().toArray
+
+      // Transactions
+      for (out <- output) {
+        println(out)
+      }
+
+      // State Map
+      val hash = sDriver.getState()
+      for (x <- hash.keys) {
+        print(s"(${x}, ${hash(x)}), ")
+      }
+      println("")
     }
   }
 }

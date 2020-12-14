@@ -6,7 +6,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import chisel3.experimental.BundleLiterals._
 
-import scala.collection.mutable.{ListBuffer, Queue}
+import scala.collection.mutable.{ListBuffer, Queue, HashMap}
 import scala.math.ceil
 
 trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
@@ -323,9 +323,21 @@ package object verifTLUtils {
     }
   }
 
+  // Helper method to test if given TLBundles (TLChannels) make up a complete TLTransaction
+  def isCompleteTLTxn (txns: List[TLChannel]) : Boolean = {
+    // TODO Hardcoded, update when configurability is added
+    val beatBytes = 8
+    val expectedTxnCount = if (isNoneBurst(txns.head)) 1 else
+      ceil(getTLBundleDataSizeBytes(txns.head) / beatBytes.toDouble).toInt
+
+    // Currently only checks count
+    // TODO Add checks for consistency (size, source, opcode, etc)
+    txns.length == expectedTxnCount
+  }
+
   // Helper method to group together burst TLBundles
   def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
-    // Hardcoded for now, update when configurability is added
+    // TODO Hardcoded for now, update when configurability is added
     val beatBytes = 8
     val txnsQ = new Queue[TLChannel]()
     txnsQ ++= txns
@@ -602,5 +614,67 @@ package object verifTLUtils {
       case _: TLBundleE => true
       case _ => false
     }
+  }
+
+  // Response function required for TL SDrivers
+  // TODO Sanity test for now, no state changes
+  def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
+    val beatBytesSize = 3
+    var responseTLTxn : TLTransaction = AccessAck(0.U, true.B)
+
+    // State Update (Test)
+    if (state.contains(0)) {
+      state(0) = state(0) + 1
+    } else {
+      state(0) = 0
+    }
+
+    // Transaction response
+    input match {
+      case _: Get =>
+        val txnc = input.asInstanceOf[Get]
+        if (txnc.size.litValue() > beatBytesSize)
+          responseTLTxn = AccessAckDataBurst(size = txnc.size, denied = false.B, datas = List(0.U(64.W), 1.U(64.W)))
+        else
+          responseTLTxn = AccessAckData(size = txnc.size, denied = false.B, data = 1.U(64.W))
+
+      case _: PutFull =>
+        val txnc = input.asInstanceOf[PutFull]
+        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+
+      case _: PutFullBurst =>
+        val txnc = input.asInstanceOf[PutFullBurst]
+        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+
+      case _: PutPartial =>
+        val txnc = input.asInstanceOf[PutPartial]
+        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+
+      case _: PutPartialBurst =>
+        val txnc = input.asInstanceOf[PutPartialBurst]
+        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+
+      case _: ArithData =>
+        val txnc = input.asInstanceOf[ArithData]
+        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+
+      case _: ArithDataBurst =>
+        val txnc = input.asInstanceOf[ArithDataBurst]
+        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+
+      case _: LogicData =>
+        val txnc = input.asInstanceOf[LogicData]
+        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+
+      case _: LogicDataBurst =>
+        val txnc = input.asInstanceOf[LogicDataBurst]
+        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+
+      case _: Intent =>
+        val txnc = input.asInstanceOf[Intent]
+        responseTLTxn = HintAck(size = txnc.size, denied = false.B)
+    }
+
+    (responseTLTxn, state)
   }
 }
