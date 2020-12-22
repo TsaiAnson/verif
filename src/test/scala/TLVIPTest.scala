@@ -10,6 +10,7 @@ import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
 import verifTLUtils._
+import scala.collection.mutable.HashMap
 
 class TLVIPTest extends FlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -128,6 +129,11 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
 //      assert (txn == result)
       i += 1
     }
+
+    println(PutFull(addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)) == PutFull(addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)))
+
+    println(PutFullBurst(size = 4.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))) ==
+      PutFullBurst(size = 4.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))))
   }
 
   it should "Temp Sanity Test for New SDriver Skeleton" in {
@@ -135,9 +141,13 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
     test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val sDriver = new TLDriverSlaveNew(c.clock, TLCustomMaster.out, testResponse)
+      val sDriver = new TLDriverSlaveNew(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 80
+
+      // State testing
+      val init_state = HashMap[Int,Int]()
+      sDriver.setState(init_state)
 
       c.clock.step(simCycles)
 
@@ -149,37 +159,56 @@ class TLVIPTest extends FlatSpec with ChiselScalatestTester {
       }
 
       // State Map
+      println("Resulting State")
       val hash = sDriver.getState()
       for (x <- hash.keys) {
         print(s"(${x}, ${hash(x)}), ")
       }
       println("")
+
+      // Init State (making sure that the original state was not modified)
+      println("Initial State")
+      for (x <- init_state.keys) {
+        print(s"(${x}, ${init_state(x)}), ")
+      }
+      println("")
     }
   }
 
-  // TODO Figure out if Master/Slave feedback can work
-  it should "Temp Sanity Test for Driver Feedback" ignore {
+  it should "Test for New SDriver" in {
     val TLFeedback = LazyModule(new VerifTLMasterSlaveFeedback)
     test(TLFeedback.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Drivers/Monitors
       val mDriver = new TLDriverMaster(c.clock, TLFeedback.in)
-      val sDriver = new TLDriverSlaveNew(c.clock, TLFeedback.out, testResponse)
+      val sDriver = new TLDriverSlaveNew(c.clock, TLFeedback.out, HashMap[Int,Int](), testResponse)
 
       val monitor = new TLMonitor(c.clock, TLFeedback.in)
-
 
       val simCycles = 500
 
       val inputTransactions = Seq(
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
+        PutFullBurst(size = 4.U, addr = 0x0.U, masks = List(0xff.U, 0xff.U), datas = List(0x3333.U, 0x1234.U)),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
         Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
-        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U)
+        LogicData(param = 2.U, addr = 0x0.U, mask = 0xff.U, data = 0.U),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
+        LogicDataBurst(param = 2.U, addr = 0x0.U, size = 4.U, masks = List(0xff.U, 0xff.U), datas = List(0.U, 0.U)),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
+        ArithData(param = 4.U, addr = 0x0.U, mask = 0xff.U, data = 0x8000.U),
+        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
+        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
+        ArithDataBurst(param = 4.U, addr = 0x0.U, size = 4.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x3333.U)),
       )
 
       mDriver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = monitor.getMonitoredTransactions().toArray
+      val output = monitor.getMonitoredTransactions(filterD).toArray
 
       // Transactions
       for (out <- output) {

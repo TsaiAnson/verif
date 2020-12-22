@@ -9,11 +9,8 @@ import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
-import freechips.rocketchip.system.BaseConfig
-import freechips.rocketchip.tilelink._
-import chisel3.experimental.BundleLiterals._
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import freechips.rocketchip.util._
+import scala.collection.mutable.HashMap
 import verifTLUtils._
 
 //case object MyBundleData extends DataKey[UInt]("data")
@@ -75,18 +72,17 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "VerifTL Test Master Fuzzer" in {
+  it should "VerifTL Test Master Fuzzer" ignore {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
     test(TLMasterFuzzer.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLDriverSlave(c.clock, TLMasterFuzzer.out)
-      //      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
+      val requestHandler = new TLDriverSlaveNew(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
+      val monitor = new TLMonitor(c.clock, TLMasterFuzzer.out)
       val simCycles = 100
 
       c.clock.step(simCycles)
 
-      val output = passInAgent.getMonitoredTransactions.toArray
+      val output = monitor.getMonitoredTransactions().toArray
 
       // Sanity test to make sure that driver/monitor is correctly getting requests
       assert(output.length == 30)
@@ -134,21 +130,20 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 //    }
 //  }
 
-  it should "VerifTL Test Master" in {
+  it should "VerifTL Test Master" ignore {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
     test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      // Currently just recording requests, only Driver is needed
-      val passInAgent = new TLDriverSlave(c.clock, TLCustomMaster.out)
-//      val passOutAgent = new TLMasterMonitorBasic(c.clock, TLPassthrough.out)
-      val simCycles = 80
+      val requestHandler = new TLDriverSlaveNew(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
+      val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
+      val simCycles = 100
 
       c.clock.step(simCycles)
 
-      val output = passInAgent.getMonitoredTransactions.toArray
+      val outputA = monitor.getMonitoredTransactions(filterA).toArray
 
       // TODO Add software model here
-      val swoutput = Array(
+      val swoutputA = Array(
         Get(size = 3.U, addr = 0.U(64.W), mask = 0xff.U),
         PutFull(addr = 0x20.U(64.W), mask = 0xff.U, data = 10.U(64.W)),
         Get(size = 3.U, addr = 0x8.U(64.W), mask = 0xff.U),
@@ -158,11 +153,8 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
         Get(size = 3.U, addr = 0x18.U(64.W), mask = 0xff.U),
         PutFull(addr = 0x38.U(64.W), mask = 0xff.U, data = 13.U(64.W)))
 
-//      for (out <- output) {
-//        println(out.getElements)
-//      }
-      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
-        swoutput, {t : TLTransaction => t}))
+      assert(outputChecker.checkOutput(outputA, {t : TLTransaction => t},
+        swoutputA, {t : TLTransaction => t}))
     }
   }
 }

@@ -16,38 +16,35 @@ trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
       val fields = this.getClass.getDeclaredFields
       for (field <- fields) {
         field.setAccessible(true)
-        result &= field.get(this).asInstanceOf[Data].litValue() == field.get(that).asInstanceOf[Data].litValue()
+        if (field.get(this).isInstanceOf[List[UInt]]) {
+          result &= field.get(this).asInstanceOf[List[UInt]].map((x: UInt) => x.litValue()).sameElements(
+            field.get(that).asInstanceOf[List[UInt]].map((x: UInt) => x.litValue()))
+        } else {
+          result &= field.get(this).asInstanceOf[Data].litValue() == field.get(that).asInstanceOf[Data].litValue()
+        }
       }
-
-      // Version using getElements
-      // Has a strange bug where elements are sometimes out of order, and equivalent objects would return false
-      //      that.asInstanceOf[Bundle].getElements.zipWithIndex.foreach { t : (Data, Int) =>
-      //        result &= (this.getElements(t._2).litValue() == t._1.litValue())
-      //      }
     }
     result
   }
 
   override def toString(): String = {
-    var result = this.className
-    if (this.getElements.nonEmpty) {
-      result += "("
-      this.getElements.foreach {
-        t: Any =>
-          t match {
-            case _: List[Data] =>
-              result += "("
-              val list = t.asInstanceOf[List[Data]]
-              for (d <- list) {
-                result += d.litValue().toString()
-              }
-              result += ")"
-            case _: Data =>
-              result += t.asInstanceOf[Data].litValue().toString() + ", "
-          }
+    var result = this.className + "("
+
+    val fields = this.getClass.getDeclaredFields
+    for (field <- fields) {
+      field.setAccessible(true)
+      if (field.get(this).isInstanceOf[List[UInt]]) {
+        result += field.getName + ": ("
+        for (u <- field.get(this).asInstanceOf[List[UInt]]) {
+          result += u.litValue().toString() + ", "
+        }
+        result = result.slice(0, result.length - 2) + "), "
+      } else {
+        result += field.getName + ": "+ field.get(this).asInstanceOf[Data].litValue().toString() + ", "
       }
-      result = result.slice(0, result.length - 2) + ")"
     }
+    result = result.slice(0, result.length - 2) + ")"
+
     result
   }
 }
@@ -143,95 +140,7 @@ package object verifTLUtils {
   def containsLg(sizes: TransferSizes, lg: UInt) : Boolean = {
     contains(sizes, (1 << lg.litValue().toInt).U)
   }
-
-  // Throws assertions if DUT responds with incorrect fields
-  // NOTE: Currently only supports TL-UL
-  // WILL BE DEPRECATED ONCE SLAVE MODEL HAS BEEN UPDATED
-  def TLBundletoTLTransactionOLD(bnd : TLChannel, TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
-    bnd match {
-      case _: TLBundleA =>
-        val bndc = bnd.asInstanceOf[TLBundleA]
-        if (bndc.opcode.litValue() == 0) {
-
-          assert(TLSParam.supportsPutFull != TransferSizes.none, "Channel does not support PUTFULL requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
-          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
-          assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          //          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
-          assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
-          PutFull(addr = bndc.address, mask = bndc.mask, data = bndc.data)
-
-        } else if (bndc.opcode.litValue() == 1) {
-
-          assert(TLSParam.supportsPutPartial != TransferSizes.none, "Channel does not support PUTPARTIAL requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTPARTIAL TLBundle")
-          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
-          assert(alignedLg(bndc.address, bndc.size), s"PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO Check that high bits are aligned
-          PutPartial(addr = bndc.address, mask = bndc.mask, data = bndc.data)
-
-        } else if (bndc.opcode.litValue() == 4) {
-
-          assert(TLSParam.supportsGet != TransferSizes.none, "Channel does not support GET requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for GET TLBundle")
-          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
-          assert(contiguous(bndc.mask), "GET MASK is not contiguous")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt GET TLBundle")
-          Get(size = bndc.size, addr = bndc.address, mask = bndc.mask)
-
-        } else {
-
-          assert(false, "Invalid OPCODE on A Channel")
-          Get(size = 0.U, addr = 0.U, mask = 0.U)
-
-        }
-      case _: TLBundleD =>
-        val bndc = bnd.asInstanceOf[TLBundleD]
-        if (bndc.opcode.litValue() == 0) {
-
-          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACK TLBundle")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt ACCESSACK TLBundle")
-          AccessAck(size = bndc.size, denied = bndc.denied)
-
-        } else if (bndc.opcode.litValue() == 1) {
-
-          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACKDATA TLBundle")
-          if (bndc.denied.litToBoolean) {
-            assert(bndc.corrupt.litToBoolean, "ACCESSACKDATA denied but not corrupt")
-          }
-          AccessAckData(size = bndc.size, denied = bndc.denied, data = bndc.data)
-
-        } else {
-
-          assert(false, "Invalid OPCODE on D Channel")
-          AccessAck(size = 0.U, denied = true.B)
-
-        }
-    }
-  }
-
-  // WILL BE DEPRECATED ONCE SLAVE MODEL HAS BEEN UPDATED
-  def TLTransactiontoTLBundleOLD(txn : TLTransaction) : TLChannel = {
-    txn match {
-      case _: PutFull =>
-        val txnc = txn.asInstanceOf[PutFull]
-        TLUBundleAHelper(opcode = 0.U, address = txnc.addr, data = txnc.data)
-      case _: PutPartial =>
-        val txnc = txn.asInstanceOf[PutPartial]
-        TLUBundleAHelper(opcode = 0.U, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-      case _: Get =>
-        val txnc = txn.asInstanceOf[Get]
-        TLUBundleAHelper(opcode = 4.U, address = txnc.addr)
-      case _: AccessAck =>
-        TLUBundleDHelper()
-      case _: AccessAckData =>
-        val txnc = txn.asInstanceOf[AccessAckData]
-        TLUBundleDHelper(data = txnc.data)
-    }
-  }
-
+  
   // UGRADED FROM TLTransactiontoTLBundle
   def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
@@ -306,7 +215,7 @@ package object verifTLUtils {
 
   // Helper method to see if transaction is non-Burst
   // Only checking A and D bundles
-  def isNoneBurst (bnd : TLChannel): Boolean = {
+  def isNonBurst (bnd : TLChannel): Boolean = {
     bnd match {
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
@@ -327,7 +236,7 @@ package object verifTLUtils {
   def isCompleteTLTxn (txns: List[TLChannel]) : Boolean = {
     // TODO Hardcoded, update when configurability is added
     val beatBytes = 8
-    val expectedTxnCount = if (isNoneBurst(txns.head)) 1 else
+    val expectedTxnCount = if (isNonBurst(txns.head)) 1 else
       ceil(getTLBundleDataSizeBytes(txns.head) / beatBytes.toDouble).toInt
 
     // Currently only checks count
@@ -339,18 +248,27 @@ package object verifTLUtils {
   def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
     // TODO Hardcoded for now, update when configurability is added
     val beatBytes = 8
-    val txnsQ = new Queue[TLChannel]()
-    txnsQ ++= txns
+    val txnsLB = new ListBuffer[TLChannel]
+    txnsLB ++= txns
     var result = new ListBuffer[List[TLChannel]]
 
-    while (txnsQ.nonEmpty) {
-      var txnCount = ceil(getTLBundleDataSizeBytes(txnsQ.front) / beatBytes.toDouble).toInt
-      // Overriding txnCount to 1 if just AccessAck
-      txnCount = if (isNoneBurst(txnsQ.front)) 1 else txnCount
+    while (txnsLB.nonEmpty) {
+      val txnCount = if (isNonBurst(txnsLB.head)) 1 else ceil(getTLBundleDataSizeBytes(txnsLB.head) / beatBytes.toDouble).toInt
+
+      // Grouping txnCount TLTransactions (of the same type)
       val newList = new ListBuffer[TLChannel]
-      for ( _ <- 0 until txnCount) {
-        newList += txnsQ.dequeue()
+      var index = 0
+      newList += txnsLB.remove(index)
+      // Getting Class as "type"
+      val classType = newList.head.getClass
+      while (newList.length < txnCount) {
+        if (txnsLB(index).getClass.equals(classType)) {
+          newList += txnsLB.remove(index)
+        } else {
+          index += 1
+        }
       }
+
       result += newList.toList
     }
 
@@ -439,7 +357,7 @@ package object verifTLUtils {
 
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsArithmetic != TransferSizes.none, "Channel does not support ARITHMETIC requests.")
-          assert(bndc.param.litValue() > 4, s"Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
+          assert(bndc.param.litValue() > 0 && bndc.param.litValue() <= 4, s"Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
           assert(alignedLg(bndc.address, bndc.size), s"ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Add checks for mask
           assert(!bndc.corrupt.litToBoolean, "Corrupt ARITHMETIC TLBundle")
@@ -472,7 +390,7 @@ package object verifTLUtils {
 
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsLogical != TransferSizes.none, "Channel does not support LOGIC requests.")
-          assert(bndc.param.litValue() > 33, s"Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
+          assert(bndc.param.litValue() > 0 && bndc.param.litValue() <= 3, s"Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
           assert(alignedLg(bndc.address, bndc.size), s"LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Add checks for mask
           assert(!bndc.corrupt.litToBoolean, "Corrupt LOGICAL TLBundle")
@@ -616,65 +534,269 @@ package object verifTLUtils {
     }
   }
 
+  // Arithmetic Helper Functions
+  def max(a : UInt, b : UInt) : UInt = {
+    if (a.litValue() < b.litValue()) b else a
+  }
+
+  def min(a : UInt, b : UInt) : UInt = {
+    if (a.litValue() < b.litValue()) a else b
+  }
+
+  def maxu(a : UInt, b : UInt) : UInt = {
+    // TODO Fix for unsigned
+    if (a.litValue() < b.litValue()) b else a
+  }
+
+  def minu(a : UInt, b : UInt) : UInt = {
+    // TODO Fix for unsigned
+    if (a.litValue() < b.litValue()) a else b
+  }
+
+  def add(a : UInt, b : UInt) : UInt = {
+    // Will overflow
+    (a.litValue() + b.litValue()).U(64.W)
+  }
+
+  // Logistic Helper Functions
+  def xor(a : UInt, b : UInt) : UInt = {
+    (a.litValue() ^ b.litValue()).U(64.W)
+  }
+
+  def or(a : UInt, b : UInt) : UInt = {
+    (a.litValue() | b.litValue()).U(64.W)
+  }
+
+  def and(a : UInt, b : UInt) : UInt = {
+    (a.litValue() & b.litValue()).U(64.W)
+  }
+
+  // a must be the old value
+  def swap(a : UInt, b : UInt) : UInt = {
+    a
+  }
+
+  def toByteMask(mask : UInt) : BigInt = {
+    var maskInt = mask.litValue()
+    var result: BigInt = 0
+    var i = 0
+    do {
+      if ((maskInt & 1) == 1) {
+        result = result | 0xff << (i * 8)
+      }
+      maskInt = maskInt >> 1
+      i = i + 1
+    } while (maskInt > 0 )
+
+    result
+  }
+
+  // State is a byte-addressed HashMap
+  def readData(state: HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
+    val sizeInt = 1 << size.litValue().toInt
+    val addressInt = address.litValue().toInt
+    val byteMask = toByteMask(mask)
+    var tempResult: BigInt = 0
+    var resultList = ListBuffer[UInt]()
+
+    for (i <- 0 until sizeInt) {
+      tempResult = tempResult | (state.getOrElse(addressInt + i, 0) << (i * 8))
+
+      // Separating into separate beats
+      if (i % beatBytes == (beatBytes - 1)) {
+        resultList += (tempResult & byteMask).U((beatBytes * 8).W)
+        tempResult = 0
+      }
+    }
+
+    // Any dangling data
+    if (tempResult != 0) {
+      resultList += (tempResult & byteMask).U((beatBytes * 8).W)
+    }
+
+    resultList.toList
+  }
+
+  // State is a byte-addressed HashMap
+  def writeData(state : HashMap[Int,Int], size: UInt, address: UInt, datas: List[UInt], masks: List[UInt], beatBytes: Int = 8): Unit = {
+    val sizeInt = 1 << size.litValue().toInt
+    val addressInt = address.litValue().toInt
+    var allData: BigInt = 0
+    var allMask: BigInt = 0
+
+    assert(datas.length == masks.length, "Data and Mask lists are not of equal lengths.")
+
+    // Condensing all data and masks
+    for (i <- 0 until datas.length) {
+      allData = allData | (datas(i).litValue() << (beatBytes * 8 * i))
+      allMask = allMask | (toByteMask(masks(i)) << (beatBytes * 8 * i))
+    }
+
+    // Writing all data with masks
+    val byteMask = (1 << 8) - 1
+    var preMaskData = 0
+    var dataMask = 0
+    for (i <- 0 until sizeInt) {
+      // Getting a byte worth of data
+      preMaskData = (allData & byteMask).toInt
+      dataMask = (allMask & byteMask).toInt
+
+      // Updating HashMap
+      state(addressInt + i) = (state.getOrElse(addressInt + i, 0) & ~dataMask) | (preMaskData & dataMask)
+
+      // Shifting to next byte
+      allData  = allData >> 8
+      allMask = allMask >> 8
+    }
+  }
+
   // Response function required for TL SDrivers
-  // TODO Sanity test for now, no state changes
   def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
     val beatBytesSize = 3
+    // Default response is corrupt transaction
     var responseTLTxn : TLTransaction = AccessAck(0.U, true.B)
-
-    // State Update (Test)
-    if (state.contains(0)) {
-      state(0) = state(0) + 1
-    } else {
-      state(0) = 0
-    }
+    // Making internal copy of state (non-destructive)
+    val state_int = state.clone()
 
     // Transaction response
     input match {
       case _: Get =>
         val txnc = input.asInstanceOf[Get]
+
+        // Read Data
+        val readOut = readData(state = state_int, size = txnc.size, address  = txnc.addr, mask = txnc.mask)
+
         if (txnc.size.litValue() > beatBytesSize)
-          responseTLTxn = AccessAckDataBurst(size = txnc.size, denied = false.B, datas = List(0.U(64.W), 1.U(64.W)))
+          responseTLTxn = AccessAckDataBurst(size = txnc.size, denied = false.B, datas = readOut)
         else
-          responseTLTxn = AccessAckData(size = txnc.size, denied = false.B, data = 1.U(64.W))
+          responseTLTxn = AccessAckData(size = txnc.size, denied = false.B, data = readOut(0))
 
-      case _: PutFull =>
-        val txnc = input.asInstanceOf[PutFull]
-        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+      case _: PutFull | _: PutPartial | _: PutFullBurst | _: PutPartialBurst =>
+        var size  = 0.U
+        var address = 0.U
+        var datas = List[UInt]()
+        var masks  = List[UInt]()
 
-      case _: PutFullBurst =>
-        val txnc = input.asInstanceOf[PutFullBurst]
-        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+        input match {
+          case _: PutFull =>
+            val txnc = input.asInstanceOf[PutFull]
+            size = beatBytesSize.U
+            address = txnc.addr
+            datas = List(txnc.data)
+            masks = List(txnc.mask)
+          case _: PutPartial =>
+            val txnc = input.asInstanceOf[PutPartial]
+            size = beatBytesSize.U
+            address = txnc.addr
+            datas = List(txnc.data)
+            masks = List(txnc.mask)
+          case _: PutFullBurst =>
+            val txnc = input.asInstanceOf[PutFullBurst]
+            size = txnc.size
+            address = txnc.addr
+            datas = txnc.datas
+            masks = txnc.masks
+          case _: PutPartialBurst =>
+            val txnc = input.asInstanceOf[PutPartialBurst]
+            size = txnc.size
+            address = txnc.addr
+            datas = txnc.datas
+            masks = txnc.masks
+        }
 
-      case _: PutPartial =>
-        val txnc = input.asInstanceOf[PutPartial]
-        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+        // Write Data
+        writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
 
-      case _: PutPartialBurst =>
-        val txnc = input.asInstanceOf[PutPartialBurst]
-        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+        // Response
+        responseTLTxn = AccessAck(size = size, denied = false.B)
 
-      case _: ArithData =>
-        val txnc = input.asInstanceOf[ArithData]
-        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+      case _: ArithData | _: ArithDataBurst | _: LogicData | _: LogicDataBurst =>
+        var param = 0.U
+        var size  = 0.U
+        var address = 0.U
+        var datas = List[UInt]()
+        var masks  = List[UInt]()
+        var burst = false
+        var arith = true
 
-      case _: ArithDataBurst =>
-        val txnc = input.asInstanceOf[ArithDataBurst]
-        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+        input match {
+          case _: ArithData =>
+            val txnc = input.asInstanceOf[ArithData]
+            param = txnc.param
+            size = beatBytesSize.U
+            address = txnc.addr
+            datas = List(txnc.data)
+            masks = List(txnc.mask)
 
-      case _: LogicData =>
-        val txnc = input.asInstanceOf[LogicData]
-        responseTLTxn = AccessAck(size = 3.U(2.W), denied = false.B)
+          case _: ArithDataBurst =>
+            val txnc = input.asInstanceOf[ArithDataBurst]
+            param = txnc.param
+            size = txnc.size
+            address = txnc.addr
+            datas = txnc.datas
+            masks = txnc.masks
+            burst = true
+          case _: LogicData =>
+            val txnc = input.asInstanceOf[LogicData]
+            param = txnc.param
+            size = beatBytesSize.U
+            address = txnc.addr
+            datas = List(txnc.data)
+            masks = List(txnc.mask)
+            arith = false
 
-      case _: LogicDataBurst =>
-        val txnc = input.asInstanceOf[LogicDataBurst]
-        responseTLTxn = AccessAck(size = txnc.size, denied = false.B)
+          case _: LogicDataBurst =>
+            val txnc = input.asInstanceOf[LogicDataBurst]
+            param = txnc.param
+            size = txnc.size
+            address = txnc.addr
+            datas = txnc.datas
+            masks = txnc.masks
+            burst = true
+            arith = false
+        }
+
+        var function : (UInt, UInt) => UInt = min
+        if (arith) {
+          // Arithmetic Function
+          param.litValue().toInt match {
+            case 0 => function = min
+            case 1 => function = max
+            case 2 => function = minu
+            case 3 => function = maxu
+            case 4 => function = add
+          }
+        } else {
+          // Logical Function
+          param.litValue().toInt match {
+            case 0 => function = xor
+            case 1 => function = or
+            case 2 => function = and
+            case 3 => function = swap
+          }
+        }
+
+        // Reading Old Data (to return)
+        val oldData = readData(state = state_int, size = size, address = address, mask = 0xff.U)
+
+        // Creating newData (to write)
+        var newData = ListBuffer[UInt]()
+        for (((n, m), o) <- (datas zip masks) zip oldData) {
+          newData += function(o, (n.litValue() & toByteMask(m)).U)
+        }
+
+        writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
+
+        if (burst) responseTLTxn = AccessAckDataBurst(size = size, denied = false.B, datas = oldData)
+        else responseTLTxn = AccessAckData(size = beatBytesSize.U, denied = false.B, data = oldData.head)
 
       case _: Intent =>
         val txnc = input.asInstanceOf[Intent]
-        responseTLTxn = HintAck(size = txnc.size, denied = false.B)
+
+        // Current don't accept hints
+        responseTLTxn = HintAck(txnc.size, denied = true.B)
     }
 
-    (responseTLTxn, state)
+    (responseTLTxn, state_int)
   }
 }

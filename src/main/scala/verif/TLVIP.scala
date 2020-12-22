@@ -3,8 +3,11 @@ package verif
 import chisel3._
 import chiseltest._
 import freechips.rocketchip.tilelink._
-import scala.collection.mutable.{Queue,ListBuffer,MutableList,HashMap}
+
+import scala.collection.mutable.{HashMap, ListBuffer, MutableList, Queue}
 import verifTLUtils._
+
+import scala.reflect.runtime.universe.typeOf
 
 // Functions for TL Master VIP
 // Currently supports TL-UL, (TL-UH)
@@ -72,10 +75,12 @@ trait VerifTLMasterFunctions {
     aC.valid.poke(true.B)
     pokeA(a)
 
+    // Valid for at least one cycle
+    clk.step(1)
+
     while(!aC.ready.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
 
     aC.valid.poke(false.B)
   }
@@ -85,10 +90,12 @@ trait VerifTLMasterFunctions {
 
     bC.ready.poke(true.B)
 
+    // Ready for at least one cycle
+    clk.step(1)
+
     while(!bC.valid.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
     bC.ready.poke(false.B)
 
     peekB()
@@ -100,16 +107,23 @@ trait VerifTLMasterFunctions {
     cC.valid.poke(true.B)
     pokeC(c)
 
+    // Valid for at least one cycle
+    clk.step(1)
+
     while(!cC.ready.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
 
     cC.valid.poke(false.B)
   }
 
   def readD(): TLBundleD = {
     val dC = TLChannels.d
+
+    dC.ready.poke(true.B)
+
+    // Ready for at least one cycle
+    clk.step(1)
 
     while(!dC.valid.peek().litToBoolean) {
       clk.step(1)
@@ -124,10 +138,12 @@ trait VerifTLMasterFunctions {
     eC.valid.poke(true.B)
     pokeE(e)
 
+    // Valid for at least one cycle
+    clk.step(1)
+
     while(!eC.ready.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
 
     eC.valid.poke(false.B)
   }
@@ -211,10 +227,12 @@ trait VerifTLSlaveFunctions {
 
     aC.ready.poke(true.B)
 
+    // Ready for at least one cycle
+    clk.step(1)
+
     while(!aC.valid.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
     aC.ready.poke(false.B)
 
     peekA()
@@ -226,10 +244,12 @@ trait VerifTLSlaveFunctions {
     bC.valid.poke(true.B)
     pokeB(b)
 
+    // Valid for at least one cycle
+    clk.step(1)
+
     while(!bC.ready.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
 
     bC.valid.poke(false.B)
   }
@@ -239,10 +259,13 @@ trait VerifTLSlaveFunctions {
 
     cC.ready.poke(true.B)
 
+    // Ready for at least one cycle
+    clk.step(1)
+
     while(!cC.valid.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
+
     cC.ready.poke(false.B)
 
     peekC()
@@ -254,10 +277,12 @@ trait VerifTLSlaveFunctions {
     dC.valid.poke(true.B)
     pokeD(d)
 
+    // Valid for at least one cycle
+    clk.step(1)
+
     while(!dC.ready.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
 
     dC.valid.poke(false.B)
   }
@@ -267,10 +292,13 @@ trait VerifTLSlaveFunctions {
 
     eC.ready.poke(true.B)
 
+    // Ready for at least one cycle
+    clk.step(1)
+
     while(!eC.valid.peek().litToBoolean) {
       clk.step(1)
     }
-    clk.step(1)
+
     eC.ready.poke(false.B)
 
     peekE()
@@ -352,14 +380,19 @@ trait VerifTLMonitorFunctions {
     TLUBundleEHelper(sink)
   }
 
+  // Non-HW defined "fire" method
+  def fire(channel: Chisel.DecoupledIO[TLChannel]) : Boolean = {
+    channel.ready.peek().litToBoolean && channel.valid.peek().litToBoolean
+  }
+
   // For TL-UL, TL-UH
   def readAD(): List[TLChannel] = {
     var results = ListBuffer[TLChannel]()
 
-    if (TLChannels.a.valid.peek().litToBoolean) {
+    if (fire(TLChannels.a)) {
       results += peekA()
     }
-    if (TLChannels.d.valid.peek().litToBoolean) {
+    if (fire(TLChannels.d)) {
       results += peekD()
     }
 
@@ -370,19 +403,19 @@ trait VerifTLMonitorFunctions {
   def readABCDE(): List[TLChannel] = {
     var results = ListBuffer[TLChannel]()
 
-    if (TLChannels.a.valid.peek().litToBoolean) {
+    if (fire(TLChannels.a)) {
       results += peekA()
     }
-    if (TLChannels.b.valid.peek().litToBoolean) {
+    if (fire(TLChannels.b)) {
       results += peekD()
     }
-    if (TLChannels.c.valid.peek().litToBoolean) {
+    if (fire(TLChannels.c)) {
       results += peekD()
     }
-    if (TLChannels.d.valid.peek().litToBoolean) {
+    if (fire(TLChannels.d)) {
       results += peekD()
     }
-    if (TLChannels.e.valid.peek().litToBoolean) {
+    if (fire(TLChannels.e)) {
       results += peekD()
     }
 
@@ -420,19 +453,19 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
 
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlaveNew(clock: Clock, interface: TLBundle, response: (TLTransaction, HashMap[Int, Int]) =>
-  (TLTransaction, HashMap[Int, Int])) extends VerifTLSlaveFunctions {
+class TLDriverSlaveNew[S](clock: Clock, interface: TLBundle, initState : S, response: (TLTransaction, S) =>
+  (TLTransaction, S)) extends VerifTLSlaveFunctions {
 
   val clk = clock
   val TLChannels = interface
   val txns = ListBuffer[TLChannel]()
-  var state = HashMap[Int,Int]()
+  var state = initState
 
-  def initState (init : HashMap[Int,Int]) : Unit = {
-    state = init;
+  def setState (newState : S) : Unit = {
+    state = newState;
   }
 
-  def getState () : HashMap[Int,Int] = {
+  def getState () : S = {
     state
   }
 
@@ -462,80 +495,17 @@ class TLDriverSlaveNew(clock: Clock, interface: TLBundle, response: (TLTransacti
         // We won't be getting any requests since A ready is low
         clk.step()
       }
-
     } else {
       // Step clock even if no response is driven (for burst requests)
-      clock.step()
-    }
-  }
-
-  // Currently just processes the requests from master
-  fork {
-    reset()
-    while (true) {
-      process(readA())
-    }
-  }
-}
-
-// TLDriver acting as a Slave node
-// TODO Currently drives DChannel (results)
-class TLDriverSlave(clock: Clock, interface: TLBundle) extends VerifTLSlaveFunctions {
-  // Acting like "regmap"
-  // TODO: Add byte-level addressing
-  var hash = HashMap(0 -> 10, 0x08 -> 11, 0x10 -> 12, 0x18 -> 13)
-
-  val clk = clock
-
-  val TLChannels = interface
-
-  val txns = Queue[TLTransaction]()
-
-  def getMonitoredTransactions: MutableList[TLTransaction] = {
-//    for (x <- hash.keys) {
-//      print(s"(${x}, ${hash(x)}), ")
-//    }
-//    println("")
-    txns
-  }
-
-  // Process function currently only takes opcode 0 (FullPut) and 4 (Get)
-  // TODO: Implement PartialPut requests
-  def process(a : TLBundleA) : Unit = {
-    txns += TLBundletoTLTransactionOLD(a)
-
-    if (!(a.opcode.litValue() == 4 || a.opcode.litValue() == 0)) {
-      println(s"ONLY FULL-PUT (0) AND GET (4) OPCODE IS PERMITTED. GIVEN OP: ${a.opcode} EXAMPLE TEST.")
-    }
-
-    var result = 0.U
-    var opcode = 0.U
-    var corrupt = false.B
-    if (a.opcode.litValue() == 0) {
-      hash(a.address.litValue().toInt) = a.data.litValue().toInt
-      result = a.data
-    } else if (a.opcode.litValue() == 4) {
-      if (hash.contains(a.address.litValue().toInt)) {
-        result = hash(a.address.litValue().toInt).U
-      } else {
-        result = 0.U
-      }
-      opcode = 1.U
-    } else {
-      assert(false, s"Unknown opcode: ${a.opcode.litValue()}")
-      // Marking corrupt as indicator
-      corrupt = true.B
-    }
-
-    writeD(TLUBundleDHelper(opcode, a.param, a.size, a.source, 0.U, result, corrupt))
-  }
-
-  // Currently just processes the requests from master
-  fork {
-    reset()
-    while (true) {
-      process(readA())
       clk.step()
+    }
+  }
+
+  // Currently just processes the requests from master
+  fork {
+    reset()
+    while (true) {
+      process(readA())
     }
   }
 }
