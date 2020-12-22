@@ -88,4 +88,34 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       }
     }
   }
+
+  it should "TLRAM Throughput Test" in {
+    val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
+    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
+      val simCycles = 150
+
+      val inputTransactions = Seq(
+        // Four Consecutive Writes (singles)
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x1234.U),
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x1234.U),
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x1234.U),
+        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x1234.U)
+//        // Four Consecutive Writes (burst)
+//        PutFullBurst(size = 5.U, addr = 0x10.U, masks = List(0xff.U, 0xff.U, 0xff.U, 0xff.U),
+//          datas = List(0x1234.U, 0x5678.U, 0x8765.U, 0x4321.U))
+      )
+
+      passInAgent.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+
+      for (out <- output) {
+        println(out)
+      }
+    }
+  }
 }
