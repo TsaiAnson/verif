@@ -140,7 +140,7 @@ package object verifTLUtils {
   def containsLg(sizes: TransferSizes, lg: UInt) : Boolean = {
     contains(sizes, (1 << lg.litValue().toInt).U)
   }
-  
+
   // UGRADED FROM TLTransactiontoTLBundle
   def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
@@ -598,19 +598,22 @@ package object verifTLUtils {
     val byteMask = toByteMask(mask)
     var tempResult: BigInt = 0
     var resultList = ListBuffer[UInt]()
+    var reset = true
 
     for (i <- 0 until sizeInt) {
       tempResult = tempResult | (state.getOrElse(addressInt + i, 0) << (i * 8))
+      reset = false
 
       // Separating into separate beats
       if (i % beatBytes == (beatBytes - 1)) {
         resultList += (tempResult & byteMask).U((beatBytes * 8).W)
         tempResult = 0
+        reset = true
       }
     }
 
     // Any dangling data
-    if (tempResult != 0) {
+    if (!reset) {
       resultList += (tempResult & byteMask).U((beatBytes * 8).W)
     }
 

@@ -72,7 +72,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "VerifTL Test Master Fuzzer" ignore {
+  it should "VerifTL Test Master Fuzzer" in {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
     test(TLMasterFuzzer.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
@@ -85,7 +85,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
       val output = monitor.getMonitoredTransactions().toArray
 
       // Sanity test to make sure that driver/monitor is correctly getting requests
-      assert(output.length == 30)
+      assert(output.length == 60)
 
 //      for (out <- output) {
 //        println(out.getElements)

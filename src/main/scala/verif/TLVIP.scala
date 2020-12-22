@@ -75,12 +75,12 @@ trait VerifTLMasterFunctions {
     aC.valid.poke(true.B)
     pokeA(a)
 
-    // Valid for at least one cycle
-    clk.step(1)
-
     while(!aC.ready.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Valid for at least one cycle
+    clk.step(1)
 
     aC.valid.poke(false.B)
   }
@@ -90,15 +90,19 @@ trait VerifTLMasterFunctions {
 
     bC.ready.poke(true.B)
 
-    // Ready for at least one cycle
-    clk.step(1)
-
     while(!bC.valid.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Read
+    val result = peekB()
+
+    // Ready for at least one cycle
+    clk.step(1)
+
     bC.ready.poke(false.B)
 
-    peekB()
+    result
   }
 
   def writeC(c: TLBundleC): Unit = {
@@ -107,12 +111,12 @@ trait VerifTLMasterFunctions {
     cC.valid.poke(true.B)
     pokeC(c)
 
-    // Valid for at least one cycle
-    clk.step(1)
-
     while(!cC.ready.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Valid for at least one cycle
+    clk.step(1)
 
     cC.valid.poke(false.B)
   }
@@ -122,14 +126,17 @@ trait VerifTLMasterFunctions {
 
     dC.ready.poke(true.B)
 
-    // Ready for at least one cycle
-    clk.step(1)
-
     while(!dC.valid.peek().litToBoolean) {
       clk.step(1)
     }
 
-    peekD()
+    // Read
+    val result = peekD()
+
+    // Ready for at least one cycle
+    clk.step(1)
+
+    result
   }
 
   def writeE(e: TLBundleE): Unit = {
@@ -138,12 +145,12 @@ trait VerifTLMasterFunctions {
     eC.valid.poke(true.B)
     pokeE(e)
 
-    // Valid for at least one cycle
-    clk.step(1)
-
     while(!eC.ready.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Valid for at least one cycle
+    clk.step(1)
 
     eC.valid.poke(false.B)
   }
@@ -227,15 +234,19 @@ trait VerifTLSlaveFunctions {
 
     aC.ready.poke(true.B)
 
-    // Ready for at least one cycle
-    clk.step(1)
-
     while(!aC.valid.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Read
+    val result = peekA()
+
+    // Ready for at least one cycle
+    clk.step(1)
+
     aC.ready.poke(false.B)
 
-    peekA()
+    result
   }
 
   def writeB(b: TLBundleB): Unit = {
@@ -244,12 +255,12 @@ trait VerifTLSlaveFunctions {
     bC.valid.poke(true.B)
     pokeB(b)
 
-    // Valid for at least one cycle
-    clk.step(1)
-
     while(!bC.ready.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Valid for at least one cycle
+    clk.step(1)
 
     bC.valid.poke(false.B)
   }
@@ -259,16 +270,19 @@ trait VerifTLSlaveFunctions {
 
     cC.ready.poke(true.B)
 
-    // Ready for at least one cycle
-    clk.step(1)
-
     while(!cC.valid.peek().litToBoolean) {
       clk.step(1)
     }
 
+    // Read
+    val result = peekC()
+
+    // Ready for at least one cycle
+    clk.step(1)
+
     cC.ready.poke(false.B)
 
-    peekC()
+    result
   }
 
   def writeD(d: TLBundleD): Unit = {
@@ -277,12 +291,12 @@ trait VerifTLSlaveFunctions {
     dC.valid.poke(true.B)
     pokeD(d)
 
-    // Valid for at least one cycle
-    clk.step(1)
-
     while(!dC.ready.peek().litToBoolean) {
       clk.step(1)
     }
+
+    // Valid for at least one cycle
+    clk.step(1)
 
     dC.valid.poke(false.B)
   }
@@ -292,16 +306,19 @@ trait VerifTLSlaveFunctions {
 
     eC.ready.poke(true.B)
 
-    // Ready for at least one cycle
-    clk.step(1)
-
     while(!eC.valid.peek().litToBoolean) {
       clk.step(1)
     }
 
+    // Read
+    val result = peekE()
+
+    // Ready for at least one cycle
+    clk.step(1)
+
     eC.ready.poke(false.B)
 
-    peekE()
+    result
   }
 
   // TODO Figure out why pokingB doesn't work
