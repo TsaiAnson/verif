@@ -155,6 +155,19 @@ trait VerifTLMasterFunctions {
     eC.valid.poke(false.B)
   }
 
+  def writeChannel(bnd: TLChannel): Unit = {
+    bnd match {
+      case _: TLBundleA =>
+        writeA(bnd.asInstanceOf[TLBundleA])
+      case _: TLBundleC =>
+        writeC(bnd.asInstanceOf[TLBundleC])
+      case _: TLBundleE =>
+        writeE(bnd.asInstanceOf[TLBundleE])
+      case default =>
+        println("ERROR: Non-valid bundle type. Can only write TLBundleA, TLBundleC, and TLBundleE.")
+    }
+  }
+
   // TODO Figure out why poking C and E does not work
   def reset(): Unit = {
     pokeA(TLUBundleAHelper())
@@ -321,7 +334,17 @@ trait VerifTLSlaveFunctions {
     result
   }
 
-  // TODO Figure out why pokingB doesn't work
+  def writeChannel(bnd: TLChannel): Unit = {
+    bnd match {
+      case _: TLBundleB =>
+        writeB(bnd.asInstanceOf[TLBundleB])
+      case _: TLBundleD =>
+        writeD(bnd.asInstanceOf[TLBundleD])
+      case default =>
+        println("ERROR: Non-valid bundle type. Can only write TLBundleB and TLBundleD.")
+    }
+  }
+
   def reset(): Unit = {
 //    pokeB(TLUBundleBHelper())
     pokeD(TLUBundleDHelper())
@@ -459,7 +482,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
     while (true) {
       if (!inputTransactions.isEmpty) {
         val t = inputTransactions.dequeue()
-        writeA(t.asInstanceOf[TLBundleA])
+        writeChannel(t)
         clock.step()
       } else {
         clock.step()
@@ -506,7 +529,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState : S, respons
 
       // Writing response(s)
       for (resp <- responses) {
-        writeD(resp.asInstanceOf[TLBundleD])
+        writeChannel(resp)
 
         // Clock step called here
         // We won't be getting any requests since A ready is low

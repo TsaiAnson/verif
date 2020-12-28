@@ -111,6 +111,7 @@ package object verifTLUtils {
   def standaloneSlaveParamsC: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
     supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
+    supportsAcquireB = TransferSizes(1, 32), supportsAcquireT = TransferSizes(1, 32),
     regionType = RegionType.UNCACHED)),
     endSinkId = 1, beatBytes = 8)
   def standaloneMasterParamsC: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "TestBundle",
@@ -465,8 +466,8 @@ package object verifTLUtils {
   // TODO Correct MASK assertion checking
   def TLBundlestoTLTransaction(bnds : List[TLChannel]) : TLTransaction = {
     // Currently Hardcoding Parameters
-    val TLSParam = standaloneSlaveParams.managers(0)
-    val TLMParam = standaloneMasterParams.clients(0)
+    val TLSParam = standaloneSlaveParamsC.managers(0)
+    val TLMParam = standaloneMasterParamsC.clients(0)
 
     val bndsq = new Queue[TLChannel]()
     bndsq ++= bnds

@@ -24,11 +24,17 @@ class TLL2CacheTest extends FlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLL2.in)
 //      val ctrlPlaceholder = new TLDriverMaster(c.clock, TLL2.ctrl)
 
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, HashMap[Int,Int](), testResponse)
+      val test = HashMap[Int,Int]()
+      test(0) = 0x1234
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
 
-      val simCycles = 150
+      L1Placeholder.push(Seq(AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U)))
 
-      c.clock.step(simCycles)
+      c.clock.step(20)
+
+      for (t <- monitor.getMonitoredTransactions()) {
+        println(t)
+      }
     }
   }
 }

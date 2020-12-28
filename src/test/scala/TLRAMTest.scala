@@ -68,7 +68,6 @@ class TLRAMTest extends FlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      // Note that there are no hints - Some assertions fail in Model when used.
       val inputTransactions = Seq(
         Intent(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U), PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x1234.U),
         Intent(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U), Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
