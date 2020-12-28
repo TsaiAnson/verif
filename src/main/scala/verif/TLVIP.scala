@@ -470,7 +470,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
 
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlaveNew[S](clock: Clock, interface: TLBundle, initState : S, response: (TLTransaction, S) =>
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState : S, response: (TLTransaction, S) =>
   (TLTransaction, S)) extends VerifTLSlaveFunctions {
 
   val clk = clock

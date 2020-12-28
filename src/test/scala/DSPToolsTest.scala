@@ -31,20 +31,20 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(size = 3.U, addr = 0.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x08.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x10.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x18.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x08.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x10.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x18.U, mask = 0xff.U),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        PutFull(addr = 0.U, mask = 0xff.U, data = 0.U),
-        PutFull(addr = 0x08.U, mask = 0xff.U, data = 1.U),
-        PutFull(addr = 0x10.U, mask = 0xff.U, data = 2.U),
-        PutFull(addr = 0x18.U, mask = 0xff.U, data = 3.U),
+        PutFull(source = 0.U, addr = 0.U, mask = 0xff.U, data = 0.U),
+        PutFull(source = 0.U, addr = 0x08.U, mask = 0xff.U, data = 1.U),
+        PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 2.U),
+        PutFull(source = 0.U, addr = 0x18.U, mask = 0xff.U, data = 3.U),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(size = 3.U, addr = 0.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x08.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x10.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x18.U, mask = 0xff.U)
+        Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x08.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x10.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x18.U, mask = 0xff.U)
       )
 
       passInAgent.push(inputTransactions)
@@ -54,18 +54,18 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
-        AccessAck(size = 3.U, denied = false.B),
-        AccessAck(size = 3.U, denied = false.B),
-        AccessAck(size = 3.U, denied = false.B),
-        AccessAck(size = 3.U, denied = false.B),
-        AccessAckData(size = 3.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 1.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 2.U(64.W)),
-        AccessAckData(size = 3.U, denied = false.B, data = 3.U(64.W)))
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
+        AccessAck(size = 3.U, source = 0.U, denied = false.B),
+        AccessAck(size = 3.U, source = 0.U, denied = false.B),
+        AccessAck(size = 3.U, source = 0.U, denied = false.B),
+        AccessAck(size = 3.U, source = 0.U, denied = false.B),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 1.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 2.U(64.W)),
+        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 3.U(64.W)))
 
       assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
         swoutput, {t : TLTransaction => t}))
@@ -76,7 +76,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
     test(TLMasterFuzzer.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val requestHandler = new TLDriverSlaveNew(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
+      val requestHandler = new TLDriverSlave(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLMasterFuzzer.out)
       val simCycles = 100
 
@@ -134,7 +134,7 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
     test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
 
-      val requestHandler = new TLDriverSlaveNew(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
+      val requestHandler = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 100
 
@@ -144,14 +144,14 @@ class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutputA = Array(
-        Get(size = 3.U, addr = 0.U(64.W), mask = 0xff.U),
-        PutFull(addr = 0x20.U(64.W), mask = 0xff.U, data = 10.U(64.W)),
-        Get(size = 3.U, addr = 0x8.U(64.W), mask = 0xff.U),
-        PutFull(addr = 0x28.U(64.W), mask = 0xff.U, data = 11.U(64.W)),
-        Get(size = 3.U, addr = 0x10.U(64.W), mask = 0xff.U),
-        PutFull(addr = 0x30.U(64.W), mask = 0xff.U, data = 12.U(64.W)),
-        Get(size = 3.U, addr = 0x18.U(64.W), mask = 0xff.U),
-        PutFull(addr = 0x38.U(64.W), mask = 0xff.U, data = 13.U(64.W)))
+        Get(size = 3.U, source = 0.U, addr = 0.U(64.W), mask = 0xff.U),
+        PutFull(source = 0.U, addr = 0x20.U(64.W), mask = 0xff.U, data = 10.U(64.W)),
+        Get(size = 3.U, source = 0.U, addr = 0x8.U(64.W), mask = 0xff.U),
+        PutFull(source = 0.U, addr = 0x28.U(64.W), mask = 0xff.U, data = 11.U(64.W)),
+        Get(size = 3.U, source = 0.U, addr = 0x10.U(64.W), mask = 0xff.U),
+        PutFull(source = 0.U, addr = 0x30.U(64.W), mask = 0xff.U, data = 12.U(64.W)),
+        Get(size = 3.U, source = 0.U, addr = 0x18.U(64.W), mask = 0xff.U),
+        PutFull(source = 0.U, addr = 0x38.U(64.W), mask = 0xff.U, data = 13.U(64.W)))
 
       assert(outputChecker.checkOutput(outputA, {t : TLTransaction => t},
         swoutputA, {t : TLTransaction => t}))

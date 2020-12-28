@@ -24,10 +24,10 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
       val simCycles = 500
 
       val inputTransactions = Seq(
-        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
-        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x8.U, mask = 0xff.U)
+        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
+        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U)
       )
 
       passInAgent.push(inputTransactions)
@@ -56,12 +56,12 @@ class TLXbarTest extends FlatSpec with ChiselScalatestTester {
       val simCycles = 500
 
       val inputTransactions = Seq(
-        PutFull(addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
-        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x0.U, mask = 0xff.U),
-        PutFull(addr = 0x100.U, mask = 0xff.U, data = 0x5555.U),
-        Get(size = 3.U, addr = 0x100.U, mask = 0xff.U),
-        Get(size = 3.U, addr = 0x100.U, mask = 0xff.U)
+        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
+        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
+        PutFull(source = 0.U, addr = 0x100.U, mask = 0xff.U, data = 0x5555.U),
+        Get(size = 3.U, source = 0.U, addr = 0x100.U, mask = 0xff.U),
+        Get(size = 3.U, source = 0.U, addr = 0x100.U, mask = 0xff.U)
       )
 
       passInAgent.push(inputTransactions)

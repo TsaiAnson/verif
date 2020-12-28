@@ -52,20 +52,49 @@ trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
 // TODO Add source/sink fields when working with buses (refactor source fields)
 // *Burst for burst (multi-beat) operations
 sealed trait TLTransaction extends Bundle with Transaction
-case class Get(size: UInt, addr: UInt, mask: UInt, source: UInt = 0.U) extends TLTransaction
-case class PutFull(addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
-case class PutFullBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
-case class PutPartial(addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
-case class PutPartialBurst(size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
-case class ArithData(param: UInt, addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
-case class ArithDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
-case class LogicData(param: UInt, addr: UInt, mask: UInt, data: UInt, source: UInt = 0.U) extends TLTransaction
-case class LogicDataBurst(param: UInt, size: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], source: UInt = 0.U) extends TLTransaction
-case class Intent(param: UInt, size: UInt, addr: UInt, mask: UInt, source: UInt = 0.U) extends TLTransaction
-case class AccessAck(size: UInt, denied: Bool, source: UInt = 0.U) extends TLTransaction
-case class AccessAckData(size: UInt, denied: Bool, data: UInt, source: UInt = 0.U) extends TLTransaction
-case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt], source: UInt = 0.U) extends TLTransaction
-case class HintAck(size: UInt, denied: Bool, source: UInt = 0.U) extends TLTransaction
+
+// Channel A
+// Note (TL-C): Transactions with fwd = True.B are sent via Channel B
+case class Get(size: UInt, source: UInt, addr: UInt, mask: UInt, fwd: Bool = false.B) extends TLTransaction
+case class PutFull(source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
+case class PutFullBurst(size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
+case class PutPartial(source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
+case class PutPartialBurst(size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
+case class ArithData(param: UInt, source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
+case class ArithDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
+case class LogicData(param: UInt, source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
+case class LogicDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
+case class Intent(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt, fwd: Bool = false.B) extends TLTransaction
+case class AcquireBlock(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
+case class AcquirePerm(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
+
+// Channel B
+// Note (TL-C): See Channel A transactions for forwarded messages
+case class ProbeBlock(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
+case class ProbePerm(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
+
+// Channel C
+// Note (TL-C): See Channel D transactions for forwarded messages
+case class ProbeAck(param: UInt, size: UInt, source: UInt, addr: UInt) extends TLTransaction
+case class ProbeAckData(param: UInt, size: UInt, source: UInt, addr: UInt, data: UInt) extends TLTransaction
+case class ProbeAckDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, datas: List[UInt]) extends TLTransaction
+case class Release(param: UInt, size: UInt, source: UInt, addr: UInt) extends TLTransaction
+case class ReleaseData(param: UInt, size: UInt, source: UInt, addr: UInt, data: UInt) extends TLTransaction
+case class ReleaseDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, datas: List[UInt]) extends TLTransaction
+
+// Channel D
+// Note (TL-C): Transactions with fwd = True.B are sent via Channel C
+case class AccessAck(size: UInt, denied: Bool, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class AccessAckData(size: UInt, denied: Bool, data: UInt, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt], source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class HintAck(size: UInt, denied: Bool, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class Grant(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool) extends TLTransaction
+case class GrantData(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, data: UInt) extends TLTransaction
+case class GrantDataBurst(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, datas: List[UInt]) extends TLTransaction
+case class ReleaseAck(size: UInt, source: UInt) extends TLTransaction
+
+// Channel E
+case class GrantAck(sink: UInt) extends TLTransaction
 
 package object verifTLUtils {
   // Temporary location for parameters
@@ -77,6 +106,19 @@ package object verifTLUtils {
   //    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
   //    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))))
   def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
+
+  // Temporary cache parameters
+  def standaloneSlaveParamsC: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
+    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
+    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
+    regionType = RegionType.UNCACHED)),
+    endSinkId = 1, beatBytes = 8)
+  def standaloneMasterParamsC: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "TestBundle",
+    supportsProbe = TransferSizes(1, 32), supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32),
+    supportsPutPartial = TransferSizes(1, 32), supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32),
+    supportsHint = TransferSizes(1, 32))))
+  def verifTLBundleParamsC: TLBundleParameters = TLBundleParameters(standaloneMasterParamsC, standaloneSlaveParamsC)
+
 
   //  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
   //    sinkBits = 1, sizeBits = 6,
@@ -141,62 +183,180 @@ package object verifTLUtils {
     contains(sizes, (1 << lg.litValue().toInt).U)
   }
 
-  // UGRADED FROM TLTransactiontoTLBundle
+  // UPGRADED FROM TLTransactiontoTLBundle
+  // TODO Correct MASK assertion checking
   def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
     txn match {
       case _: PutFull =>
         val txnc = txn.asInstanceOf[PutFull]
-        result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
+        } else {
+          result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
+        }
       case _: PutFullBurst =>
         val txnc = txn.asInstanceOf[PutFullBurst]
-        for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+        if (txnc.fwd.litToBoolean) {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleBHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
+        } else {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
         }
       case _: PutPartial =>
         val txnc = txn.asInstanceOf[PutPartial]
-        result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        } else {
+          result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        }
       case _: PutPartialBurst =>
         val txnc = txn.asInstanceOf[PutPartialBurst]
-        for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+        if (txnc.fwd.litToBoolean) {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleBHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
+        } else {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
         }
       case _: ArithData =>
         val txnc = txn.asInstanceOf[ArithData]
-        result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        } else {
+          result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        }
       case _: ArithDataBurst =>
         val txnc = txn.asInstanceOf[ArithDataBurst]
-        for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+        if (txnc.fwd.litToBoolean) {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleBHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
+        } else {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
         }
       case _: LogicData =>
         val txnc = txn.asInstanceOf[LogicData]
-        result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        } else {
+          result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
+        }
       case _: LogicDataBurst =>
         val txnc = txn.asInstanceOf[LogicDataBurst]
-        for ((m, d) <- (txnc.masks zip txnc.datas)) {
-          result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+        if (txnc.fwd.litToBoolean) {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleBHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
+        } else {
+          for ((m, d) <- (txnc.masks zip txnc.datas)) {
+            result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
+          }
         }
       case _: Get =>
         val txnc = txn.asInstanceOf[Get]
-        result += TLUBundleAHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
+        } else {
+          result += TLUBundleAHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
+        }
       case _: Intent =>
         val txnc = txn.asInstanceOf[Intent]
-        result += TLUBundleAHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleBHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+        } else {
+          result += TLUBundleAHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+        }
+      case _: AcquireBlock =>
+        val txnc = txn.asInstanceOf[AcquireBlock]
+        result += TLUBundleAHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+      case _: AcquirePerm =>
+        val txnc = txn.asInstanceOf[AcquirePerm]
+        result += TLUBundleAHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+      case _: ProbeBlock =>
+        val txnc = txn.asInstanceOf[ProbeBlock]
+        result += TLUBundleBHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+      case _: ProbePerm =>
+        val txnc = txn.asInstanceOf[ProbePerm]
+        result += TLUBundleBHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
+      case _: ProbeAck =>
+        val txnc = txn.asInstanceOf[ProbeAck]
+        result += TLUBundleCHelper(opcode = 4.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr)
+      case _: ProbeAckData =>
+        val txnc = txn.asInstanceOf[ProbeAckData]
+        result += TLUBundleCHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
+      case _: ProbeAckDataBurst =>
+        val txnc = txn.asInstanceOf[ProbeAckDataBurst]
+        for (d <- txnc.datas) {
+          result += TLUBundleCHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
+        }
+      case _: Release =>
+        val txnc = txn.asInstanceOf[Release]
+        result += TLUBundleCHelper(opcode = 6.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr)
+      case _: ReleaseData =>
+        val txnc = txn.asInstanceOf[ReleaseData]
+        result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr, data = txnc.data)
+      case _: ReleaseDataBurst =>
+        val txnc = txn.asInstanceOf[ReleaseDataBurst]
+        for (d <- txnc.datas) {
+          result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr, data = d)
+        }
       case _: AccessAck =>
         val txnc = txn.asInstanceOf[AccessAck]
-        result += TLUBundleDHelper(source = txnc.source)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleCHelper(size = txnc.size, source = txnc.source, address = txnc.addr)
+        } else {
+          result += TLUBundleDHelper(size = txnc.size, source = txnc.source, denied = txnc.denied)
+        }
       case _: AccessAckData =>
         val txnc = txn.asInstanceOf[AccessAckData]
-        result += TLUBundleDHelper(opcode = 1.U, source = txnc.source, data = txnc.data)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleCHelper(opcode = 1.U, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
+        } else {
+          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, denied = txnc.denied, data = txnc.data)
+        }
       case _: AccessAckDataBurst =>
         val txnc = txn.asInstanceOf[AccessAckDataBurst]
-        for (d <- txnc.datas) {
-          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, data = d)
+        if (txnc.fwd.litToBoolean) {
+          for (d <- txnc.datas) {
+            result += TLUBundleCHelper(opcode = 1.U, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
+          }
+        } else {
+          for (d <- txnc.datas) {
+            result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, denied = txnc.denied, data = d)
+          }
         }
       case _: HintAck =>
         val txnc = txn.asInstanceOf[HintAck]
-        result += TLUBundleDHelper(opcode = 2.U, size = txnc.size, source = txnc.source)
+        if (txnc.fwd.litToBoolean) {
+          result += TLUBundleCHelper(opcode = 2.U, size = txnc.size, source = txnc.source, address = txnc.addr)
+        } else {
+          result += TLUBundleDHelper(opcode = 2.U, size = txnc.size, source = txnc.source, denied = txnc.denied)
+        }
+      case _: Grant =>
+        val txnc = txn.asInstanceOf[Grant]
+        result += TLUBundleDHelper(opcode = 4.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied)
+      case _: GrantData =>
+        val txnc = txn.asInstanceOf[GrantData]
+        result += TLUBundleDHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied, data = txnc.data)
+      case _: GrantDataBurst =>
+        val txnc = txn.asInstanceOf[GrantDataBurst]
+        for (d <- txnc.datas) {
+          result += TLUBundleDHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied, data = d)
+        }
+      case _: ReleaseAck =>
+        val txnc = txn.asInstanceOf[ReleaseAck]
+        result += TLUBundleDHelper(opcode = 6.U, size = txnc.size, source = txnc.source)
+      case _: GrantAck =>
+        val txnc = txn.asInstanceOf[GrantAck]
+        result += TLUBundleEHelper(sink = txnc.sink)
     }
     result.toList
   }
@@ -207,28 +367,54 @@ package object verifTLUtils {
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
         1 << bndc.size.litValue().toInt
+      case _: TLBundleB =>
+        val bndc = bnd.asInstanceOf[TLBundleB]
+        1 << bndc.size.litValue().toInt
+      case _: TLBundleC =>
+        val bndc = bnd.asInstanceOf[TLBundleC]
+        1 << bndc.size.litValue().toInt
       case _: TLBundleD =>
         val bndc = bnd.asInstanceOf[TLBundleD]
         1 << bndc.size.litValue().toInt
+      case _: TLBundleE =>
+        1
     }
   }
 
   // Helper method to see if transaction is non-Burst
-  // Only checking A and D bundles
   def isNonBurst (bnd : TLChannel): Boolean = {
     bnd match {
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
-        if (bndc.opcode.litValue() == 4) {
+        // Get, AcquireBlock, AcquirePerm
+        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
+          return true
+        }
+        false
+      case _: TLBundleB =>
+        val bndc = bnd.asInstanceOf[TLBundleB]
+        // Get, ProbeBlock, ProbePerm
+        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
+          return true
+        }
+        false
+      case _: TLBundleC =>
+        val bndc = bnd.asInstanceOf[TLBundleC]
+        // AccessAck, ProbeAck, Release
+        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5) {
           return true
         }
         false
       case _: TLBundleD =>
         val bndc = bnd.asInstanceOf[TLBundleD]
-        if (bndc.opcode.litValue() == 0) {
+        // AccessAck, Grant, ReleaseAck
+        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6) {
           return true
         }
         false
+      case _: TLBundleE =>
+        // Always single message
+        true
     }
   }
 
@@ -275,8 +461,13 @@ package object verifTLUtils {
     result.toList
   }
 
-  // UPDGRADED FROM TLBundletoTLTransaction
-  def TLBundlestoTLTransaction(bnds : List[TLChannel], TLSParam : TLSlaveParameters = standaloneSlaveParams.managers(0) ) : TLTransaction = {
+  // UPGRADED FROM TLBundletoTLTransaction
+  // TODO Correct MASK assertion checking
+  def TLBundlestoTLTransaction(bnds : List[TLChannel]) : TLTransaction = {
+    // Currently Hardcoding Parameters
+    val TLSParam = standaloneSlaveParams.managers(0)
+    val TLMParam = standaloneMasterParams.clients(0)
+
     val bndsq = new Queue[TLChannel]()
     bndsq ++= bnds
     val bnd = bndsq.dequeue()
@@ -287,15 +478,15 @@ package object verifTLUtils {
         if (bndc.opcode.litValue() == 0) {
 
           // Assertions checking on first TLBundle
-          assert(TLSParam.supportsPutFull != TransferSizes.none, "Channel does not support PUTFULL requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTFULL TLBundle")
+          assert(TLSParam.supportsPutFull != TransferSizes.none, "(A) Channel does not support PUTFULL requests.")
+          assert(bndc.param.litValue() == 0, "(A) Non-zero param field for PUTFULL TLBundle")
           // Only for TL-UL
           //          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
-          assert(alignedLg(bndc.address, bndc.size), s"PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(alignedLg(bndc.address, bndc.size), s"(A) PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO FIX, MASK IS BYTE BASED
           //          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
-          assert(contiguous(bndc.mask), "PUTFULL MASK is not contiguous")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt PUTFULL TLBundle")
+          assert(contiguous(bndc.mask), "(A) PUTFULL MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt PUTFULL TLBundle")
 
           // If bundles are in a burst
           if (bndsq.size > 0) {
@@ -322,13 +513,13 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 1) {
 
           // Assertions checking on first TLBundle
-          assert(TLSParam.supportsPutPartial != TransferSizes.none, "Channel does not support PUTPARTIAL requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for PUTPARTIAL TLBundle")
+          assert(TLSParam.supportsPutPartial != TransferSizes.none, "(A) Channel does not support PUTPARTIAL requests.")
+          assert(bndc.param.litValue() == 0, "(A) Non-zero param field for PUTPARTIAL TLBundle")
           // Only for TL-UL
           //          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
-          assert(alignedLg(bndc.address, bndc.size), s"PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(alignedLg(bndc.address, bndc.size), s"(A) PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Check that high bits are aligned
-          assert(!bndc.corrupt.litToBoolean, "Corrupt PUTPARTIAL TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt PUTPARTIAL TLBundle")
 
           // If bundles are in a burst
           if (bndsq.size > 0) {
@@ -356,11 +547,11 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 2) {
 
           // Assertions checking on first TLBundle
-          assert(TLSParam.supportsArithmetic != TransferSizes.none, "Channel does not support ARITHMETIC requests.")
-          assert(bndc.param.litValue() > 0 && bndc.param.litValue() <= 4, s"Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
-          assert(alignedLg(bndc.address, bndc.size), s"ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(TLSParam.supportsArithmetic != TransferSizes.none, "(A) Channel does not support ARITHMETIC requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 4, s"(A) Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(A) ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Add checks for mask
-          assert(!bndc.corrupt.litToBoolean, "Corrupt ARITHMETIC TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ARITHMETIC TLBundle")
 
           // If bundles are in a burst
           if (bndsq.size > 0) {
@@ -389,11 +580,11 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 3) {
 
           // Assertions checking on first TLBundle
-          assert(TLSParam.supportsLogical != TransferSizes.none, "Channel does not support LOGIC requests.")
-          assert(bndc.param.litValue() > 0 && bndc.param.litValue() <= 3, s"Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
-          assert(alignedLg(bndc.address, bndc.size), s"LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(TLSParam.supportsLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(A) LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Add checks for mask
-          assert(!bndc.corrupt.litToBoolean, "Corrupt LOGICAL TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt LOGICAL TLBundle")
 
           // If bundles are in a burst
           if (bndsq.size > 0) {
@@ -422,47 +613,365 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 4) {
 
           // Assertions checking on first TLBundle
-          assert(TLSParam.supportsGet != TransferSizes.none, "Channel does not support GET requests.")
-          assert(bndc.param.litValue() == 0, "Non-zero param field for GET TLBundle")
+          assert(TLSParam.supportsGet != TransferSizes.none, "(A) Channel does not support GET requests.")
+          assert(bndc.param.litValue() == 0, "(A) Non-zero param field for GET TLBundle")
           // Only for TL-UL
           //          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
-          assert(contiguous(bndc.mask), "GET MASK is not contiguous")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt GET TLBundle")
+          assert(contiguous(bndc.mask), "(A) GET MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt GET TLBundle")
           Get(size = bndc.size, source = bndc.source, mask = bndc.mask, addr = bndc.address)
 
         } else if (bndc.opcode.litValue() == 5) {
 
-          // Assertions checking on first TLBundle
-          assert(TLSParam.supportsHint != TransferSizes.none, "Channel does not support INTENT requests.")
-          assert(bndc.param.litValue() > 1, s"Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
+          assert(TLSParam.supportsHint != TransferSizes.none, "(A) Channel does not support INTENT requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 1, s"(A) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt INTENT TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt INTENT TLBundle")
+
+          Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
+
+        } else if (bndc.opcode.litValue() == 6) {
+
+          assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
+          assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREBLOCK Bundle")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREBLOCK TLBundle")
+
+          AcquireBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
+
+        } else if (bndc.opcode.litValue() == 7) {
+
+          assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
+          assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREPERM Bundle")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
+
+          AcquireBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
+
+        } else {
+
+          assert(false, "(A) Invalid OPCODE on A Channel")
+          Get(size = 0.U, source = 0.U, mask = 0.U, addr = 0.U)
+
+        }
+      case _: TLBundleB =>
+        val bndc = bnd.asInstanceOf[TLBundleB]
+        if (bndc.opcode.litValue() == 0) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsPutFull != TransferSizes.none, "(B) Channel does not support PUTFULL requests.")
+          assert(bndc.param.litValue() == 0, "(B) Non-zero param field for PUTFULL TLBundle")
+          // Only for TL-UL
+          //          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO FIX, MASK IS BYTE BASED
+          //          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
+          assert(contiguous(bndc.mask), "(B) PUTFULL MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PUTFULL TLBundle")
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            PutFullBurst(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList, fwd = true.B)
+          } else {
+            PutFull(source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data, fwd = true.B)
+          }
+        } else if (bndc.opcode.litValue() == 1) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsPutPartial != TransferSizes.none, "(B) Channel does not support PUTPARTIAL requests.")
+          assert(bndc.param.litValue() == 0, "(B) Non-zero param field for PUTPARTIAL TLBundle")
+          // Only for TL-UL
+          //          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO Check that high bits are aligned
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PUTPARTIAL TLBundle")
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            PutPartialBurst(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList, fwd = true.B)
+          } else {
+            PutPartial(source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data, fwd = true.B)
+          }
+
+        } else if (bndc.opcode.litValue() == 2) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsArithmetic != TransferSizes.none, "(B) Channel does not support ARITHMETIC requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 4, s"(B) Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO Add checks for mask
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt ARITHMETIC TLBundle")
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            ArithDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList,
+              datas = datas.toList, fwd = true.B)
+          } else {
+            ArithData(param = bndc.param, source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data, fwd = true.B)
+          }
+
+        } else if (bndc.opcode.litValue() == 3) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsLogical != TransferSizes.none, "(B) Channel does not support LOGIC requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(B) Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          // TODO Add checks for mask
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt LOGICAL TLBundle")
+
+          // If bundles are in a burst
+          if (bndsq.size > 0) {
+            var masks = new ListBuffer[UInt]
+            var datas = new ListBuffer[UInt]
+            masks += bndc.mask
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleA]
+
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              masks += other_bndc.mask
+              datas += other_bndc.data
+            }
+            LogicDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList,
+              datas = datas.toList, fwd = true.B)
+          } else {
+            LogicData(param = bndc.param, source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data, fwd = true.B)
+          }
+
+        } else if (bndc.opcode.litValue() == 4) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsGet != TransferSizes.none, "(B) Channel does not support GET requests.")
+          assert(bndc.param.litValue() == 0, "(B) Non-zero param field for GET TLBundle")
+          // Only for TL-UL
+          //          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(contiguous(bndc.mask), "(B) GET MASK is not contiguous")
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt GET TLBundle")
+          Get(size = bndc.size, source = bndc.source, mask = bndc.mask, addr = bndc.address, fwd = true.B)
+
+        } else if (bndc.opcode.litValue() == 5) {
+
+          // Assertions checking on first TLBundle
+          assert(TLSParam.supportsHint != TransferSizes.none, "(B) Channel does not support INTENT requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 1, s"(B) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt INTENT TLBundle")
+
+          Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask, fwd = true.B)
+
+        } else if (bndc.opcode.litValue() == 6) {
+
+          // Assertions checking on first TLBundle
+          assert(TLMParam.supportsProbe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEBLOCK Bundle")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEBLOCK TLBundle")
+
+          ProbeBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
+
+        } else if (bndc.opcode.litValue() == 7) {
+
+          // Assertions checking on first TLBundle
+          assert(TLMParam.supportsProbe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEPERM Bundle")
+          // Need to check
+          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEPERM TLBundle")
 
           Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
 
         } else {
 
-          assert(false, "Invalid OPCODE on A Channel")
-          Get(size = 0.U, mask = 0.U, addr = 0.U)
+          assert(false, "(B) Invalid OPCODE on B Channel")
+          Get(size = 0.U, source = 0.U, mask = 0.U, addr = 0.U)
+
+        }
+      case _: TLBundleC =>
+        val bndc = bnd.asInstanceOf[TLBundleC]
+        if (bndc.opcode.litValue() == 0) {
+
+          assert(bndc.param.litValue() == 0, "(C) Non-zero param field for ACCESSACK TLBundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) ACCESSACK Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+          assert(!bndc.corrupt.litToBoolean, "(C) Corrupt ACCESSACK TLBundle")
+          AccessAck(size = bndc.size, source = bndc.source, addr = bndc.address, denied = false.B, fwd = true.B)
+
+        } else if (bndc.opcode.litValue() == 1) {
+
+          // Assertions checking on first TLBundle
+          assert(bndc.param.litValue() == 0, "(C) Non-zero param field for ACCESSACKDATA TLBundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) ACCESSACKData Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+
+          if (bndsq.size > 0) {
+            var datas = new ListBuffer[UInt]
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleC]
+
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+
+              datas += other_bndc.data
+            }
+            AccessAckDataBurst(size = bndc.size, source = bndc.source, denied = false.B, addr = bndc.address, datas = datas.toList, fwd = true.B)
+          } else {
+            AccessAckData(size = bndc.size, source = bndc.source, denied = false.B, addr = bndc.address, data = bndc.data, fwd = true.B)
+          }
+
+        } else if (bndc.opcode.litValue() == 2) {
+
+          assert(bndc.param.litValue() == 0, "(C) Non-zero param field for HINTACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(C) Corrupt HINTACK TLBundle")
+          HintAck(size = bndc.size, source = bndc.source, addr = bndc.address, denied = false.B, fwd = true.B)
+
+        } else if (bndc.opcode.litValue() == 4) {
+
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACK Bundle")
+          assert(!bndc.corrupt.litToBoolean, "(C) Corrupt PROBEACK TLBundle")
+          ProbeAck(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address)
+
+        } else if (bndc.opcode.litValue() == 5) {
+
+          // Assertions checking on first TLBundle
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACKDATA Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) PROBEACKDATA Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+
+          if (bndsq.size > 0) {
+            var datas = new ListBuffer[UInt]
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleC]
+
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+
+              datas += other_bndc.data
+            }
+            ProbeAckDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, datas = datas.toList)
+          } else {
+            ProbeAckData(param = bndc.param, size = bndc.size, source = bndc.source,addr = bndc.address, data = bndc.data)
+          }
+
+        } else if (bndc.opcode.litValue() == 6) {
+
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASE Bundle")
+          assert(!bndc.corrupt.litToBoolean, "(C) Corrupt RELEASE TLBundle")
+          Release(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address)
+
+        } else if (bndc.opcode.litValue() == 7) {
+
+          // Assertions checking on first TLBundle
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASEDATA Bundle")
+          assert(alignedLg(bndc.address, bndc.size), s"(B) RELEASEDATA Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
+
+          if (bndsq.size > 0) {
+            var datas = new ListBuffer[UInt]
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleC]
+
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+              assert(bndc.address.litValue() == other_bndc.address.litValue())
+
+              datas += other_bndc.data
+            }
+            ReleaseDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, datas = datas.toList)
+          } else {
+            ReleaseData(param = bndc.param, size = bndc.size, source = bndc.source,addr = bndc.address, data = bndc.data)
+          }
+
+        } else {
+
+          assert(false, "(C) Invalid OPCODE on C Channel")
+          AccessAck(size = 0.U, source = bndc.source, denied = true.B, fwd = true.B)
 
         }
       case _: TLBundleD =>
         val bndc = bnd.asInstanceOf[TLBundleD]
         if (bndc.opcode.litValue() == 0) {
 
-          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACK TLBundle")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt ACCESSACK TLBundle")
+          assert(bndc.param.litValue() == 0, "(D) Non-zero param field for ACCESSACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(D) Corrupt ACCESSACK TLBundle")
           AccessAck(size = bndc.size, source = bndc.source, denied = bndc.denied)
 
         } else if (bndc.opcode.litValue() == 1) {
 
           // Assertions checking on first TLBundle
-          assert(bndc.param.litValue() == 0, "Non-zero param field for ACCESSACKDATA TLBundle")
+          assert(bndc.param.litValue() == 0, "(D) Non-zero param field for ACCESSACKDATA TLBundle")
           if (bndc.denied.litToBoolean) {
-            assert(bndc.corrupt.litToBoolean, "ACCESSACKDATA denied but not corrupt")
+            assert(bndc.corrupt.litToBoolean, "(D) ACCESSACKDATA denied but not corrupt")
           }
 
           if (bndsq.size > 0) {
@@ -485,16 +994,60 @@ package object verifTLUtils {
 
         } else if (bndc.opcode.litValue() == 2) {
 
-          assert(bndc.param.litValue() == 0, "Non-zero param field for HINTACK TLBundle")
-          assert(!bndc.corrupt.litToBoolean, "Corrupt HINTACK TLBundle")
+          assert(bndc.param.litValue() == 0, "(D) Non-zero param field for HINTACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(D) Corrupt HINTACK TLBundle")
           HintAck(size = bndc.size, source = bndc.source, denied = bndc.denied)
+
+        } else if (bndc.opcode.litValue() == 4) {
+
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, "(D) Non-valid param field for GRANT TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(D) Corrupt GRANT TLBundle")
+          Grant(param = bndc.param, size = bndc.size, source = bndc.source, sink = bndc.sink, denied = bndc.denied)
+
+        } else if (bndc.opcode.litValue() == 5) {
+
+          // Assertions checking on first TLBundle
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, "(D) Non-valid param field for GRANTDATA TLBundle")
+          if (bndc.denied.litToBoolean) {
+            assert(bndc.corrupt.litToBoolean, "(D) GRANTDATA denied but not corrupt")
+          }
+
+          if (bndsq.size > 0) {
+            var datas = new ListBuffer[UInt]
+            datas += bndc.data
+
+            while (bndsq.nonEmpty) {
+              // Checking if other bundles in burst are valid
+              val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleD]
+
+              assert(bndc.param.litValue() == other_bndc.param.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue())
+
+              datas += other_bndc.data
+            }
+            GrantDataBurst(param = bndc.param, size = bndc.size, source = bndc.source, sink = bndc.sink, denied = bndc.denied, datas = datas.toList)
+          } else {
+            GrantData(param = bndc.param, size = bndc.size, source = bndc.source, sink = bndc.sink, denied = bndc.denied, data = bndc.data)
+          }
+
+        } else if (bndc.opcode.litValue() == 6) {
+
+          assert(bndc.param.litValue() == 0, "(D) Non-zer0 param field for RELEASEACK TLBundle")
+          assert(!bndc.corrupt.litToBoolean, "(D) Corrupt RELEASEACK TLBundle")
+          assert(!bndc.denied.litToBoolean, "(D) RELEASEACK cannot be denied.")
+
+          ReleaseAck(size = bndc.size, source = bndc.source)
 
         } else {
 
-          assert(false, "Invalid OPCODE on D Channel")
+          assert(false, "(D) Invalid OPCODE on D Channel")
           AccessAck(size = 0.U, source = bndc.source, denied = true.B)
 
         }
+      case _: TLBundleE =>
+        val bndc = bnd.asInstanceOf[TLBundleE]
+        // No asserts
+        GrantAck(sink = bndc.sink)
     }
   }
 

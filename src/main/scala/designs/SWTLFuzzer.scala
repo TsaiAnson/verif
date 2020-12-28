@@ -65,7 +65,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         address = getRandomLegalAddress(params.address)
         mask = randGen.nextInt(0xff) + 1 //Max hardcoded at 0xff for now
 
-        genTxns += Get(size = size.U, address.U(64.W), mask = mask.U)
+        genTxns += Get(size = size.U, source = 0.U, address.U(64.W), mask = mask.U)
 
         txnCount += 1
       } else if (typeTxn == 1) {
@@ -78,11 +78,11 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // TODO Use parameters/beatBytes to determine size bit thresholds
         if (size > 3 && burst) {
           val beatCount = 1 << (size - 3)
-          genTxns += PutFullBurst(size = size.U, address.U(64.W), masks = List.fill(beatCount)(0xff.U),
+          genTxns += PutFullBurst(size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)(0xff.U),
             datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
         } else {
           data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
-          genTxns += PutFull(addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          genTxns += PutFull(source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
         }
 
         txnCount += 1
@@ -93,12 +93,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > 3 && burst) {
           val beatCount = 1 << (size - 3)
-          genTxns += PutFullBurst(size = size.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
+          genTxns += PutFullBurst(size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
             datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
         } else {
           mask = randGen.nextInt(0xff) + 1
           data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
-          genTxns += PutFull(addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
+          genTxns += PutFull(source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
         }
 
         txnCount += 1
@@ -110,12 +110,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > 3 && burst) {
           val beatCount = 1 << (size - 3)
-          genTxns += ArithDataBurst(param = param.U,size = size.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
+          genTxns += ArithDataBurst(param = param.U, size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
             datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
         } else {
           mask = randGen.nextInt(0xff) + 1
           data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
-          genTxns += ArithData(param = param.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          genTxns += ArithData(param = param.U, source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
         }
 
         txnCount += 1
@@ -127,12 +127,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > 3) {
           val beatCount = 1 << (size - 3)
-          genTxns += LogicDataBurst(param = param.U,size = size.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
+          genTxns += LogicDataBurst(param = param.U,size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
             datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
         } else {
           mask = randGen.nextInt(0xff) + 1
           data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
-          genTxns += LogicData(param = param.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          genTxns += LogicData(param = param.U, source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
         }
 
         txnCount += 1
@@ -147,24 +147,24 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 //        genTxns += Intent(param = param.U, size = size.U, addr = address.U, mask = 0xff.U)
 
         if (param == 0) {
-          genTxns += Get(size = size.U, address.U(64.W), mask = mask.U)
+          genTxns += Get(size = size.U, source = 0.U, address.U(64.W), mask = mask.U)
         } else {
           val fullPartial = randGen.nextInt(2)
           if (size > 3 && burst) {
             val beatCount = 1 << (size - 3)
             if (fullPartial == 0) {
-              genTxns += PutFullBurst(size = size.U, address.U(64.W), masks = List.fill(beatCount)(0xff.U),
+              genTxns += PutFullBurst(size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)(0xff.U),
                 datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
             } else {
-              genTxns += PutPartialBurst(size = size.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
+              genTxns += PutPartialBurst(size = size.U, source = 0.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(0xff) + 1).U),
                 datas = List.fill(beatCount)(randGen.nextInt(pow(2, 64).toInt).U(64.W)))
             }
           } else {
             data = randGen.nextInt(pow(2, 64).toInt) // Will account for transfer sizes
             if (fullPartial == 0) {
-              genTxns += PutFull(addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+              genTxns += PutFull(source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
             } else {
-              genTxns += PutPartial(addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
+              genTxns += PutPartial(source = 0.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
             }
           }
         }
