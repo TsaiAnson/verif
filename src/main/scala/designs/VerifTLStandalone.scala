@@ -7,6 +7,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
+import sifive.blocks.inclusivecache.{CacheParameters, InclusiveCache, InclusiveCacheControlParameters, InclusiveCacheMicroParameters, InclusiveCacheParameters}
 import verif.verifTLUtils._
 
 // Keeping as reference
@@ -160,6 +161,39 @@ class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule
   lazy val module = new LazyModuleImp(this) {}
 }
 
+// L2 Cache Standalone
+class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
+  // Instantiating L2 Cache (Inclusive Cache)
+  val l2 = LazyModule(new InclusiveCache(
+    CacheParameters(
+      level = 2,
+      ways = 2,
+      sets = 2,
+      blockBytes = 32,
+      beatBytes = 8),
+    InclusiveCacheMicroParameters(writeBytes = 8),
+    None
+  ))
+
+  // IO Connections (Master and Slave are directly connected)
+  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
+//  val ioCtrlNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
+  val ioOutNode = BundleBridgeSink[TLBundle]()
+  val in = InModuleBody { ioInNode.makeIO() }
+//  val ctrl = InModuleBody { ioCtrlNode.makeIO() }
+  val out = InModuleBody { ioOutNode.makeIO() }
+
+  ioOutNode :=
+    TLToBundleBridge(standaloneSlaveParamsC) :=
+    l2.node :=
+    BundleBridgeToTL(standaloneMasterParamsC) :=
+    ioInNode
+
+//  l2.ctlnode := BundleBridgeToTL(standaloneMasterParamsC) := ioCtrlNode
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
 // Example of manual Master
 class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
 
@@ -201,7 +235,7 @@ class VerifTLCustomMaster(implicit p: Parameters) extends LazyModule  {
     }
 
     when (out.d.valid) {
-      response := out.d.deq().data
+      response := out.d.deq().data + 10.U
     }
 
     // Hack to fix missing last instruction, fix later
@@ -259,7 +293,7 @@ class VerifTLMasterSlaveFeedback(implicit p: Parameters) extends LazyModule  {
 
   ioOutNode :=
     TLToBundleBridge(standaloneSlaveParams) :=
-    TLIdentityNode() :=
+    TLBuffer() :=
     BundleBridgeToTL(standaloneMasterParams) :=
     ioInNode
 
