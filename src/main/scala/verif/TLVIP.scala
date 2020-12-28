@@ -155,6 +155,18 @@ trait VerifTLMasterFunctions {
     eC.valid.poke(false.B)
   }
 
+  def nonBlockingRead(): List[TLChannel] = {
+    var lb = ListBuffer[TLChannel]()
+    if (TLChannels.b.ready.peek().litToBoolean && TLChannels.b.valid.peek().litToBoolean) {
+      lb += peekB()
+    }
+    if (TLChannels.d.ready.peek().litToBoolean && TLChannels.d.valid.peek().litToBoolean) {
+      lb += peekD()
+    }
+
+    lb.toList
+  }
+
   def writeChannel(bnd: TLChannel): Unit = {
     bnd match {
       case _: TLBundleA =>
@@ -487,6 +499,54 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
       } else {
         clock.step()
       }
+    }
+  }
+}
+
+// TLDriver acting as a Master node (New Design) (For TL-C Generator)
+class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
+  val clk = clock
+  val TLChannels = interface
+
+  // Internal Structures
+  // Transactions to be pushed
+  val inputTransactions = Queue[TLChannel]()
+  // State (Maps address to permissions) -- Users should not interface with this
+  val intState = HashMap[Int,Int]()
+  // Used for state processing (check if permissions were given etc)
+  val outputTransactions = ListBuffer[TLChannel]()
+
+  // User given Transactions
+  val userTransactions = Queue[TLChannel]()
+
+  // Generates input transactions and adds to inputTransactions Queue
+  // Takes into account of userTransactions and processes TL-C specifics (Permissions etc)
+  def process(): Unit = {
+    Unit
+  }
+
+  // Users can hardcode specific transactions
+  def push(tx: Seq[TLTransaction]): Unit = {
+    for (t <- tx) {
+      userTransactions ++= TLTransactiontoTLBundles(t)
+    }
+  }
+
+  fork {
+    // Ready always high (Always receiving in transactions)
+    interface.b.ready.poke(true.B)
+    interface.d.ready.poke(true.B)
+    while (true) {
+      if (!inputTransactions.isEmpty) {
+        val t = inputTransactions.dequeue()
+        writeChannel(t)
+      } else {
+        // Generate more transactions if available
+        process()
+      }
+      // Read on every cycle if available
+      outputTransactions ++= nonBlockingRead()
+      clock.step()
     }
   }
 }
