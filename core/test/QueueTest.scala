@@ -5,12 +5,12 @@ import chisel3._
 import chiseltest._
 import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 
 class QueueTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Queue Test" in {
-    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
 

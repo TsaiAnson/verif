@@ -37,7 +37,6 @@ class ConstrainedRandomTest extends AnyFlatSpec {
             Mux(b.b.asBool(), b.x > b.y, b.x < b.y) &&
               (b.b === 0.U) && (b.x +& b.y === 5.U)
         }
-        println(k)
         assert(k.isRight)
         val kLit = k.right.get
         assert(kLit.x.litValue() < kLit.y.litValue())
