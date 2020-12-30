@@ -5,7 +5,7 @@ import chisel3._
 import chiseltest._
 import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
 
 class QueueTest extends AnyFlatSpec with ChiselScalatestTester {
 

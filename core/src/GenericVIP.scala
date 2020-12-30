@@ -4,19 +4,17 @@ import chisel3._
 import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
-class GenericDriver[T <: Data] (clock: Clock, interface : T) {
-  val inputTransactions = Queue[T]()
+class GenericDriver[T <: Data] (clock: Clock, interface: T) extends
+  AbstractDriver[T, T, T](clock, interface) {
 
-  def push(tx:Seq[T]): Unit = {
-    for (t <- tx) {
-      inputTransactions += t
-    }
+  def convertRawDataToStorage(rawValue: T): T = {
+    rawValue
   }
 
   fork {
     while (true) {
-      if (!inputTransactions.isEmpty) {
-        val t = inputTransactions.dequeue
+      if (hasNextTransaction()) {
+        val t = getNextTransaction()
         interface.asInstanceOf[Bundle].pokePartial(t.asInstanceOf[Bundle])
       }
       clock.step()
@@ -24,21 +22,11 @@ class GenericDriver[T <: Data] (clock: Clock, interface : T) {
   }
 }
 
-// Using hardcoded for now (ParameterizedCAMAssociative instead of Model)
-class GenericMonitor[T <: Data] (clock: Clock, interface: T) {
-  val monitoredTransactions = MutableList[T]()
-
-  def getMonitoredTransactions: MutableList[T] = {
-    monitoredTransactions
-  }
-
-  def clearMonitoredTransactions(): Unit = {
-    monitoredTransactions.clear()
-  }
-
+class GenericMonitor[T <: Data] (clock: Clock, interface: T) extends
+  AbstractMonitor[T, T](clock, interface) {
   fork.withRegion(Monitor) {
     while(true) {
-      monitoredTransactions += interface.peek()
+      addMonitoredTransaction(interface.peek())
       clock.step()
     }
   }

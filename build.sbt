@@ -5,6 +5,7 @@ scalaVersion := "2.12.12"
 
 val directoryLayout = Seq(
   scalaSource in Compile := baseDirectory.value / "src",
+  javaSource in Compile := baseDirectory.value / "src",
   resourceDirectory in Compile := baseDirectory.value / "src" / "resources",
   scalaSource in Test := baseDirectory.value / "test",
   resourceDirectory in Test := baseDirectory.value / "test" / "resources",
