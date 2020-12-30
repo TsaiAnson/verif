@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import designs._
@@ -11,7 +11,7 @@ import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verifTLUtils._
 
-class TLRAMTest extends FlatSpec with ChiselScalatestTester {
+class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test TLRAM via SWTLFuzzer" in {

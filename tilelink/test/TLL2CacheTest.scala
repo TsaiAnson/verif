@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import designs._
@@ -13,7 +13,7 @@ import verifTLUtils._
 
 import scala.collection.mutable.HashMap
 
-class TLL2CacheTest extends FlatSpec with ChiselScalatestTester {
+class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "Elaborate L2" in {

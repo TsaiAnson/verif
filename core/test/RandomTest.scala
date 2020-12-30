@@ -1,7 +1,7 @@
 package verif
 
 import verif.Randomization._
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
@@ -17,7 +17,7 @@ case class NestedBundleTx[T <: Data](data: T, inner1: InnerBundle[UInt], inner2:
   override def cloneType = NestedBundleTx(data, inner1.cloneType, inner2.cloneType, numb1).asInstanceOf[this.type]
 }
 
-class RandomTest extends FlatSpec with ChiselScalatestTester {
+class RandomTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "random test basic" in {
     test(new ParameterizedCAMAssociative(8,8,8))
       .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>

@@ -1,4 +1,4 @@
-package designs
+package verif
 
 import verif._
 import chisel3._

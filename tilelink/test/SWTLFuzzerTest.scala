@@ -2,7 +2,7 @@ package verif
 
 import TestUtils.SWRegBank
 import designs._
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import designs._
@@ -13,7 +13,7 @@ import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verifTLUtils._
 
-class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
+class SWTLFuzzerTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   // Ignoring test since SWRegBank is outdated

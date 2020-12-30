@@ -1,16 +1,16 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
-import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
 
-class QueueTest extends FlatSpec with ChiselScalatestTester {
+class ShiftQueueTest extends AnyFlatSpec with ChiselScalatestTester {
 
-  it should "Queue Test" in {
-    test(new Queue(UInt(8.W), 8)).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+  it should "ShiftQueue Test" in {
+    test(new ShiftQueue(UInt(8.W), 8)).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 
       val qInAgent = new DecoupledDriver[UInt](c.clock, c.io.enq)
 
@@ -18,7 +18,6 @@ class QueueTest extends FlatSpec with ChiselScalatestTester {
       val qOutAgent = new DecoupledMonitor[UInt](c.clock, c.io.deq)
       qOutAgent.setConfig("waitCycles", waitCycles)
 
-      // Must ensure that there are enough cycles for the whole test
       val simCycles = 80
       val inputTransactions = Seq(
         DecoupledTX(165.U,0.U,1.U),

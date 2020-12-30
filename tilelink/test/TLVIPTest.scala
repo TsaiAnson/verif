@@ -1,7 +1,7 @@
 package verif
 
 import chipsalliance.rocketchip.config.Parameters
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
@@ -12,7 +12,7 @@ import chiseltest.experimental.TestOptionBuilder._
 import verifTLUtils._
 import scala.collection.mutable.HashMap
 
-class TLVIPTest extends FlatSpec with ChiselScalatestTester {
+class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   // Will fix up once I figure out bug with new Burst transactions

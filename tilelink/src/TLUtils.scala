@@ -9,46 +9,6 @@ import chisel3.experimental.BundleLiterals._
 import scala.collection.mutable.{ListBuffer, Queue, HashMap}
 import scala.math.ceil
 
-trait Transaction extends IgnoreSeqInBundle { this: Bundle =>
-  override def equals(that: Any): Boolean = {
-    var result = this.getClass() == that.getClass()
-    if (result) {
-      val fields = this.getClass.getDeclaredFields
-      for (field <- fields) {
-        field.setAccessible(true)
-        if (field.get(this).isInstanceOf[List[UInt]]) {
-          result &= field.get(this).asInstanceOf[List[UInt]].map((x: UInt) => x.litValue()).sameElements(
-            field.get(that).asInstanceOf[List[UInt]].map((x: UInt) => x.litValue()))
-        } else {
-          result &= field.get(this).asInstanceOf[Data].litValue() == field.get(that).asInstanceOf[Data].litValue()
-        }
-      }
-    }
-    result
-  }
-
-  override def toString(): String = {
-    var result = this.className + "("
-
-    val fields = this.getClass.getDeclaredFields
-    for (field <- fields) {
-      field.setAccessible(true)
-      if (field.get(this).isInstanceOf[List[UInt]]) {
-        result += field.getName + ": ("
-        for (u <- field.get(this).asInstanceOf[List[UInt]]) {
-          result += u.litValue().toString() + ", "
-        }
-        result = result.slice(0, result.length - 2) + "), "
-      } else {
-        result += field.getName + ": "+ field.get(this).asInstanceOf[Data].litValue().toString() + ", "
-      }
-    }
-    result = result.slice(0, result.length - 2) + ")"
-
-    result
-  }
-}
-
 // TODO Add source/sink fields when working with buses (refactor source fields)
 // *Burst for burst (multi-beat) operations
 sealed trait TLTransaction extends Bundle with Transaction
@@ -826,7 +786,7 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 6) {
 
           // Assertions checking on first TLBundle
-          assert(TLMParam.supportsProbe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
+          assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEBLOCK Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
@@ -837,7 +797,7 @@ package object verifTLUtils {
         } else if (bndc.opcode.litValue() == 7) {
 
           // Assertions checking on first TLBundle
-          assert(TLMParam.supportsProbe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
+          assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEPERM Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")

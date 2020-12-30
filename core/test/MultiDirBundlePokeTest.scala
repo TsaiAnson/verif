@@ -2,7 +2,7 @@ package verif
 
 import java.lang.reflect.Field
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import chisel3.util._
@@ -27,7 +27,7 @@ class MultiDirBundleIOModule extends MultiIOModule {
   io.output := io.input
 }
 
-class MultiDirBundlePokeTest extends FlatSpec with ChiselScalatestTester {
+class MultiDirBundlePokeTest extends AnyFlatSpec with ChiselScalatestTester {
   // Cannot poke duplex bundle using "poke"
   it should "fail multi dir bundle poke test" in {
     assertThrows[chiseltest.UnpokeableException] {

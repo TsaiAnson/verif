@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import verif.Randomization._
 import chisel3._
 import designs.CAMIO
@@ -49,7 +49,7 @@ case class TestBundleTxNC (testB: Bundle) extends Bundle
 
 case class TestVecBundle[T <: Data](data: T, vec1: Vec[T]) extends Bundle
 
-class NoChiselRandomTest extends FlatSpec with Matchers {
+class NoChiselRandomTest extends AnyFlatSpec {// with Matchers {
   implicit val randGen: VerifRandomGenerator = new ScalaVerifRandomGenerator
 
   "Basic NoChiselRandomTest" should "have no error" in {
@@ -149,7 +149,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 //    println("DEBUG")
 //    print(out2)
 
-    (out1 == out2) should be (true)
+    assert(out1 == out2)
 
     out1 = ""
     out2 = ""
@@ -165,7 +165,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
       out2 += DTx.rand().getStringContents
     }
 
-    (out1 == out2) should be (false)
+    assert(out1 == out2)
 
     // Performing the above tests on the Nested Transactions to triple check
     out1 = ""
@@ -183,11 +183,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
       out2 += NTx.rand().getStringContents
     }
 
-//    print(out1)
-//    println("DEBUG")
-//    print(out2)
-
-    (out1 == out2) should be (true)
+    assert(out1 == out2)
 
     out1 = ""
     out2 = ""
@@ -203,7 +199,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
       out2 += NTx.rand().getStringContents
     }
 
-    (out1 == out2) should be (false)
+    assert(out1 == out2)
   }
 
   // Testing that rand() returns a new bundle
@@ -214,11 +210,11 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
     val NTx_temp1 = NTx_proto.rand()
 
     // Checking if they are different objects
-    (NTx_temp == NTx_temp1) should be (false)
+    assert(NTx_temp != NTx_temp1)
 
     // Hardcoded for this specific case, but the inner bundles should also be different
-    (NTx_temp.inner1 == NTx_temp1.inner1) should be (false)
-    (NTx_temp.inner2 == NTx_temp1.inner2) should be (false)
+    assert(NTx_temp.inner1 != NTx_temp1.inner1)
+    assert(NTx_temp.inner2 != NTx_temp1.inner2)
   }
 
   "Randomization Constraints" should "have no error" in {
@@ -269,7 +265,7 @@ class NoChiselRandomTest extends FlatSpec with Matchers {
 //  }
 //}
 //
-class NoChiselNewRandTest extends FlatSpec with Matchers {
+class NoChiselNewRandTest extends AnyFlatSpec {
   "Firrtl stuff" should "have no error" ignore {
     val B = TestBundleNewRand(UInt(8.W), 8)
     B.randNew({b: TestBundleNewRand[UInt] => b.numb3 === 6.U})

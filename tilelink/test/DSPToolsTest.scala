@@ -1,8 +1,7 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
-import chisel3.util.Decoupled
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
@@ -13,12 +12,9 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import scala.collection.mutable.HashMap
 import verifTLUtils._
 
-//case object MyBundleData extends DataKey[UInt]("data")
-//case class MyBundleDataField(width: Int) extends SimpleBundleField(MyBundleData)(Output(UInt(width.W)), 0.U)
-
-class DSPToolsTest extends FlatSpec with ChiselScalatestTester {
-//  implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
-  //  implicit val p: Parameters = (new BaseConfig).toInstance
+class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
+  // implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
+  // implicit val p: Parameters = (new BaseConfig).toInstance
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test Slave" in {

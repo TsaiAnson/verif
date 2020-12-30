@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
@@ -8,7 +8,7 @@ import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import designs.{CAMIO, ParameterizedCAMAssociative}
 import chisel3.experimental.BundleLiterals._
 
-class CamTest extends FlatSpec with ChiselScalatestTester {
+class CamTest extends AnyFlatSpec with ChiselScalatestTester {
 	it should "cam test" in {
 		test(new ParameterizedCAMAssociative(8,8,8))
 			.withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
