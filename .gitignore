@@ -4,3 +4,9 @@ test_run_dir
 project/target
 target
 .bsp
+.bloop
+.metals
+project/.bloop
+project/metals.sbt
+project/project
+rand

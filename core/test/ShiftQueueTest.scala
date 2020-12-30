@@ -5,6 +5,7 @@ import chisel3._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import freechips.rocketchip.util.ShiftQueue
 
 class ShiftQueueTest extends AnyFlatSpec with ChiselScalatestTester {
 

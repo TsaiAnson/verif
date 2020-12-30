@@ -265,9 +265,12 @@ class NoChiselRandomTest extends AnyFlatSpec {// with Matchers {
 //  }
 //}
 //
+
+/*
 class NoChiselNewRandTest extends AnyFlatSpec {
   "Firrtl stuff" should "have no error" ignore {
     val B = TestBundleNewRand(UInt(8.W), 8)
     B.randNew({b: TestBundleNewRand[UInt] => b.numb3 === 6.U})
   }
 }
+ */

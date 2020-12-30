@@ -1,9 +1,17 @@
 // See LICENSE.SiFive for license details.
 
-package verif
+package freechips.rocketchip.util
 
 import chisel3._
 import chisel3.util._
+
+case class ShiftQueueIO[T <: Data](private val gen: T, val entries: Int) extends Bundle {
+  val queueIO = new QueueIO(gen, entries)
+  val enq = queueIO.enq
+  val deq = queueIO.deq
+  val count = queueIO.count
+  val mask = Output(UInt(entries.W))
+}
 
 /** Implements the same interface as chisel3.util.Queue, but uses a shift
  * register internally.  It is less energy efficient whenever the queue
@@ -14,9 +22,7 @@ class ShiftQueue[T <: Data](gen: T,
                             pipe: Boolean = false,
                             flow: Boolean = false)
   extends Module {
-  val io = IO(new QueueIO(gen, entries) {
-    val mask = Output(UInt(entries.W))
-  })
+  val io = IO(new ShiftQueueIO(gen, entries))
 
   private val valid = RegInit(VecInit(Seq.fill(entries) { false.B }))
   private val elts = Reg(Vec(entries, gen))

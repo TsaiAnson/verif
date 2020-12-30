@@ -1,7 +1,7 @@
 # Verif: An Open Source Verification Library for Chisel
 Welcome to Verif, a project that aims to build a verification library for hardware components written in Chisel. It's currently work under development, so expect many things to change and some functonality to be incomplete. To get started, follow the steps below:
 
-## Installation 
+## Installation
 (TODO - Depending on standalone or not)
 
 ## Directory Structure
@@ -13,17 +13,17 @@ The Verif project structure follows standard the standard layout:
 ├── project/
 └── src/
     ├── main/
-    │   └── scala/         
+    │   └── scala/
     │       ├── designs/    (Various Hardware/Software designs for Verif functionality)
     │       └── verif/      (Verif VIP src files)
-    └── test/              
+    └── test/
         └── scala/
             ├── *Test.scala (Test Files)
             └── TestUtils/  (Various SW scripts and SW Models)
 ```
 
 ## Compiling/Running Tests
-As this project uses `sbt`, you can build/compile source code and tests using either the `sbt` command or console. 
+As this project uses `sbt`, you can build/compile source code and tests using either the `sbt` command or console.
 
 To compile Verif src (files within ./src/main/scala):
 ```bash
@@ -61,7 +61,7 @@ it should "Queue Test" in {
     val simCycles = 80
     c.clock.step(simCycles)
 
-    // Retrieving DUT response transactions 
+    // Retrieving DUT response transactions
     val output = qOutAgent.getMonitoredTransactions.toArray[DecoupledTX[UInt]]
 
     // Running Golden SW Model
@@ -88,18 +88,18 @@ class CamTest extends FlatSpec with ChiselScalatestTester {
         // Defining and connecting Driver + Monitor to DUT
         val camInAgent = new GenericDriver[CAMIO](c.clock, c.io)
         val camOutAgent = new GenericMonitor[CAMIO](c.clock, c.io)
-        
+
         // Hard coding transactions for reference (see below section for randomized transactions)
         val protoTx = CAMIO(8, 8)
         val inputTransactions = Seq(
           protoTx.Lit(_.en -> false.B, _.we -> true.B, _.keyRe -> 0.U, _.keyWr -> 10.U, _.dataWr -> 123.U, _.found -> false.B, _.dataRe -> 0.U),
           protoTx.Lit(_.en -> true.B, _.we -> false.B, _.keyRe -> 10.U, _.keyWr -> 0.U, _.dataWr -> 0.U, _.found -> false.B, _.dataRe -> 0.U)
         )
-        
+
         camInAgent.push(inputTransactions)
         c.clock.step(inputTransactions.length + 1)
         val output = camOutAgent.getMonitoredTransactions.toArray[CAMIO]
-        
+
         val model = new SWAssocCAM(8,8,8)
         val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[CAMIO]
 
@@ -166,7 +166,6 @@ class SWTLFuzzerTest extends FlatSpec with ChiselScalatestTester {
       // Connecting DUT to Driver and Monitor (Note the same interface --- the "in" port also carries the slave's response)
       val passInAgent = new TLSlaveDriverBasic(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLSlaveMonitorBasic(c.clock, TLRegBankSlave.in)
-      
 
       // Example of using the software TL Transaction fuzzer (currently only for TL interfaces)
       val fuz = new SWTLFuzzer(TLRegBankSlave.standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
@@ -285,8 +284,17 @@ For more example code using the `.rand()` method, please view `src/test/scala/No
 ---
 Note that this method is called the "naive" random, as its approach to satisfying constraints is to keep generating random numbers until it finds one that is acceptable. While this is okay for basic sanity checks, it is by no means suitable for complex constrained randoms. The following section regarding SMT sampling will remedy this issue.
 
-### SMT Sampling
-(TODO)
-
 ## Coverage
 (TODO)
+
+## Etc
+With bloop:
+```bash
+bloop test verif-test -o verif.NoChiselRandomTest -- -z "Deterministic Testing"
+```
+
+### Constrained Random
+- Run the End2EndSMTSpec in FIRRTL which demonstrates simple SMT generation from FIRRTL and a few lines of SMT for BMC
+    `sbt:firrtl> testOnly firrtl.backends.experimental.smt.end2end.EndToEndSMTSpec`
+    - Results in test_run_dir
+- See the SMTCompilationTest in FIRRTL for how to compile a FIRRTL file to SMT
