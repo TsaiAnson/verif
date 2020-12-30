@@ -1,11 +1,82 @@
-# Verif: An Open Source Verification Library for Chisel
-Welcome to Verif, a project that aims to build a verification library for hardware components written in Chisel. It's currently work under development, so expect many things to change and some functonality to be incomplete. To get started, follow the steps below:
+# Verification Library for Chisel RTL
 
-## Installation
-(TODO - Depending on standalone or not)
+A library to verify Chisel-generated RTL built on top of [Chiseltest](https://github.com/ucb-bar/chisel-testers2).
+Still work in progress, APIs are not stable.
+
+## Configuration
+### Standalone
+The `core` subproject only depends on Chisel 3.4+ and Chiseltest.
+To run tests:
+```bash
+~/verif> sbt
+sbt:verif> project core
+sbt:core> testOnly verif.RandomTest
+```
+
+### Inside Chipyard
+If you want to use the TileLink VIPs or cosimulation capabilities, `verif` uses dependencies ([Rocket-Chip](https://github.com/chipsalliance/rocket-chip), [DSPTools](https://github.com/ucb-bar/dsptools), [Gemmini](https://github.com/ucb-bar/gemmini)) from [Chipyard](https://github.com/ucb-bar/chipyard).
+
+Clone Chipyard and add this repo as a submodule:
+```bash
+~/> git clone git@github.com:ucb-bar/chipyard
+~/> cd chipyard
+~/chipyard> git checkout dev
+~/chipyard> ./scripts/init-submodules-no-riscv-tools.sh
+~/chipyard> cd tools
+~/chipyard/tools> git submodule add git@github.com:TsaiAnson/verif
+```
+
+Add the following snippet to the end of `chipyard/build.sbt`:
+```sbt
+val directoryLayout = Seq(
+  scalaSource in Compile := baseDirectory.value / "src",
+  javaSource in Compile := baseDirectory.value / "src",
+  resourceDirectory in Compile := baseDirectory.value / "src" / "resources",
+  scalaSource in Test := baseDirectory.value / "test",
+  resourceDirectory in Test := baseDirectory.value / "test" / "resources",
+)
+
+val verifSettings = Seq(
+  resolvers ++= Seq(
+    Resolver.sonatypeRepo("snapshots"),
+    Resolver.sonatypeRepo("releases"),
+    Resolver.mavenLocal
+  ),
+  scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
+  libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test"
+)
+
+lazy val verifCore = (project in file("./tools/verif/core"))
+  .settings(directoryLayout)
+  .sourceDependency(chiselRef, chiselLib)
+  .settings(commonSettings)
+  .settings(verifSettings)
+
+lazy val verifTL = (project in file("./tools/verif/tilelink"))
+  .settings(directoryLayout)
+  .sourceDependency(chiselRef, chiselLib)
+  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, verifCore)
+  .settings(commonSettings)
+  .settings(verifSettings)
+
+lazy val verifGemmini = (project in file("./tools/verif/cosim"))
+  .settings(directoryLayout)
+  .sourceDependency(chiselRef, chiselLib)
+  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, gemmini, verifCore)
+  .settings(commonSettings)
+  .settings(verifSettings)
+```
+
+Run tests from Chipyard:
+```bash
+~/chipyard> cd sims/verilator
+~/chipyard/sims/verilator> make launch-sbt
+sbt:chipyardRoot> project verifTL
+sbt:verifTL> testOnly verif.TLL2CacheTest
+```
 
 ## Directory Structure
-The Verif project structure follows standard the standard layout:
 ```
 .
 ├── README.md
