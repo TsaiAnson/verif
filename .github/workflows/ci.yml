@@ -19,7 +19,7 @@ jobs:
         java-version: 11
 
     - name: Compile
-      run: sbt compile
+      run: sbt "; project core; compile"
 
     - name: Unit Tests
-      run: sbt test
+      run: sbt "; project core; test"
