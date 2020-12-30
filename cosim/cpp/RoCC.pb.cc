@@ -16,6 +16,10 @@
 #include <google/protobuf/port_def.inc>
 extern PROTOBUF_INTERNAL_EXPORT_RoCC_2eproto ::PROTOBUF_NAMESPACE_ID::internal::SCCInfo<0> scc_info_RoCCInstruction_RoCC_2eproto;
 namespace verif {
+class RoCCCommandAckDefaultTypeInternal {
+ public:
+  ::PROTOBUF_NAMESPACE_ID::internal::ExplicitlyConstructed<RoCCCommandAck> _instance;
+} _RoCCCommandAck_default_instance_;
 class RoCCInstructionDefaultTypeInternal {
  public:
   ::PROTOBUF_NAMESPACE_ID::internal::ExplicitlyConstructed<RoCCInstruction> _instance;
@@ -37,11 +41,26 @@ static void InitDefaultsscc_info_RoCCCommand_RoCC_2eproto() {
     new (ptr) ::verif::RoCCCommand();
     ::PROTOBUF_NAMESPACE_ID::internal::OnShutdownDestroyMessage(ptr);
   }
+  ::verif::RoCCCommand::InitAsDefaultInstance();
 }
 
 ::PROTOBUF_NAMESPACE_ID::internal::SCCInfo<1> scc_info_RoCCCommand_RoCC_2eproto =
     {{ATOMIC_VAR_INIT(::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase::kUninitialized), 1, 0, InitDefaultsscc_info_RoCCCommand_RoCC_2eproto}, {
       &scc_info_RoCCInstruction_RoCC_2eproto.base,}};
+
+static void InitDefaultsscc_info_RoCCCommandAck_RoCC_2eproto() {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  {
+    void* ptr = &::verif::_RoCCCommandAck_default_instance_;
+    new (ptr) ::verif::RoCCCommandAck();
+    ::PROTOBUF_NAMESPACE_ID::internal::OnShutdownDestroyMessage(ptr);
+  }
+  ::verif::RoCCCommandAck::InitAsDefaultInstance();
+}
+
+::PROTOBUF_NAMESPACE_ID::internal::SCCInfo<0> scc_info_RoCCCommandAck_RoCC_2eproto =
+    {{ATOMIC_VAR_INIT(::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase::kUninitialized), 0, 0, InitDefaultsscc_info_RoCCCommandAck_RoCC_2eproto}, {}};
 
 static void InitDefaultsscc_info_RoCCInstruction_RoCC_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -51,6 +70,7 @@ static void InitDefaultsscc_info_RoCCInstruction_RoCC_2eproto() {
     new (ptr) ::verif::RoCCInstruction();
     ::PROTOBUF_NAMESPACE_ID::internal::OnShutdownDestroyMessage(ptr);
   }
+  ::verif::RoCCInstruction::InitAsDefaultInstance();
 }
 
 ::PROTOBUF_NAMESPACE_ID::internal::SCCInfo<0> scc_info_RoCCInstruction_RoCC_2eproto =
@@ -64,16 +84,23 @@ static void InitDefaultsscc_info_RoCCResponse_RoCC_2eproto() {
     new (ptr) ::verif::RoCCResponse();
     ::PROTOBUF_NAMESPACE_ID::internal::OnShutdownDestroyMessage(ptr);
   }
+  ::verif::RoCCResponse::InitAsDefaultInstance();
 }
 
 ::PROTOBUF_NAMESPACE_ID::internal::SCCInfo<0> scc_info_RoCCResponse_RoCC_2eproto =
     {{ATOMIC_VAR_INIT(::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase::kUninitialized), 0, 0, InitDefaultsscc_info_RoCCResponse_RoCC_2eproto}, {}};
 
-static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_RoCC_2eproto[3];
+static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_RoCC_2eproto[4];
 static constexpr ::PROTOBUF_NAMESPACE_ID::EnumDescriptor const** file_level_enum_descriptors_RoCC_2eproto = nullptr;
 static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_RoCC_2eproto = nullptr;
 
 const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_RoCC_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::verif::RoCCCommandAck, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::verif::RoCCCommandAck, ack_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::verif::RoCCInstruction, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -104,61 +131,256 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_RoCC_2eproto::offsets[] PROTOB
   PROTOBUF_FIELD_OFFSET(::verif::RoCCResponse, data_),
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, -1, sizeof(::verif::RoCCInstruction)},
-  { 13, -1, sizeof(::verif::RoCCCommand)},
-  { 21, -1, sizeof(::verif::RoCCResponse)},
+  { 0, -1, sizeof(::verif::RoCCCommandAck)},
+  { 6, -1, sizeof(::verif::RoCCInstruction)},
+  { 19, -1, sizeof(::verif::RoCCCommand)},
+  { 27, -1, sizeof(::verif::RoCCResponse)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::verif::_RoCCCommandAck_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::verif::_RoCCInstruction_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::verif::_RoCCCommand_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::verif::_RoCCResponse_default_instance_),
 };
 
 const char descriptor_table_protodef_RoCC_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\nRoCC.proto\022\005verif\"|\n\017RoCCInstruction\022\r"
-  "\n\005funct\030\001 \001(\r\022\013\n\003rs2\030\002 \001(\r\022\013\n\003rs1\030\003 \001(\r\022"
-  "\n\n\002xd\030\004 \001(\010\022\013\n\003xs1\030\005 \001(\010\022\013\n\003xs2\030\006 \001(\010\022\n\n"
-  "\002rd\030\007 \001(\r\022\016\n\006opcode\030\010 \001(\r\"M\n\013RoCCCommand"
-  "\022$\n\004inst\030\001 \001(\0132\026.verif.RoCCInstruction\022\013"
-  "\n\003rs1\030\002 \001(\004\022\013\n\003rs2\030\003 \001(\004\"(\n\014RoCCResponse"
-  "\022\n\n\002rd\030\001 \001(\r\022\014\n\004data\030\002 \001(\004B\027\n\tcom.verifB"
-  "\nRoCCProtosb\006proto3"
+  "\n\nRoCC.proto\022\005verif\"\035\n\016RoCCCommandAck\022\013\n"
+  "\003ack\030\001 \001(\r\"|\n\017RoCCInstruction\022\r\n\005funct\030\001"
+  " \001(\r\022\013\n\003rs2\030\002 \001(\r\022\013\n\003rs1\030\003 \001(\r\022\n\n\002xd\030\004 \001"
+  "(\010\022\013\n\003xs1\030\005 \001(\010\022\013\n\003xs2\030\006 \001(\010\022\n\n\002rd\030\007 \001(\r"
+  "\022\016\n\006opcode\030\010 \001(\r\"M\n\013RoCCCommand\022$\n\004inst\030"
+  "\001 \001(\0132\026.verif.RoCCInstruction\022\013\n\003rs1\030\002 \001"
+  "(\004\022\013\n\003rs2\030\003 \001(\004\"(\n\014RoCCResponse\022\n\n\002rd\030\001 "
+  "\001(\r\022\014\n\004data\030\002 \001(\0042T\n\022RoCCCommandChannel\022"
+  ">\n\017SendRoCCCommand\022\022.verif.RoCCCommand\032\025"
+  ".verif.RoCCCommandAck\"\000B\027\n\tcom.verifB\nRo"
+  "CCProtosb\006proto3"
   ;
 static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_RoCC_2eproto_deps[1] = {
 };
-static ::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase*const descriptor_table_RoCC_2eproto_sccs[3] = {
+static ::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase*const descriptor_table_RoCC_2eproto_sccs[4] = {
   &scc_info_RoCCCommand_RoCC_2eproto.base,
+  &scc_info_RoCCCommandAck_RoCC_2eproto.base,
   &scc_info_RoCCInstruction_RoCC_2eproto.base,
   &scc_info_RoCCResponse_RoCC_2eproto.base,
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_RoCC_2eproto_once;
+static bool descriptor_table_RoCC_2eproto_initialized = false;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_RoCC_2eproto = {
-  false, false, descriptor_table_protodef_RoCC_2eproto, "RoCC.proto", 299,
-  &descriptor_table_RoCC_2eproto_once, descriptor_table_RoCC_2eproto_sccs, descriptor_table_RoCC_2eproto_deps, 3, 0,
+  &descriptor_table_RoCC_2eproto_initialized, descriptor_table_protodef_RoCC_2eproto, "RoCC.proto", 416,
+  &descriptor_table_RoCC_2eproto_once, descriptor_table_RoCC_2eproto_sccs, descriptor_table_RoCC_2eproto_deps, 4, 0,
   schemas, file_default_instances, TableStruct_RoCC_2eproto::offsets,
-  file_level_metadata_RoCC_2eproto, 3, file_level_enum_descriptors_RoCC_2eproto, file_level_service_descriptors_RoCC_2eproto,
+  file_level_metadata_RoCC_2eproto, 4, file_level_enum_descriptors_RoCC_2eproto, file_level_service_descriptors_RoCC_2eproto,
 };
 
 // Force running AddDescriptors() at dynamic initialization time.
-static bool dynamic_init_dummy_RoCC_2eproto = (static_cast<void>(::PROTOBUF_NAMESPACE_ID::internal::AddDescriptors(&descriptor_table_RoCC_2eproto)), true);
+static bool dynamic_init_dummy_RoCC_2eproto = (  ::PROTOBUF_NAMESPACE_ID::internal::AddDescriptors(&descriptor_table_RoCC_2eproto), true);
 namespace verif {
 
 // ===================================================================
 
+void RoCCCommandAck::InitAsDefaultInstance() {
+}
+class RoCCCommandAck::_Internal {
+ public:
+};
+
+RoCCCommandAck::RoCCCommandAck()
+  : ::PROTOBUF_NAMESPACE_ID::Message(), _internal_metadata_(nullptr) {
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:verif.RoCCCommandAck)
+}
+RoCCCommandAck::RoCCCommandAck(const RoCCCommandAck& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      _internal_metadata_(nullptr) {
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
+  ack_ = from.ack_;
+  // @@protoc_insertion_point(copy_constructor:verif.RoCCCommandAck)
+}
+
+void RoCCCommandAck::SharedCtor() {
+  ack_ = 0u;
+}
+
+RoCCCommandAck::~RoCCCommandAck() {
+  // @@protoc_insertion_point(destructor:verif.RoCCCommandAck)
+  SharedDtor();
+}
+
+void RoCCCommandAck::SharedDtor() {
+}
+
+void RoCCCommandAck::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+const RoCCCommandAck& RoCCCommandAck::default_instance() {
+  ::PROTOBUF_NAMESPACE_ID::internal::InitSCC(&::scc_info_RoCCCommandAck_RoCC_2eproto.base);
+  return *internal_default_instance();
+}
+
+
+void RoCCCommandAck::Clear() {
+// @@protoc_insertion_point(message_clear_start:verif.RoCCCommandAck)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  ack_ = 0u;
+  _internal_metadata_.Clear();
+}
+
+const char* RoCCCommandAck::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    CHK_(ptr);
+    switch (tag >> 3) {
+      // uint32 ack = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          ack_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag & 7) == 4 || tag == 0) {
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag, &_internal_metadata_, ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* RoCCCommandAck::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:verif.RoCCCommandAck)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint32 ack = 1;
+  if (this->ack() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_ack(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields(), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:verif.RoCCCommandAck)
+  return target;
+}
+
+size_t RoCCCommandAck::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:verif.RoCCCommandAck)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // uint32 ack = 1;
+  if (this->ack() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_ack());
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void RoCCCommandAck::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:verif.RoCCCommandAck)
+  GOOGLE_DCHECK_NE(&from, this);
+  const RoCCCommandAck* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<RoCCCommandAck>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:verif.RoCCCommandAck)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:verif.RoCCCommandAck)
+    MergeFrom(*source);
+  }
+}
+
+void RoCCCommandAck::MergeFrom(const RoCCCommandAck& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:verif.RoCCCommandAck)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from.ack() != 0) {
+    _internal_set_ack(from._internal_ack());
+  }
+}
+
+void RoCCCommandAck::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:verif.RoCCCommandAck)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void RoCCCommandAck::CopyFrom(const RoCCCommandAck& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:verif.RoCCCommandAck)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool RoCCCommandAck::IsInitialized() const {
+  return true;
+}
+
+void RoCCCommandAck::InternalSwap(RoCCCommandAck* other) {
+  using std::swap;
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  swap(ack_, other->ack_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata RoCCCommandAck::GetMetadata() const {
+  return GetMetadataStatic();
+}
+
+
+// ===================================================================
+
+void RoCCInstruction::InitAsDefaultInstance() {
+}
 class RoCCInstruction::_Internal {
  public:
 };
 
-RoCCInstruction::RoCCInstruction(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+RoCCInstruction::RoCCInstruction()
+  : ::PROTOBUF_NAMESPACE_ID::Message(), _internal_metadata_(nullptr) {
   SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:verif.RoCCInstruction)
+  // @@protoc_insertion_point(constructor:verif.RoCCInstruction)
 }
 RoCCInstruction::RoCCInstruction(const RoCCInstruction& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message() {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      _internal_metadata_(nullptr) {
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::memcpy(&funct_, &from.funct_,
     static_cast<size_t>(reinterpret_cast<char*>(&opcode_) -
     reinterpret_cast<char*>(&funct_)) + sizeof(opcode_));
@@ -166,28 +388,19 @@ RoCCInstruction::RoCCInstruction(const RoCCInstruction& from)
 }
 
 void RoCCInstruction::SharedCtor() {
-  ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-      reinterpret_cast<char*>(&funct_) - reinterpret_cast<char*>(this)),
-      0, static_cast<size_t>(reinterpret_cast<char*>(&opcode_) -
+  ::memset(&funct_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&opcode_) -
       reinterpret_cast<char*>(&funct_)) + sizeof(opcode_));
 }
 
 RoCCInstruction::~RoCCInstruction() {
   // @@protoc_insertion_point(destructor:verif.RoCCInstruction)
   SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 void RoCCInstruction::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
 }
 
-void RoCCInstruction::ArenaDtor(void* object) {
-  RoCCInstruction* _this = reinterpret_cast< RoCCInstruction* >(object);
-  (void)_this;
-}
-void RoCCInstruction::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
 void RoCCInstruction::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
@@ -206,7 +419,7 @@ void RoCCInstruction::Clear() {
   ::memset(&funct_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&opcode_) -
       reinterpret_cast<char*>(&funct_)) + sizeof(opcode_));
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+  _internal_metadata_.Clear();
 }
 
 const char* RoCCInstruction::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
@@ -219,56 +432,56 @@ const char* RoCCInstruction::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPAC
       // uint32 funct = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
-          funct_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          funct_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint32 rs2 = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
-          rs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          rs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint32 rs1 = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          rs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          rs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // bool xd = 4;
       case 4:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 32)) {
-          xd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          xd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // bool xs1 = 5;
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 40)) {
-          xs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          xs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // bool xs2 = 6;
       case 6:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 48)) {
-          xs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          xs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint32 rd = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 56)) {
-          rd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          rd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint32 opcode = 8;
       case 8:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 64)) {
-          opcode_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          opcode_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -278,9 +491,7 @@ const char* RoCCInstruction::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPAC
           ctx->SetLastTag(tag);
           goto success;
         }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
+        ptr = UnknownFieldParse(tag, &_internal_metadata_, ptr, ctx);
         CHK_(ptr != nullptr);
         continue;
       }
@@ -350,7 +561,7 @@ failure:
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+        _internal_metadata_.unknown_fields(), target, stream);
   }
   // @@protoc_insertion_point(serialize_to_array_end:verif.RoCCInstruction)
   return target;
@@ -441,7 +652,7 @@ void RoCCInstruction::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
 void RoCCInstruction::MergeFrom(const RoCCInstruction& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:verif.RoCCInstruction)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
@@ -491,13 +702,15 @@ bool RoCCInstruction::IsInitialized() const {
 
 void RoCCInstruction::InternalSwap(RoCCInstruction* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(RoCCInstruction, opcode_)
-      + sizeof(RoCCInstruction::opcode_)
-      - PROTOBUF_FIELD_OFFSET(RoCCInstruction, funct_)>(
-          reinterpret_cast<char*>(&funct_),
-          reinterpret_cast<char*>(&other->funct_));
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  swap(funct_, other->funct_);
+  swap(rs2_, other->rs2_);
+  swap(rs1_, other->rs1_);
+  swap(xd_, other->xd_);
+  swap(xs1_, other->xs1_);
+  swap(xs2_, other->xs2_);
+  swap(rd_, other->rd_);
+  swap(opcode_, other->opcode_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RoCCInstruction::GetMetadata() const {
@@ -507,6 +720,10 @@ void RoCCInstruction::InternalSwap(RoCCInstruction* other) {
 
 // ===================================================================
 
+void RoCCCommand::InitAsDefaultInstance() {
+  ::verif::_RoCCCommand_default_instance_._instance.get_mutable()->inst_ = const_cast< ::verif::RoCCInstruction*>(
+      ::verif::RoCCInstruction::internal_default_instance());
+}
 class RoCCCommand::_Internal {
  public:
   static const ::verif::RoCCInstruction& inst(const RoCCCommand* msg);
@@ -516,15 +733,15 @@ const ::verif::RoCCInstruction&
 RoCCCommand::_Internal::inst(const RoCCCommand* msg) {
   return *msg->inst_;
 }
-RoCCCommand::RoCCCommand(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+RoCCCommand::RoCCCommand()
+  : ::PROTOBUF_NAMESPACE_ID::Message(), _internal_metadata_(nullptr) {
   SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:verif.RoCCCommand)
+  // @@protoc_insertion_point(constructor:verif.RoCCCommand)
 }
 RoCCCommand::RoCCCommand(const RoCCCommand& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message() {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      _internal_metadata_(nullptr) {
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   if (from._internal_has_inst()) {
     inst_ = new ::verif::RoCCInstruction(*from.inst_);
   } else {
@@ -538,29 +755,20 @@ RoCCCommand::RoCCCommand(const RoCCCommand& from)
 
 void RoCCCommand::SharedCtor() {
   ::PROTOBUF_NAMESPACE_ID::internal::InitSCC(&scc_info_RoCCCommand_RoCC_2eproto.base);
-  ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-      reinterpret_cast<char*>(&inst_) - reinterpret_cast<char*>(this)),
-      0, static_cast<size_t>(reinterpret_cast<char*>(&rs2_) -
+  ::memset(&inst_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&rs2_) -
       reinterpret_cast<char*>(&inst_)) + sizeof(rs2_));
 }
 
 RoCCCommand::~RoCCCommand() {
   // @@protoc_insertion_point(destructor:verif.RoCCCommand)
   SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 void RoCCCommand::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete inst_;
 }
 
-void RoCCCommand::ArenaDtor(void* object) {
-  RoCCCommand* _this = reinterpret_cast< RoCCCommand* >(object);
-  (void)_this;
-}
-void RoCCCommand::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
 void RoCCCommand::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
@@ -576,14 +784,14 @@ void RoCCCommand::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && inst_ != nullptr) {
+  if (GetArenaNoVirtual() == nullptr && inst_ != nullptr) {
     delete inst_;
   }
   inst_ = nullptr;
   ::memset(&rs1_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&rs2_) -
       reinterpret_cast<char*>(&rs1_)) + sizeof(rs2_));
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+  _internal_metadata_.Clear();
 }
 
 const char* RoCCCommand::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
@@ -603,14 +811,14 @@ const char* RoCCCommand::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
       // uint64 rs1 = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
-          rs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          rs1_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint64 rs2 = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          rs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          rs2_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -620,9 +828,7 @@ const char* RoCCCommand::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
           ctx->SetLastTag(tag);
           goto success;
         }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
+        ptr = UnknownFieldParse(tag, &_internal_metadata_, ptr, ctx);
         CHK_(ptr != nullptr);
         continue;
       }
@@ -664,7 +870,7 @@ failure:
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+        _internal_metadata_.unknown_fields(), target, stream);
   }
   // @@protoc_insertion_point(serialize_to_array_end:verif.RoCCCommand)
   return target;
@@ -726,7 +932,7 @@ void RoCCCommand::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
 void RoCCCommand::MergeFrom(const RoCCCommand& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:verif.RoCCCommand)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
@@ -761,13 +967,10 @@ bool RoCCCommand::IsInitialized() const {
 
 void RoCCCommand::InternalSwap(RoCCCommand* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(RoCCCommand, rs2_)
-      + sizeof(RoCCCommand::rs2_)
-      - PROTOBUF_FIELD_OFFSET(RoCCCommand, inst_)>(
-          reinterpret_cast<char*>(&inst_),
-          reinterpret_cast<char*>(&other->inst_));
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  swap(inst_, other->inst_);
+  swap(rs1_, other->rs1_);
+  swap(rs2_, other->rs2_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RoCCCommand::GetMetadata() const {
@@ -777,19 +980,21 @@ void RoCCCommand::InternalSwap(RoCCCommand* other) {
 
 // ===================================================================
 
+void RoCCResponse::InitAsDefaultInstance() {
+}
 class RoCCResponse::_Internal {
  public:
 };
 
-RoCCResponse::RoCCResponse(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+RoCCResponse::RoCCResponse()
+  : ::PROTOBUF_NAMESPACE_ID::Message(), _internal_metadata_(nullptr) {
   SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:verif.RoCCResponse)
+  // @@protoc_insertion_point(constructor:verif.RoCCResponse)
 }
 RoCCResponse::RoCCResponse(const RoCCResponse& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message() {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      _internal_metadata_(nullptr) {
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::memcpy(&data_, &from.data_,
     static_cast<size_t>(reinterpret_cast<char*>(&rd_) -
     reinterpret_cast<char*>(&data_)) + sizeof(rd_));
@@ -797,28 +1002,19 @@ RoCCResponse::RoCCResponse(const RoCCResponse& from)
 }
 
 void RoCCResponse::SharedCtor() {
-  ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-      reinterpret_cast<char*>(&data_) - reinterpret_cast<char*>(this)),
-      0, static_cast<size_t>(reinterpret_cast<char*>(&rd_) -
+  ::memset(&data_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&rd_) -
       reinterpret_cast<char*>(&data_)) + sizeof(rd_));
 }
 
 RoCCResponse::~RoCCResponse() {
   // @@protoc_insertion_point(destructor:verif.RoCCResponse)
   SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 void RoCCResponse::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
 }
 
-void RoCCResponse::ArenaDtor(void* object) {
-  RoCCResponse* _this = reinterpret_cast< RoCCResponse* >(object);
-  (void)_this;
-}
-void RoCCResponse::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
 void RoCCResponse::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
@@ -837,7 +1033,7 @@ void RoCCResponse::Clear() {
   ::memset(&data_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&rd_) -
       reinterpret_cast<char*>(&data_)) + sizeof(rd_));
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+  _internal_metadata_.Clear();
 }
 
 const char* RoCCResponse::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
@@ -850,14 +1046,14 @@ const char* RoCCResponse::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
       // uint32 rd = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
-          rd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          rd_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // uint64 data = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
-          data_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          data_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -867,9 +1063,7 @@ const char* RoCCResponse::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
           ctx->SetLastTag(tag);
           goto success;
         }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
+        ptr = UnknownFieldParse(tag, &_internal_metadata_, ptr, ctx);
         CHK_(ptr != nullptr);
         continue;
       }
@@ -903,7 +1097,7 @@ failure:
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+        _internal_metadata_.unknown_fields(), target, stream);
   }
   // @@protoc_insertion_point(serialize_to_array_end:verif.RoCCResponse)
   return target;
@@ -958,7 +1152,7 @@ void RoCCResponse::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
 void RoCCResponse::MergeFrom(const RoCCResponse& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:verif.RoCCResponse)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
@@ -990,13 +1184,9 @@ bool RoCCResponse::IsInitialized() const {
 
 void RoCCResponse::InternalSwap(RoCCResponse* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(RoCCResponse, rd_)
-      + sizeof(RoCCResponse::rd_)
-      - PROTOBUF_FIELD_OFFSET(RoCCResponse, data_)>(
-          reinterpret_cast<char*>(&data_),
-          reinterpret_cast<char*>(&other->data_));
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  swap(data_, other->data_);
+  swap(rd_, other->rd_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RoCCResponse::GetMetadata() const {
@@ -1007,14 +1197,17 @@ void RoCCResponse::InternalSwap(RoCCResponse* other) {
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace verif
 PROTOBUF_NAMESPACE_OPEN
+template<> PROTOBUF_NOINLINE ::verif::RoCCCommandAck* Arena::CreateMaybeMessage< ::verif::RoCCCommandAck >(Arena* arena) {
+  return Arena::CreateInternal< ::verif::RoCCCommandAck >(arena);
+}
 template<> PROTOBUF_NOINLINE ::verif::RoCCInstruction* Arena::CreateMaybeMessage< ::verif::RoCCInstruction >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::verif::RoCCInstruction >(arena);
+  return Arena::CreateInternal< ::verif::RoCCInstruction >(arena);
 }
 template<> PROTOBUF_NOINLINE ::verif::RoCCCommand* Arena::CreateMaybeMessage< ::verif::RoCCCommand >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::verif::RoCCCommand >(arena);
+  return Arena::CreateInternal< ::verif::RoCCCommand >(arena);
 }
 template<> PROTOBUF_NOINLINE ::verif::RoCCResponse* Arena::CreateMaybeMessage< ::verif::RoCCResponse >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::verif::RoCCResponse >(arena);
+  return Arena::CreateInternal< ::verif::RoCCResponse >(arena);
 }
 PROTOBUF_NAMESPACE_CLOSE
 

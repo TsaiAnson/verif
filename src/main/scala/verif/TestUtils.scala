@@ -5,31 +5,24 @@
 
 package verif
 
-import org.scalatest._
-
 import chisel3._
 import chisel3.experimental.BundleLiterals._
-import chisel3.util._
 
-import chipyard.{RocketConfig}
+import chipyard.RocketConfig
 
 import freechips.rocketchip.config._
-import freechips.rocketchip.devices.debug._
-import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
-import freechips.rocketchip.util._
+import java.io.{ByteArrayOutputStream, PrintWriter}
 import reflect.runtime._
 import scala.collection.JavaConversions._
-import scala.collection.mutable.{ListBuffer}
 import scala.reflect.ClassTag
+import scala.sys.process._
 import universe._
 import com.google.protobuf.Descriptors.FieldDescriptor.Type._
-
-import com.verif._
 
 object VerifProtoBufUtils {
   def getHelper[T: TypeTag](obj: T, target: String) = typeOf[T]
@@ -43,7 +36,7 @@ object VerifProtoBufUtils {
     .flatten
 
   // Zip used because does not preserve ordering
-  def getArgsZip(args: List[Symbol]) = args.map(x => x.name.toString())
+  def getArgsZip(args: List[Symbol]) = args.map(x => x.name.toString)
     .zip(args.map(x => x.typeSignature))
 
   /**
@@ -54,42 +47,35 @@ object VerifProtoBufUtils {
    *
    * As more bundle types are added more conversions within the case statements and default values will need to be defined
    */
-  def ProtoToBundle[R, H](proto: com.google.protobuf.Message, helpers: H, returnType: R)
+  def ProtoToBundle[R <: Bundle, H <: Object](proto: com.google.protobuf.Message, helpers: H, returnType: R)
                                 (implicit p: Parameters, helperType: TypeTag[H], helperClass: ClassTag[H]): R = {
 
     // Get the helper method that matches this item type
-    val protoName = proto.getDescriptorForType().getName()
+    val protoName = proto.getDescriptorForType.getName
     val helper = getHelper(helpers, protoName)
 
     ProtoToBundle(proto, helper, helpers, helpers, returnType)
   }
 
-  def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helper: MethodSymbol,
+  private def ProtoToBundle[R, T: TypeTag, C: ClassTag](proto: com.google.protobuf.Message, helper: MethodSymbol,
                                                 helperType: T, helperClass: C, returnType: R)
                                 (implicit p: Parameters): R = {
 
     // Extract fields from the protobuf
     val protoArgs = collection.mutable.Map[String, Any]()
-    proto.getAllFields().foreach(kv => {
+    proto.getAllFields.foreach(kv => {
       val (field, value) = kv
-      val fieldName = field.getName()
-      field.getType() match {
-        case MESSAGE => {
+      val fieldName = field.getName
+      field.getType match {
+        case MESSAGE =>
           // Recursive case needs some extra spice
           val subProto = value.asInstanceOf[com.google.protobuf.Message]
-          val subProtoName = subProto.getDescriptorForType().getName()
+          val subProtoName = subProto.getDescriptorForType.getName
           val subHelper = getHelper(helperType, subProtoName)
           protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, helperType, helperClass, subHelper.returnType))
-        }
-        case UINT32 => {
-          protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
-        }
-        case UINT64 => {
-          protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
-        }
-        case BOOL => {
-          protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
-        }
+        case UINT32 => protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
+        case UINT64 => protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
+        case BOOL => protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
       }
     })
 
@@ -97,16 +83,12 @@ object VerifProtoBufUtils {
     // Fill undeclared values with 0s and set the implicit parameters to p
     val args = getArgsZip(getArgs(helper))
       .map(tuple => {
-        val (arg, typ) = tuple
-        if (protoArgs.contains(arg)) {
-          protoArgs.get(arg).get
-        } else {
-          typ match {
+        protoArgs.getOrElse(tuple._1,
+          tuple._2 match {
             case t if t =:= typeOf[chisel3.UInt] => 0.U
             case t if t =:= typeOf[chisel3.Bool] => false.B
             case t if t =:= typeOf[freechips.rocketchip.config.Parameters] => p
-          }
-        }
+          })
       })
 
     currentMirror
@@ -157,7 +139,6 @@ object VerifTestUtils {
       transferSize: TransferSizes = TransferSizes(1, 64)): Parameters = {
 
     val origParams = new RocketConfig
-    //val origParams = Parameters.empty
 
     // augment the parameters
     implicit val p = origParams.alterPartial {
@@ -168,7 +149,7 @@ object VerifTestUtils {
       case MaxHartIdBits => 1
       case SystemBusKey => SystemBusParams(
         beatBytes = beatBytes,
-        blockBytes = blockBytes // Is 64 the right value?
+        blockBytes = blockBytes
       )
     }
 
@@ -188,8 +169,7 @@ object VerifTestUtils {
     tlMasterXbar.node :=
       BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
       dummyInNode
-    //TODO: maybe values here paramterized
-    //NOTE: address mask needed to be 0xffffffff so that paddrBits was 32 and not 12 (mask 0xfff)
+
     dummyOutNode :=
       TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
         supportsGet = transferSize, supportsPutFull = transferSize)), beatBytes)):=
@@ -199,7 +179,19 @@ object VerifTestUtils {
       case TileVisibilityNodeKey => visibilityNode
     }
 
-    //orgParams
     outParams
+  }
+}
+
+object VerifCosimTestUtils {
+  def runCommand(cmd: Seq[String]): (Int, String, String) = {
+    val stdoutStream = new ByteArrayOutputStream
+    val stderrStream = new ByteArrayOutputStream
+    val stdoutWriter = new PrintWriter(stdoutStream)
+    val stderrWriter = new PrintWriter(stderrStream)
+    val exitValue = cmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
+    stdoutWriter.close()
+    stderrWriter.close()
+    (exitValue, stdoutStream.toString, stderrStream.toString)
   }
 }

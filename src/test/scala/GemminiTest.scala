@@ -23,40 +23,42 @@ class GemminiTest extends FlatSpec with ChiselScalatestTester {
 
   val dut = LazyModule(
     new VerifRoCCStandaloneWrapper(
-      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig),
-      beatBytes=16
+      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true, meshRows = 4,
+                        meshColumns = 4, rob_entries = 4)),
+      beatBytes = 16,
+      addSinks = 1
     ))
   it should "Elaborate Gemmini" in {
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       // Drivers
-      val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, dut.module.io.cmd)
-      val ptwRespDriver = new ValidDriver[PTWResp](c.clock, dut.module.io.ptw(0).resp)
+      val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, c.io.cmd)
+      val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
       // TODO: tlClientDriver is broken
       //val tlDriver = new TLClientDriverBasic(c.clock, dut.module.tlOut)
 
       // Monitors
-      val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, dut.module.io.ptw(0).req)
-      val tlMonitor = new TLClientMonitorBasic(c.clock, dut.module.tlOut)
+      val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, c.io.ptw(0).req)
+      val tlMonitor = new TLClientMonitorBasic(c.clock, c.tlOut(0))
 
       // Cosim servers
-      val commandServer = new CosimDriverServer(commandDriver,
-        com.verif.RoCCProtos.RoCCCommand.parseFrom,
-        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand))
-
-      // MVIN, 2 ROW and 1 COL
-      val cmd = RoCCProtos.RoCCCommand.newBuilder()
-        .setRs2(((BigInt(2) << 48) + (BigInt(1) << 32)).toLong)
-        .setInst(
-          RoCCProtos.RoCCInstruction.newBuilder()
-            .setFunct(2))
-        .build()
-
-      commandServer.start
-
-      CosimClient.sendProto(cmd)
-
-      commandServer.terminate
-
+//      val commandServer = new CosimDriverServer(commandDriver,
+//        com.verif.RoCCProtos.RoCCCommand.parseFrom,
+//        (cmd: com.google.protobuf.Message) => VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand))
+//
+//      // MVIN, 2 ROW and 1 COL
+//      val cmd = RoCCProtos.RoCCCommand.newBuilder()
+//        .setRs2(((BigInt(2) << 48) + (BigInt(1) << 32)).toLong)
+//        .setInst(
+//          RoCCProtos.RoCCInstruction.newBuilder()
+//            .setFunct(2))
+//        .build()
+//
+//      commandServer.start
+//
+//      CosimClient.sendProto(cmd)
+//
+//      commandServer.terminate
+//
       c.clock.step(500)
       assert(true)
     }
