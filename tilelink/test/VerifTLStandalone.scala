@@ -7,7 +7,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
-import sifive.blocks.inclusivecache.{CacheParameters, InclusiveCache, InclusiveCacheControlParameters, InclusiveCacheMicroParameters, InclusiveCacheParameters}
+import sifive.blocks.inclusivecache.{CacheParameters, InclusiveCache, InclusiveCacheControlParameters, InclusiveCacheMicroParameters, InclusiveCacheParameters, InclusiveCachePortParameters}
 import verif.verifTLUtils._
 
 // Keeping as reference
@@ -174,17 +174,20 @@ class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
     InclusiveCacheMicroParameters(writeBytes = 8),
     None
   ))
+  val cork = LazyModule(new TLCacheCork)
 
   // IO Connections (Master and Slave are directly connected)
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
-//  val ioCtrlNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
   val ioOutNode = BundleBridgeSink[TLBundle]()
   val in = InModuleBody { ioInNode.makeIO() }
-//  val ctrl = InModuleBody { ioCtrlNode.makeIO() }
   val out = InModuleBody { ioOutNode.makeIO() }
 
+//  val ioCtrlNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
+//  val ctrl = InModuleBody { ioCtrlNode.makeIO() }
+
   ioOutNode :=
-    TLToBundleBridge(standaloneSlaveParamsC) :=
+    TLToBundleBridge(standaloneSlaveParams) :=
+    cork.node :=
     l2.node :=
     BundleBridgeToTL(standaloneMasterParamsC) :=
     ioInNode
