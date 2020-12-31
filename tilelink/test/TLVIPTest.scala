@@ -4,12 +4,13 @@ import chipsalliance.rocketchip.config.Parameters
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import designs.{VerifTLCustomMaster, VerifTLMasterSlaveFeedback}
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
 import verifTLUtils._
+
 import scala.collection.mutable.HashMap
 
 class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
@@ -138,7 +139,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Temp Sanity Test for New SDriver Skeleton" in {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
-    test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
       val sDriver = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
@@ -177,7 +178,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Test for New SDriver" in {
     val TLFeedback = LazyModule(new VerifTLMasterSlaveFeedback)
-    test(TLFeedback.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLFeedback.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Drivers/Monitors
       val mDriver = new TLDriverMaster(c.clock, TLFeedback.in)

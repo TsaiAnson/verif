@@ -7,7 +7,7 @@ import chisel3._
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
@@ -19,7 +19,7 @@ class SWTLFuzzerTest extends AnyFlatSpec with ChiselScalatestTester {
   // Ignoring test since SWRegBank is outdated
   it should "VerifTL Test RegBank via SWTLFuzzer" ignore {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
-    test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)

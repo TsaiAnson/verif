@@ -5,10 +5,11 @@ import chisel3._
 import chiseltest._
 import designs._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
+
 import scala.collection.mutable.HashMap
 import verifTLUtils._
 
@@ -19,7 +20,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test Slave" in {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
-    test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
@@ -70,7 +71,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test Master Fuzzer" in {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
-    test(TLMasterFuzzer.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val requestHandler = new TLDriverSlave(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLMasterFuzzer.out)
@@ -128,7 +129,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test Master" ignore {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
-    test(TLCustomMaster.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val requestHandler = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)

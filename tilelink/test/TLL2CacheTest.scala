@@ -18,7 +18,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Elaborate L2" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
       val monitor = new TLMonitor(c.clock, TLL2.in, hasBCE = true)

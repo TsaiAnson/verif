@@ -16,7 +16,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test TLXbarRAM with directed transactions basic" in {
     val TLRAMSlave = LazyModule(new VerifTLXbarRAMSimpleSlave)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Multi Driver/Monitor
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
@@ -43,7 +43,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test TLRAM XBar Multi-RAM with HW reference" in {
     val TLRAMSlave = LazyModule(new VerifTLMSXbarRAMSlaveReferenceStandalone)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // XBar DUT
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
@@ -78,7 +78,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test TLRAM XBar Multi-Master - Basic Directed Test" in {
     val TLRAMSlave = LazyModule(new VerifTLMMXbarRAMSlaveStandalone)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Master 1
       val passInAgentOne = new TLDriverMaster(c.clock, TLRAMSlave.inOne)

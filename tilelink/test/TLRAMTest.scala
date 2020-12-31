@@ -16,7 +16,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "VerifTL Test TLRAM via SWTLFuzzer" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
@@ -36,7 +36,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
@@ -91,7 +91,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "TLRAM Throughput Test" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
-    test(TLRAMSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
