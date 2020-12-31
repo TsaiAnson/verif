@@ -27,7 +27,7 @@ public final class RoCCProtos {
   /**
    * Protobuf type {@code verif.RoCCCommandAck}
    */
-  public  static final class RoCCCommandAck extends
+  public static final class RoCCCommandAck extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:verif.RoCCCommandAck)
       RoCCCommandAckOrBuilder {
@@ -112,6 +112,7 @@ public final class RoCCProtos {
      * <code>uint32 ack = 1;</code>
      * @return The ack.
      */
+    @java.lang.Override
     public int getAck() {
       return ack_;
     }
@@ -423,6 +424,7 @@ public final class RoCCProtos {
        * <code>uint32 ack = 1;</code>
        * @return The ack.
        */
+      @java.lang.Override
       public int getAck() {
         return ack_;
       }
@@ -555,7 +557,7 @@ public final class RoCCProtos {
   /**
    * Protobuf type {@code verif.RoCCInstruction}
    */
-  public  static final class RoCCInstruction extends
+  public static final class RoCCInstruction extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:verif.RoCCInstruction)
       RoCCInstructionOrBuilder {
@@ -675,6 +677,7 @@ public final class RoCCProtos {
      * <code>uint32 funct = 1;</code>
      * @return The funct.
      */
+    @java.lang.Override
     public int getFunct() {
       return funct_;
     }
@@ -685,6 +688,7 @@ public final class RoCCProtos {
      * <code>uint32 rs2 = 2;</code>
      * @return The rs2.
      */
+    @java.lang.Override
     public int getRs2() {
       return rs2_;
     }
@@ -695,6 +699,7 @@ public final class RoCCProtos {
      * <code>uint32 rs1 = 3;</code>
      * @return The rs1.
      */
+    @java.lang.Override
     public int getRs1() {
       return rs1_;
     }
@@ -705,6 +710,7 @@ public final class RoCCProtos {
      * <code>bool xd = 4;</code>
      * @return The xd.
      */
+    @java.lang.Override
     public boolean getXd() {
       return xd_;
     }
@@ -715,6 +721,7 @@ public final class RoCCProtos {
      * <code>bool xs1 = 5;</code>
      * @return The xs1.
      */
+    @java.lang.Override
     public boolean getXs1() {
       return xs1_;
     }
@@ -725,6 +732,7 @@ public final class RoCCProtos {
      * <code>bool xs2 = 6;</code>
      * @return The xs2.
      */
+    @java.lang.Override
     public boolean getXs2() {
       return xs2_;
     }
@@ -735,6 +743,7 @@ public final class RoCCProtos {
      * <code>uint32 rd = 7;</code>
      * @return The rd.
      */
+    @java.lang.Override
     public int getRd() {
       return rd_;
     }
@@ -745,6 +754,7 @@ public final class RoCCProtos {
      * <code>uint32 opcode = 8;</code>
      * @return The opcode.
      */
+    @java.lang.Override
     public int getOpcode() {
       return opcode_;
     }
@@ -1178,6 +1188,7 @@ public final class RoCCProtos {
        * <code>uint32 funct = 1;</code>
        * @return The funct.
        */
+      @java.lang.Override
       public int getFunct() {
         return funct_;
       }
@@ -1208,6 +1219,7 @@ public final class RoCCProtos {
        * <code>uint32 rs2 = 2;</code>
        * @return The rs2.
        */
+      @java.lang.Override
       public int getRs2() {
         return rs2_;
       }
@@ -1238,6 +1250,7 @@ public final class RoCCProtos {
        * <code>uint32 rs1 = 3;</code>
        * @return The rs1.
        */
+      @java.lang.Override
       public int getRs1() {
         return rs1_;
       }
@@ -1268,6 +1281,7 @@ public final class RoCCProtos {
        * <code>bool xd = 4;</code>
        * @return The xd.
        */
+      @java.lang.Override
       public boolean getXd() {
         return xd_;
       }
@@ -1298,6 +1312,7 @@ public final class RoCCProtos {
        * <code>bool xs1 = 5;</code>
        * @return The xs1.
        */
+      @java.lang.Override
       public boolean getXs1() {
         return xs1_;
       }
@@ -1328,6 +1343,7 @@ public final class RoCCProtos {
        * <code>bool xs2 = 6;</code>
        * @return The xs2.
        */
+      @java.lang.Override
       public boolean getXs2() {
         return xs2_;
       }
@@ -1358,6 +1374,7 @@ public final class RoCCProtos {
        * <code>uint32 rd = 7;</code>
        * @return The rd.
        */
+      @java.lang.Override
       public int getRd() {
         return rd_;
       }
@@ -1388,6 +1405,7 @@ public final class RoCCProtos {
        * <code>uint32 opcode = 8;</code>
        * @return The opcode.
        */
+      @java.lang.Override
       public int getOpcode() {
         return opcode_;
       }
@@ -1499,7 +1517,7 @@ public final class RoCCProtos {
   /**
    * Protobuf type {@code verif.RoCCCommand}
    */
-  public  static final class RoCCCommand extends
+  public static final class RoCCCommand extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:verif.RoCCCommand)
       RoCCCommandOrBuilder {
@@ -1602,6 +1620,7 @@ public final class RoCCProtos {
      * <code>.verif.RoCCInstruction inst = 1;</code>
      * @return Whether the inst field is set.
      */
+    @java.lang.Override
     public boolean hasInst() {
       return inst_ != null;
     }
@@ -1609,12 +1628,14 @@ public final class RoCCProtos {
      * <code>.verif.RoCCInstruction inst = 1;</code>
      * @return The inst.
      */
+    @java.lang.Override
     public com.verif.RoCCProtos.RoCCInstruction getInst() {
       return inst_ == null ? com.verif.RoCCProtos.RoCCInstruction.getDefaultInstance() : inst_;
     }
     /**
      * <code>.verif.RoCCInstruction inst = 1;</code>
      */
+    @java.lang.Override
     public com.verif.RoCCProtos.RoCCInstructionOrBuilder getInstOrBuilder() {
       return getInst();
     }
@@ -1625,6 +1646,7 @@ public final class RoCCProtos {
      * <code>uint64 rs1 = 2;</code>
      * @return The rs1.
      */
+    @java.lang.Override
     public long getRs1() {
       return rs1_;
     }
@@ -1635,6 +1657,7 @@ public final class RoCCProtos {
      * <code>uint64 rs2 = 3;</code>
      * @return The rs2.
      */
+    @java.lang.Override
     public long getRs2() {
       return rs2_;
     }
@@ -2114,6 +2137,7 @@ public final class RoCCProtos {
        * <code>uint64 rs1 = 2;</code>
        * @return The rs1.
        */
+      @java.lang.Override
       public long getRs1() {
         return rs1_;
       }
@@ -2144,6 +2168,7 @@ public final class RoCCProtos {
        * <code>uint64 rs2 = 3;</code>
        * @return The rs2.
        */
+      @java.lang.Override
       public long getRs2() {
         return rs2_;
       }
@@ -2240,7 +2265,7 @@ public final class RoCCProtos {
   /**
    * Protobuf type {@code verif.RoCCResponse}
    */
-  public  static final class RoCCResponse extends
+  public static final class RoCCResponse extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:verif.RoCCResponse)
       RoCCResponseOrBuilder {
@@ -2330,6 +2355,7 @@ public final class RoCCProtos {
      * <code>uint32 rd = 1;</code>
      * @return The rd.
      */
+    @java.lang.Override
     public int getRd() {
       return rd_;
     }
@@ -2340,6 +2366,7 @@ public final class RoCCProtos {
      * <code>uint64 data = 2;</code>
      * @return The data.
      */
+    @java.lang.Override
     public long getData() {
       return data_;
     }
@@ -2669,6 +2696,7 @@ public final class RoCCProtos {
        * <code>uint32 rd = 1;</code>
        * @return The rd.
        */
+      @java.lang.Override
       public int getRd() {
         return rd_;
       }
@@ -2699,6 +2727,7 @@ public final class RoCCProtos {
        * <code>uint64 data = 2;</code>
        * @return The data.
        */
+      @java.lang.Override
       public long getData() {
         return data_;
       }

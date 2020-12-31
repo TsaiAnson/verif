@@ -12,6 +12,7 @@ import chipyard.RocketConfig
 
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.prci.ClockSinkParameters
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
@@ -120,6 +121,7 @@ case object VerifTileParams extends TileParams {
   val name: Option[String] = Some("verif_tile")
   val hartId: Int = 0
   val core: RocketCoreParams = RocketCoreParams()
+  val clockSinkParams: ClockSinkParameters = ClockSinkParameters()
   val beuAddr: Option[BigInt] = None
   val blockerCtrlAddr: Option[BigInt] = None
   val btb: Option[BTBParams] = None
