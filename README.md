@@ -82,15 +82,25 @@ sbt:verifTL> testOnly verif.TLL2CacheTest
 ├── README.md
 ├── build.sbt
 ├── project/
-└── src/
-    ├── main/
-    │   └── scala/
-    │       ├── designs/    (Various Hardware/Software designs for Verif functionality)
-    │       └── verif/      (Verif VIP src files)
+├── core/               [verifCore]
+│   ├── src/
+│   │   ├── smt/        (For constrained random)
+│   │   ├── maltese/
+│   │   └── *.scala     (Source Files)
+│   └── test/
+│       ├── designs/    (Various Hardware/Software designs for Verif functionality)
+│       └── *Test.scala (Test Files)
+├── cosim/              [verifGemmini]
+│   ├── src/
+│   │   ├── resources/  
+│   │   └── *.scala     (Source Files)
+│   └── test/
+│       └── *Test.scala (Test Files)
+└── tilelink/           [verifTL]
+    ├── src/
+    │   └── *.scala     (Source Files)
     └── test/
-        └── scala/
-            ├── *Test.scala (Test Files)
-            └── TestUtils/  (Various SW scripts and SW Models)
+        └── *Test.scala (Test Files)
 ```
 
 ## Compiling/Running Tests
