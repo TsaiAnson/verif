@@ -511,24 +511,61 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
   // Internal Structures
   // Transactions to be pushed
   val inputTransactions = Queue[TLChannel]()
-  // State (Maps address to permissions) -- Users should not interface with this
-  val intState = HashMap[Int,Int]()
-  // Used for state processing (check if permissions were given etc)
+  // Internal states (Maps address to permissions and address to data) -- Users should not interface with this
+  // Permissions: 0 - None, 1 - Waiting for Grant/Ack, 2 - Read (Branch), 3 - Read/Write (Tip)
+  val permState = HashMap[Int,Int]()
+  val dataState = HashMap[Int,Int]()
+  // Used for state processing (check if permissions/data were given etc)
   val outputTransactions = ListBuffer[TLChannel]()
 
   // User given Transactions
-  val userTransactions = Queue[TLChannel]()
+  val userTransactions = Queue[TLTransaction]()
 
   // Generates input transactions and adds to inputTransactions Queue
-  // Takes into account of userTransactions and processes TL-C specifics (Permissions etc)
+  // Takes into account of userTransactions and processes TL-C specifics (Permissions/data etc)
   def process(): Unit = {
+
+    // Process output transactions
+    while (outputTransactions.nonEmpty) {
+      val txn = outputTransactions.remove(0)
+
+      // Filler for now
+      val tlTxn =  TLBundlestoTLTransaction(List(txn)) // Convert to high level TL Transactions
+      // TODO: Able to filter out bundles from the same channel, and potentially the same source
+
+      tlTxn match {
+        case _ : Grant | _ : GrantData => // Grant permission/data
+        case _ : ProbePerm => // Probe (Return ProbeAck)
+        case _ : ProbeBlock => // Probe (Return ProbeAck or ProbeAckData based off perms)
+        case _ : Get | _ : PutFull | _ : PutFullBurst | _ : PutPartial | _ : PutPartialBurst | _ : ArithData |
+          _ : ArithDataBurst | _ : LogicData | _ : LogicDataBurst | _ : Intent =>
+          // Use slave testResponse function but with fwd = True
+        case default => _
+      }
+    }
+
+    // Determine input transactions
+    // Currently hardcoded to 4 "inFlight" instructions, as unsure on handling overloading L2
+    while (inputTransactions.length < 4 && userTransactions.nonEmpty) {
+      val tlTxn = userTransactions.head
+
+      tlTxn match {
+        case _ : AcquirePerm | _ : AcquireBlock => // Don't issue if pending Grant
+        case _ : Release | _ : ReleaseData | _ : ReleaseDataBurst => // Don't issue if pending Grant
+        case default =>
+          inputTransactions += TLTransactiontoTLBundles(tlTxn)
+          // TODO Maybe add check if we already have data that is being requested (eg It doesn't make sense to Get an address that we have cached already)
+          // TODO But This may also check the forwarding functionality?
+      }
+    }
+
     Unit
   }
 
   // Users can hardcode specific transactions
   def push(tx: Seq[TLTransaction]): Unit = {
     for (t <- tx) {
-      userTransactions ++= TLTransactiontoTLBundles(t)
+      userTransactions ++= tx
     }
   }
 
@@ -570,6 +607,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState : S, respons
   }
 
   // Responsible for collecting requests and calling on the user-defined response method
+  // Currently only supports single source
   def process(a : TLBundleA) : Unit = {
     // Adding request to buffer (to collect for burst)
     txns += a
