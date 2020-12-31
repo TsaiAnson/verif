@@ -31,9 +31,9 @@ Add the following snippet to the end of `chipyard/build.sbt`:
 val directoryLayout = Seq(
   scalaSource in Compile := baseDirectory.value / "src",
   javaSource in Compile := baseDirectory.value / "src",
-  resourceDirectory in Compile := baseDirectory.value / "src" / "resources",
+  resourceDirectory in Compile := baseDirectory.value / "resources",
   scalaSource in Test := baseDirectory.value / "test",
-  resourceDirectory in Test := baseDirectory.value / "test" / "resources",
+  resourceDirectory in Test := baseDirectory.value / "resources",
 )
 
 val verifSettings = Seq(
