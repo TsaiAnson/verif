@@ -60,13 +60,14 @@ package object verifTLUtils {
   // Temporary location for parameters
   def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
-    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))), beatBytes = 8)
+    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
+    regionType = RegionType.UNCACHED)),
+    beatBytes = 8)
   def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "bundleBridgetoTL")))
   //    supportsProbe = TransferSizes(1, 32),
   //    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
   //    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))))
   def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
-
   // Temporary cache parameters
   def standaloneSlaveParamsC: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
@@ -348,14 +349,14 @@ package object verifTLUtils {
       case _: TLBundleA =>
         val bndc = bnd.asInstanceOf[TLBundleA]
         // Get, AcquireBlock, AcquirePerm
-        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
+        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
           return true
         }
         false
       case _: TLBundleB =>
         val bndc = bnd.asInstanceOf[TLBundleB]
         // Get, ProbeBlock, ProbePerm
-        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
+        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
           return true
         }
         false
@@ -1184,9 +1185,9 @@ package object verifTLUtils {
         val readOut = readData(state = state_int, size = txnc.size, address  = txnc.addr, mask = txnc.mask)
 
         if (txnc.size.litValue() > beatBytesSize)
-          responseTLTxn = AccessAckDataBurst(size = txnc.size, denied = false.B, datas = readOut)
+          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut)
         else
-          responseTLTxn = AccessAckData(size = txnc.size, denied = false.B, data = readOut(0))
+          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0))
 
       case _: PutFull | _: PutPartial | _: PutFullBurst | _: PutPartialBurst =>
         var size  = 0.U
