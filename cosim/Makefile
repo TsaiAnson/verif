@@ -9,16 +9,17 @@ gemmini_rocc_tests_dir=$(gemmini_dir)/software/gemmini-rocc-tests/
 
 .PHONY: gemmini-sim-setup gemmini-sim-build
 gemmini-sim-setup:
-	cd $(gemmini_dir)
-	git checkout blas
+	cd $(gemmini_dir); \
+	git checkout blas; \
 	git pull origin blas
-	cd $(gemmini_rocc_tests_dir)
-	git checkout dev
+	cd $(gemmini_rocc_tests_dir); \
+	git checkout dev; \
 	git pull origin dev
-	cd $(gemmini_sim_dir)
-	git remote add cosim https://github.com/ryan-lund/esp-isa-sim.git
-	git checkout cosim/master
-	git pull cosim/master
+	cd $(gemmini_sim_dir); \
+	git remote add cosim https://github.com/ryan-lund/esp-isa-sim.git; \
+	git fetch cosim
+	git checkout cosim/master; \
+	git pull cosim master
 
 gemmini-sim-build:
 	@echo "Creating fresh run directory"
@@ -31,10 +32,10 @@ gemmini-sim-build:
 	cp $(gemmini_rocc_tests_dir)/include/gemmini_params.h $(gemmini_sim_dir)/gemmini/
 	cp $(cpp_dir)/* $(gemmini_sim_dir)/gemmini/
 	@echo "Building Gemmini RoCC tests"
-	cd $(gemmini_rocc_tests_dir)
+	cd $(gemmini_rocc_tests_dir); \
 	./build.sh
 	@echo "Building esp-isa-sim"
-	cd $(gemmini_sim_dir)/build
+	cd $(gemmini_sim_dir)/build; \
 	make && make install
 	@echo "Sim setup done"
 

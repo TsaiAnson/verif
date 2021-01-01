@@ -39,7 +39,7 @@ class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Se
     simThread.run
 
     // Create and start all driver / monitor runnables
-    val threads = (driver ++ monitors).map(runnable => new Thread(runnable))
+    val threads = (drivers ++ monitors).map(cosimPipe => new Thread(cosimPipe))
     threads.foreach(thread => thread.start)
 
     // Wait for sim to terminate
@@ -51,7 +51,7 @@ class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Se
     val stdErr = sim.getStdErr
 
     // Terminate driver and monitor runnables
-    threads.foreach(thread => thread.stop)
+    (drivers ++ monitors).foreach(cosimPipe => cosimPipe.exit)
 
     // Check correctness
     correctnessCheck(exitCode)
