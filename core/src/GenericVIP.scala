@@ -5,11 +5,7 @@ import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
 class GenericDriver[T <: Data] (clock: Clock, interface: T) extends
-  AbstractDriver[T, T, T](clock, interface) {
-
-  def convertRawDataToStorage(rawValue: T): T = {
-    rawValue
-  }
+  AbstractDriver[T, T](clock, interface) {
 
   fork {
     while (true) {
