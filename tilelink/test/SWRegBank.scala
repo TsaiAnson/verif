@@ -8,6 +8,7 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
   // Quick HashMap hack that only works for aligned memory
   // TODO: Implement byte-level memory and PartialPut
+  // OLD, NOT UPDATED
   val internalBank = HashMap[Int, Int]()
 
   def process (txns : Seq[TLTransaction]) : Seq[TLTransaction] = {
@@ -18,6 +19,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
         case _: Get =>
           val txni = txn.asInstanceOf[Get]
           val size = txni.size
+          val source = txni.source
           val addr = txni.addr.litValue().toInt
 
           // Legal Address checking (only for aligned addresses)
@@ -26,13 +28,14 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           }
 
           if (internalBank.contains(addr)) {
-            results += AccessAckData(size = size, denied = false.B, data = internalBank(addr).U(64.W))
+            results += AccessAckData(size = size, source = source, denied = false.B, data = internalBank(addr).U(64.W))
           } else {
-            results += AccessAckData(size = size, denied = false.B, data = 0.U(64.W))
+            results += AccessAckData(size = size, source = source, denied = false.B, data = 0.U(64.W))
           }
         case _: PutFull =>
           val txni = txn.asInstanceOf[PutFull]
           val size = 3.U // Hardcoded for now
+          val source = txni.source
           val addr = txni.addr.litValue().toInt
 
           // Legal Address checking (only for aligned addresses)
@@ -41,7 +44,7 @@ class SWRegBank(regCount : Int = 8, regSizeBytes : Int = 8) {
           }
 
           internalBank(addr) = txni.data.litValue().toInt
-          results += AccessAck(size = size, denied = false.B)
+          results += AccessAck(size = size, source = source, denied = false.B)
       }
     }
 

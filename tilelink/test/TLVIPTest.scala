@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
-import designs.{VerifTLCustomMaster, VerifTLMasterSlaveFeedback}
+import designs._
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
@@ -116,8 +116,8 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "Basic Unittest TLTransaction to TLBundles to TLTransaction" in {
-    val testTxns = List(AccessAck(size = 3.U, denied = true.B), AccessAckData(size = 3.U, denied = false.B, data = 0x1.U(64.W)),
-      AccessAckDataBurst(size = 4.U, denied = false.B, datas = List(0x02.U(64.W), 0x03.U(64.W))),
+    val testTxns = List(AccessAck(size = 3.U, source = 0.U, denied = true.B), AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x1.U(64.W)),
+      AccessAckDataBurst(size = 4.U, source = 0.U, denied = false.B, datas = List(0x02.U(64.W), 0x03.U(64.W))),
       PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)),
       PutFullBurst(size = 4.U, source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))),
       Get(size = 3.U, source = 0.U, addr = 0x15.U, mask = 0xff.U), Get(size = 4.U, source = 0.U, addr = 0x20.U, mask = 0xff.U)
@@ -142,7 +142,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Currently just recording requests, only Driver is needed
-      val sDriver = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
+      val sDriver = new TLDriverSlave[HashMap[Int,Int]](c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 80
 
