@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 
 import designs._
 import chisel3._
@@ -12,14 +12,14 @@ import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.tile.{RoCCCommand}
 import java.io.{ByteArrayOutputStream, FileInputStream, FileOutputStream, PrintStream, BufferedReader, InputStreamReader}
 import java.util.stream.Collectors
-import org.scalatest.Matchers._
+import org.scalatest.matchers._
 import scala.sys.process._
 import scala.reflect.io.File
 
 import com.verif._
 
 
-class CosimTest extends FlatSpec with ChiselScalatestTester {
+class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
   it should "Named Pipe Test" in {

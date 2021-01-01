@@ -3,7 +3,6 @@ $(error Did not find protoc in PATH. Make sure all requirements are installed)
 endif
 
 base_dir=$(abspath .)
-lib_dir=$(base_dir)/lib
 java_dir=$(base_dir)/java
 cpp_dir=$(base_dir)/cpp
 proto_dir=$(base_dir)/proto

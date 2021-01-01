@@ -1,6 +1,6 @@
 package verif
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 
 import designs._
 import chisel3._
@@ -13,7 +13,7 @@ import freechips.rocketchip.tile.{RoCCCommand}
 
 import com.verif._
 
-class ProtoTest extends FlatSpec with ChiselScalatestTester {
+class ProtoTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
   it should "Protobuf Test" in {
