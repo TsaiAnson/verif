@@ -18,7 +18,7 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
 
   val io: Bundle
   val monitor: AbstractMonitor[I, S]
-  val driver: AbstractDriver[I, S, D]
+  val driver: AbstractDriver[I, S]
   val inputStreamToLiteral: (java.io.InputStream) => D
 
   def pokeIntoIO(message: D): Unit
