@@ -43,11 +43,11 @@ case class ReleaseData(param: UInt, size: UInt, source: UInt, addr: UInt, data: 
 case class ReleaseDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, datas: List[UInt]) extends TLTransaction
 
 // Channel D
-// Note (TL-C): Transactions with fwd = True.B are sent via Channel C
-case class AccessAck(size: UInt, denied: Bool, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class AccessAckData(size: UInt, denied: Bool, data: UInt, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class AccessAckDataBurst(size: UInt, denied: Bool, datas: List[UInt], source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class HintAck(size: UInt, denied: Bool, source: UInt = 0.U, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+// Note (TL-C): Transactions with fwd = True.B are sent via Channel C. Channel C requires address field (which D does not have)
+case class AccessAck(size: UInt, source : UInt, denied: Bool, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class AccessAckData(size: UInt, source : UInt, denied: Bool, data: UInt, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class AccessAckDataBurst(size: UInt, source : UInt, denied: Bool, datas: List[UInt], fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
+case class HintAck(size: UInt, source : UInt, denied: Bool, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
 case class Grant(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool) extends TLTransaction
 case class GrantData(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, data: UInt) extends TLTransaction
 case class GrantDataBurst(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, datas: List[UInt]) extends TLTransaction
@@ -378,6 +378,12 @@ package object verifTLUtils {
         // Always single message
         true
     }
+  }
+
+  // Helper function to map size -> # of beats
+  def sizeToBeats (size : UInt, beatBytes : Int = 8): Int = {
+    val sizeInt = 1 << size.litValue().toInt
+    ceil(sizeInt / beatBytes.toDouble).toInt
   }
 
   // Helper method to test if given TLBundles (TLChannels) make up a complete TLTransaction
@@ -1109,6 +1115,82 @@ package object verifTLUtils {
     result
   }
 
+  // Repeat Permissions for given size
+  def permRepeater(size: UInt, perm: UInt, beatBytes : Int = 8) : List[UInt] = {
+    val sizeInt = 1 << size.litValue().toInt
+    var tempResult: BigInt = 0
+    var resultList = ListBuffer[UInt]()
+    var reset = true
+
+    for (i <- 0 until sizeInt) {
+      tempResult = (tempResult << 8) | perm.litValue()
+      reset = false
+
+      // Separating into separate beats
+      if (i % beatBytes == (beatBytes - 1)) {
+        resultList += tempResult.U((beatBytes * 8).W)
+        tempResult = 0
+        reset = true
+      }
+    }
+
+    // Any dangling data
+    if (!reset) {
+      resultList += tempResult.U((beatBytes * 8).W)
+    }
+
+    resultList.toList
+  }
+
+  // Convert TLTransaction to forwarded TODO need a better way of doing this
+  // Currently no need for this, but may come in handy
+  def forwardTransaction(txn : TLTransaction) : TLTransaction = {
+    txn match {
+      case _ : Get =>
+        val txnc = txn.asInstanceOf[Get]
+        Get(size = txnc.size, source = txnc.source, addr = txnc.addr, mask = txnc.mask, fwd = true.B)
+      case _ : PutFull =>
+        val txnc = txn.asInstanceOf[PutFull]
+        PutFull(source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
+      case _ : PutFullBurst =>
+        val txnc = txn.asInstanceOf[PutFullBurst]
+        PutFullBurst(size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
+      case _ : PutPartial =>
+        val txnc = txn.asInstanceOf[PutPartial]
+        PutPartial(source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
+      case _ : PutPartialBurst =>
+        val txnc = txn.asInstanceOf[PutPartialBurst]
+        PutPartialBurst(size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
+      case _ : ArithData =>
+        val txnc = txn.asInstanceOf[ArithData]
+        ArithData(param = txnc.param, source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
+      case _ : ArithDataBurst =>
+        val txnc = txn.asInstanceOf[ArithDataBurst]
+        ArithDataBurst(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
+      case _ : LogicData =>
+        val txnc = txn.asInstanceOf[LogicData]
+        LogicData(param = txnc.param, source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
+      case _ : LogicDataBurst =>
+        val txnc = txn.asInstanceOf[LogicDataBurst]
+        LogicDataBurst(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
+      case _ : Intent =>
+        val txnc = txn.asInstanceOf[Intent]
+        Intent(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, mask = txnc.mask, fwd = true.B)
+      case _ : AccessAck =>
+        val txnc = txn.asInstanceOf[AccessAck]
+        AccessAck(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, fwd = true.B)
+      case _ : AccessAckData =>
+        val txnc = txn.asInstanceOf[AccessAckData]
+        AccessAckData(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, data = txnc.data, fwd = true.B)
+      case _ : AccessAckDataBurst =>
+        val txnc = txn.asInstanceOf[AccessAckDataBurst]
+        AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, datas = txnc.datas, fwd = true.B)
+      case _ : HintAck =>
+        val txnc = txn.asInstanceOf[HintAck]
+        HintAck(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, fwd = true.B)
+    }
+  }
+
   // State is a byte-addressed HashMap
   def readData(state: HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
     val sizeInt = 1 << size.litValue().toInt
@@ -1172,10 +1254,10 @@ package object verifTLUtils {
   }
 
   // Response function required for TL SDrivers
-  def testResponse (input : TLTransaction, state : HashMap[Int,Int], fwd : Bool = false.B) : (TLTransaction, HashMap[Int,Int]) = {
+  def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
-    var responseTLTxn : TLTransaction = AccessAck(0.U, true.B)
+    var responseTLTxn : TLTransaction = AccessAck(0.U, 0.U, true.B)
     // Making internal copy of state (non-destructive)
     val state_int = state.clone()
 
@@ -1188,55 +1270,67 @@ package object verifTLUtils {
         val readOut = readData(state = state_int, size = txnc.size, address  = txnc.addr, mask = txnc.mask)
 
         if (txnc.size.litValue() > beatBytesSize)
-          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut, fwd = fwd)
+          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut, fwd = txnc.fwd)
         else
-          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0), fwd = fwd)
+          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0), fwd = txnc.fwd)
 
       case _: PutFull | _: PutPartial | _: PutFullBurst | _: PutPartialBurst =>
         var size  = 0.U
+        var source = 0.U
         var address = 0.U
         var datas = List[UInt]()
         var masks  = List[UInt]()
+        var fwd = false.B
 
         input match {
           case _: PutFull =>
             val txnc = input.asInstanceOf[PutFull]
             size = beatBytesSize.U
+            source = txnc.source
             address = txnc.addr
             datas = List(txnc.data)
             masks = List(txnc.mask)
+            fwd = txnc.fwd
           case _: PutPartial =>
             val txnc = input.asInstanceOf[PutPartial]
             size = beatBytesSize.U
+            source = txnc.source
             address = txnc.addr
             datas = List(txnc.data)
             masks = List(txnc.mask)
+            fwd = txnc.fwd
           case _: PutFullBurst =>
             val txnc = input.asInstanceOf[PutFullBurst]
             size = txnc.size
+            source = txnc.source
             address = txnc.addr
             datas = txnc.datas
             masks = txnc.masks
+            fwd = txnc.fwd
           case _: PutPartialBurst =>
             val txnc = input.asInstanceOf[PutPartialBurst]
             size = txnc.size
+            source = txnc.source
             address = txnc.addr
             datas = txnc.datas
             masks = txnc.masks
+            fwd = txnc.fwd
         }
 
         // Write Data
         writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
 
         // Response
-        responseTLTxn = AccessAck(size = size, denied = false.B, fwd = fwd)
+        responseTLTxn = AccessAck(size = size, source = source, denied = false.B, fwd = fwd)
 
       case _: ArithData | _: ArithDataBurst | _: LogicData | _: LogicDataBurst =>
         var param = 0.U
         var size  = 0.U
+        var source = 0.U
         var address = 0.U
         var datas = List[UInt]()
         var masks  = List[UInt]()
+        var fwd = false.B
         var burst = false
         var arith = true
 
@@ -1245,34 +1339,43 @@ package object verifTLUtils {
             val txnc = input.asInstanceOf[ArithData]
             param = txnc.param
             size = beatBytesSize.U
+            source = txnc.source
             address = txnc.addr
             datas = List(txnc.data)
             masks = List(txnc.mask)
+            fwd = txnc.fwd
 
           case _: ArithDataBurst =>
             val txnc = input.asInstanceOf[ArithDataBurst]
             param = txnc.param
             size = txnc.size
+            source = txnc.source
             address = txnc.addr
             datas = txnc.datas
             masks = txnc.masks
+            fwd = txnc.fwd
             burst = true
+
           case _: LogicData =>
             val txnc = input.asInstanceOf[LogicData]
             param = txnc.param
             size = beatBytesSize.U
+            source = txnc.source
             address = txnc.addr
             datas = List(txnc.data)
             masks = List(txnc.mask)
+            fwd = txnc.fwd
             arith = false
 
           case _: LogicDataBurst =>
             val txnc = input.asInstanceOf[LogicDataBurst]
             param = txnc.param
             size = txnc.size
+            source = txnc.source
             address = txnc.addr
             datas = txnc.datas
             masks = txnc.masks
+            fwd = txnc.fwd
             burst = true
             arith = false
         }
@@ -1308,14 +1411,14 @@ package object verifTLUtils {
 
         writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
 
-        if (burst) responseTLTxn = AccessAckDataBurst(size = size, denied = false.B, datas = oldData, fwd = fwd)
-        else responseTLTxn = AccessAckData(size = beatBytesSize.U, denied = false.B, data = oldData.head, fwd = fwd)
+        if (burst) responseTLTxn = AccessAckDataBurst(size = size, source = source, denied = false.B, datas = oldData, fwd = fwd)
+        else responseTLTxn = AccessAckData(size = beatBytesSize.U, source = source, denied = false.B, data = oldData.head, fwd = fwd)
 
       case _: Intent =>
         val txnc = input.asInstanceOf[Intent]
 
         // Currently don't accept hints
-        responseTLTxn = HintAck(txnc.size, denied = true.B, fwd = fwd)
+        responseTLTxn = HintAck(size = txnc.size, source = txnc.source, denied = true.B, fwd = txnc.fwd)
     }
 
     (responseTLTxn, state_int)

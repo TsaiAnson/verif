@@ -156,10 +156,10 @@ trait VerifTLMasterFunctions {
   }
 
   def nonBlockingReadBD(b : ListBuffer[TLChannel], d : ListBuffer[TLChannel], source : Int): Unit = {
-    if (TLChannels.b.ready.peek().litToBoolean && TLChannels.b.valid.peek().litToBoolean && TLChannels.b.bits.source.litValue() == source) {
+    if (TLChannels.b.ready.peek().litToBoolean && TLChannels.b.valid.peek().litToBoolean) {
       b += peekB()
     }
-    if (TLChannels.d.ready.peek().litToBoolean && TLChannels.d.valid.peek().litToBoolean && TLChannels.d.bits.source.litValue() == source) {
+    if (TLChannels.d.ready.peek().litToBoolean && TLChannels.d.valid.peek().litToBoolean) {
       d += peekD()
     }
   }
@@ -456,16 +456,16 @@ trait VerifTLMonitorFunctions {
       results += peekA()
     }
     if (fire(TLChannels.b)) {
-      results += peekD()
+      results += peekB()
     }
     if (fire(TLChannels.c)) {
-      results += peekD()
+      results += peekC()
     }
     if (fire(TLChannels.d)) {
       results += peekD()
     }
     if (fire(TLChannels.e)) {
-      results += peekD()
+      results += peekE()
     }
 
     results.toList
@@ -552,88 +552,140 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
           val txnc = tlTxn.asInstanceOf[Grant]
           if (!txnc.denied.litToBoolean) {
             // Writing permissions
-            val intSize = 1 << txnc.size.litValue().toInt
-            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = List.fill(intSize)(txnc.param), masks = List.fill(intSize)(0x3.U))
+            val newPerm = (2 - txnc.param.litValue().toInt).U
+            val permData = permRepeater(size = txnc.size, perm = newPerm)
+            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+              masks = List.fill(permData.length)(0xff.U))
 
             queuedTLBundles ++= TLTransactiontoTLBundles(GrantAck(sink = txnc.sink))
-            tlProcess.remove(0)
+            tlProcess.remove(processIndex)
+
+            // Now able to queue up more releases
+            acquireInFlight = false
           }
         case _ : GrantData =>
           val txnc = tlTxn.asInstanceOf[GrantData]
           if (!txnc.denied.litToBoolean) {
             // Writing permissions and data
-            val intSize = 1 << txnc.size.litValue().toInt
-            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = List.fill(intSize)(txnc.param), masks = List.fill(intSize)(0x3.U))
+            val newPerm = (2 - txnc.param.litValue().toInt).U
+            val permData = permRepeater(size = txnc.size, perm = newPerm)
+            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+              masks = List.fill(permData.length)(0xff.U))
             writeData(state = dataState, size = txnc.size, address = acquireAddr, datas = List(txnc.data), masks = List(0xff.U))
 
             queuedTLBundles ++= TLTransactiontoTLBundles(GrantAck(sink = txnc.sink))
-            tlProcess.remove(0)
+            tlProcess.remove(processIndex)
+
+            // Now able to queue up more releases
+            acquireInFlight = false
           }
         case _ : GrantDataBurst =>
           val txnc = tlTxn.asInstanceOf[GrantDataBurst]
           if (!txnc.denied.litToBoolean) {
             // Writing permissions and data
-            val intSize = 1 << txnc.size.litValue().toInt
-            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = List.fill(intSize)(txnc.param), masks = List.fill(intSize)(0x3.U))
-            writeData(state = dataState, size = txnc.size, address = acquireAddr, datas = txnc.datas, masks = List.fill(intSize)(0xff.U))
+            val newPerm = (2 - txnc.param.litValue().toInt).U
+            val permData = permRepeater(size = txnc.size, perm = newPerm)
+            writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+              masks = List.fill(permData.length)(0xff.U))
+            writeData(state = dataState, size = txnc.size, address = acquireAddr, datas = txnc.datas, masks = List.fill(txnc.datas.length)(0xff.U))
 
             queuedTLBundles ++= TLTransactiontoTLBundles(GrantAck(sink = txnc.sink))
-            tlProcess.remove(0)
+            tlProcess.remove(processIndex)
+
+            // Now able to queue up more releases
+            acquireInFlight = false
           }
         case _ : ProbePerm => // Probe (Return ProbeAck) Don't process if pending Release Ack
           if (!releaseInFlight) {
             val txnc = tlTxn.asInstanceOf[ProbePerm]
-            // Writing permissions
-            val intSize = 1 << txnc.size.litValue().toInt
-            writeData(state = permState, size = txnc.size, address = txnc.addr, datas = List.fill(intSize)(txnc.param), masks = List.fill(intSize)(0x3.U))
+            val oldPerm = permState(txnc.addr.litValue().toInt)
+            // Given permission
+            val newPerm = txnc.param.litValue().toInt
+            var newParam = 0.U
 
-            queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAck(param = txnc.param, size = txnc.param, source = txnc.source, addr = txnc.addr))
-            tlProcess.remove(0)
+            // If permissions are the same
+            if (newPerm == oldPerm) {
+              // Report param
+              newParam = (5 - oldPerm).U
+            } else {
+              // Shrink Param
+              if (oldPerm == 2) {
+                newParam = if (newPerm == 1) 0.U else 1.U
+              } else {
+                newParam = 2.U
+              }
+
+              // Writing permissions
+              val permData = permRepeater(size = txnc.size, perm = txnc.param)
+              writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+                masks = List.fill(permData.length)(0xff.U))
+            }
+
+            queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAck(param = newParam, size = txnc.size, source = txnc.source, addr = txnc.addr))
+            tlProcess.remove(processIndex)
           } else {
             processIndex += 1
           }
         case _ : ProbeBlock => // Probe (Return ProbeAck or ProbeAckData based off perms) Don't process if pending Release Ack
           if (!releaseInFlight) {
-            val txnc = tlTxn.asInstanceOf[ProbePerm]
-            // Reading old permissions (only head since whole block shares same permissions)
-            val oldPerm = permState(txnc.addr.litValue().toInt) // If address not found, then something is wrong/broken
+            val txnc = tlTxn.asInstanceOf[ProbeBlock]
+            val oldPerm = permState(txnc.addr.litValue().toInt)
+            // Given permission
+            val newPerm = txnc.param.litValue().toInt
+            var newParam = 0.U
 
-            // Writing permissions
-            val intSize = 1 << txnc.size.litValue().toInt
-            writeData(state = permState, size = txnc.size, address = txnc.addr, datas = List.fill(intSize)(txnc.param), masks = List.fill(intSize)(0x3.U))
+            // If permissions are the same
+            if (newPerm == oldPerm) {
+              // Report param
+              newParam = (5 - oldPerm).U
+            } else {
+              // Shrink Param
+              if (oldPerm == 2) {
+                newParam = if (newPerm == 1) 0.U else 1.U
+              } else {
+                newParam = 2.U
+              }
+
+              // Writing permissions
+              val permData = permRepeater(size = txnc.size, perm = txnc.param)
+              writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+                masks = List.fill(permData.length)(0xff.U))
+            }
 
             // If old permission included write access, need to send back dirty data
-            if (oldPerm == 2) {
-              queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAckDataBurst(param = txnc.param, size = txnc.param, source = txnc.source, addr = txnc.addr,
+            if (oldPerm == 2 && newPerm != oldPerm) {
+              queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAckDataBurst(param = newParam, size = txnc.size, source = txnc.source, addr = txnc.addr,
                 datas = readData(dataState, size = txnc.size, address = txnc.addr, mask = 0xff.U)))
             } else {
-              queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAck(param = txnc.param, size = txnc.param, source = txnc.source, addr = txnc.addr))
+              queuedTLBundles ++= TLTransactiontoTLBundles(ProbeAck(param = newParam, size = txnc.size, source = txnc.source, addr = txnc.addr))
             }
-            tlProcess.remove(0)
+            tlProcess.remove(processIndex)
           } else {
             processIndex += 1
           }
         case _ : ReleaseAck =>
+          tlProcess.remove(processIndex)
+
           // Now able to queue up more releases
           releaseInFlight = false
         case _ : Get | _ : PutFull | _ : PutFullBurst | _ : PutPartial | _ : PutPartialBurst | _ : ArithData |
           _ : ArithDataBurst | _ : LogicData | _ : LogicDataBurst | _ : Intent =>
 
           // Using the testResponse slave function
-          val results = testResponse(input = tlTxn, state = dataState, fwd = true.B)
+          val results = testResponse(input = tlTxn, state = dataState)
 
           queuedTLBundles ++= TLTransactiontoTLBundles(results._1)
-          tlProcess.remove(0)
+          tlProcess.remove(processIndex)
         case _ =>
           // Response that requires no processing
-          tlProcess.remove(0)
+          tlProcess.remove(processIndex)
       }
     }
 
     // Determine input transactions
     // Currently limit inFlight instructions, as unsure on handling overloading L2 TODO update
     var inputIndex = 0
-    while (queuedTLBundles.length < 8 && inputTransactions.nonEmpty) {
+    while (queuedTLBundles.length < 8 && inputIndex < inputTransactions.length) {
       val tlTxn = inputTransactions(inputIndex)
 
       tlTxn match {
@@ -680,7 +732,9 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
             // Only modifying perms since transaction has data already
             // TODO Hard to randomly generate releases... unless generator has access to state...
             val intSize = 1 << releaseSize.litValue().toInt
-            writeData(state = permState, size = releaseSize, address = releaseAddr, datas = List.fill(intSize)(releaseParam), masks = List.fill(intSize)(0x3.U))
+            val permData = permRepeater(size = releaseSize, perm = releasePermMap(releaseParam.litValue().toInt).U)
+            writeData(state = permState, size = releaseSize, address = acquireAddr, datas = permData,
+              masks = List.fill(permData.length)(0xff.U))
 
             queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
             inputTransactions.remove(inputIndex)
@@ -696,9 +750,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
   // Users can hardcode specific transactions
   def push(tx: Seq[TLTransaction]): Unit = {
-    for (t <- tx) {
-      inputTransactions ++= tx
-    }
+    inputTransactions ++= tx
   }
 
   fork {
