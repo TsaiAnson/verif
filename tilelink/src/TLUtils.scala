@@ -382,6 +382,9 @@ package object verifTLUtils {
 
   // Helper method to test if given TLBundles (TLChannels) make up a complete TLTransaction
   def isCompleteTLTxn (txns: List[TLChannel]) : Boolean = {
+    // Edge case
+    if (txns.isEmpty) return false
+
     // TODO Hardcoded, update when configurability is added
     val beatBytes = 8
     val expectedTxnCount = if (isNonBurst(txns.head)) 1 else
@@ -599,7 +602,7 @@ package object verifTLUtils {
 
           assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
           assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREBLOCK Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREBLOCK Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREBLOCK TLBundle")
@@ -610,7 +613,7 @@ package object verifTLUtils {
 
           assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
           assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREPERM Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREPERM Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
@@ -777,7 +780,7 @@ package object verifTLUtils {
 
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsHint != TransferSizes.none, "(B) Channel does not support INTENT requests.")
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 1, s"(B) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 2, s"(B) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt INTENT TLBundle")
@@ -788,7 +791,7 @@ package object verifTLUtils {
 
           // Assertions checking on first TLBundle
           assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEBLOCK Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, s"(B) Non-valid PARAM (${bndc.param}) for PROBEBLOCK Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEBLOCK TLBundle")
@@ -799,7 +802,7 @@ package object verifTLUtils {
 
           // Assertions checking on first TLBundle
           assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEPERM Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, s"(B) Non-valid PARAM (${bndc.param}) for PROBEPERM Bundle")
           // Need to check
           //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEPERM TLBundle")
@@ -854,14 +857,14 @@ package object verifTLUtils {
 
         } else if (bndc.opcode.litValue() == 4) {
 
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACK Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACK Bundle")
           assert(!bndc.corrupt.litToBoolean, "(C) Corrupt PROBEACK TLBundle")
           ProbeAck(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address)
 
         } else if (bndc.opcode.litValue() == 5) {
 
           // Assertions checking on first TLBundle
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACKDATA Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 6, s"(B) Non-valid PARAM (${bndc.param}) for PROBEACKDATA Bundle")
           assert(alignedLg(bndc.address, bndc.size), s"(B) PROBEACKDATA Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
 
           if (bndsq.size > 0) {
@@ -885,14 +888,14 @@ package object verifTLUtils {
 
         } else if (bndc.opcode.litValue() == 6) {
 
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASE Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASE Bundle")
           assert(!bndc.corrupt.litToBoolean, "(C) Corrupt RELEASE TLBundle")
           Release(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address)
 
         } else if (bndc.opcode.litValue() == 7) {
 
           // Assertions checking on first TLBundle
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASEDATA Bundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 6, s"(B) Non-valid PARAM (${bndc.param}) for RELEASEDATA Bundle")
           assert(alignedLg(bndc.address, bndc.size), s"(B) RELEASEDATA Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
 
           if (bndsq.size > 0) {
@@ -962,14 +965,14 @@ package object verifTLUtils {
 
         } else if (bndc.opcode.litValue() == 4) {
 
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, "(D) Non-valid param field for GRANT TLBundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, "(D) Non-valid param field for GRANT TLBundle")
           assert(!bndc.corrupt.litToBoolean, "(D) Corrupt GRANT TLBundle")
           Grant(param = bndc.param, size = bndc.size, source = bndc.source, sink = bndc.sink, denied = bndc.denied)
 
         } else if (bndc.opcode.litValue() == 5) {
 
           // Assertions checking on first TLBundle
-          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 6, "(D) Non-valid param field for GRANTDATA TLBundle")
+          assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, "(D) Non-valid param field for GRANTDATA TLBundle")
           if (bndc.denied.litToBoolean) {
             assert(bndc.corrupt.litToBoolean, "(D) GRANTDATA denied but not corrupt")
           }
@@ -1169,7 +1172,7 @@ package object verifTLUtils {
   }
 
   // Response function required for TL SDrivers
-  def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
+  def testResponse (input : TLTransaction, state : HashMap[Int,Int], fwd : Bool = false.B) : (TLTransaction, HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
     var responseTLTxn : TLTransaction = AccessAck(0.U, true.B)
@@ -1185,9 +1188,9 @@ package object verifTLUtils {
         val readOut = readData(state = state_int, size = txnc.size, address  = txnc.addr, mask = txnc.mask)
 
         if (txnc.size.litValue() > beatBytesSize)
-          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut)
+          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut, fwd = fwd)
         else
-          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0))
+          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0), fwd = fwd)
 
       case _: PutFull | _: PutPartial | _: PutFullBurst | _: PutPartialBurst =>
         var size  = 0.U
@@ -1226,7 +1229,7 @@ package object verifTLUtils {
         writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
 
         // Response
-        responseTLTxn = AccessAck(size = size, denied = false.B)
+        responseTLTxn = AccessAck(size = size, denied = false.B, fwd = fwd)
 
       case _: ArithData | _: ArithDataBurst | _: LogicData | _: LogicDataBurst =>
         var param = 0.U
@@ -1305,14 +1308,14 @@ package object verifTLUtils {
 
         writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
 
-        if (burst) responseTLTxn = AccessAckDataBurst(size = size, denied = false.B, datas = oldData)
-        else responseTLTxn = AccessAckData(size = beatBytesSize.U, denied = false.B, data = oldData.head)
+        if (burst) responseTLTxn = AccessAckDataBurst(size = size, denied = false.B, datas = oldData, fwd = fwd)
+        else responseTLTxn = AccessAckData(size = beatBytesSize.U, denied = false.B, data = oldData.head, fwd = fwd)
 
       case _: Intent =>
         val txnc = input.asInstanceOf[Intent]
 
-        // Current don't accept hints
-        responseTLTxn = HintAck(txnc.size, denied = true.B)
+        // Currently don't accept hints
+        responseTLTxn = HintAck(txnc.size, denied = true.B, fwd = fwd)
     }
 
     (responseTLTxn, state_int)
