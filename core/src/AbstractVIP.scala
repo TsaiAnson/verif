@@ -6,10 +6,8 @@ import chiseltest._
 import scala.collection.mutable.{MutableList, Queue}
 
 // Interface type I, Storage type S, dataType D
-abstract class AbstractDriver[I, S, D](clock: Clock, interface: I) {
+abstract class AbstractDriver[I, S](clock: Clock, interface: I) {
   val inputTransactions = Queue[S]()
-
-  def convertRawDataToStorage(rawValue: D): S
 
   def push(t: S): Unit = {
     inputTransactions += t
