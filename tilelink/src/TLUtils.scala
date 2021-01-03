@@ -9,52 +9,6 @@ import chisel3.experimental.BundleLiterals._
 import scala.collection.mutable.{ListBuffer, Queue, HashMap}
 import scala.math.ceil
 
-// TODO Add source/sink fields when working with buses (refactor source fields)
-// *Burst for burst (multi-beat) operations
-sealed trait TLTransaction extends Bundle with Transaction
-
-// Channel A
-// Note (TL-C): Transactions with fwd = True.B are sent via Channel B
-case class Get(size: UInt, source: UInt, addr: UInt, mask: UInt, fwd: Bool = false.B) extends TLTransaction
-case class PutFull(source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
-case class PutFullBurst(size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
-case class PutPartial(source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
-case class PutPartialBurst(size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
-case class ArithData(param: UInt, source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
-case class ArithDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
-case class LogicData(param: UInt, source: UInt, addr: UInt, mask: UInt, data: UInt, fwd: Bool = false.B) extends TLTransaction
-case class LogicDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, masks: List[UInt], datas: List[UInt], fwd: Bool = false.B) extends TLTransaction
-case class Intent(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt, fwd: Bool = false.B) extends TLTransaction
-case class AcquireBlock(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
-case class AcquirePerm(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
-
-// Channel B
-// Note (TL-C): See Channel A transactions for forwarded messages
-case class ProbeBlock(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
-case class ProbePerm(param: UInt, size: UInt, source: UInt, addr: UInt, mask: UInt) extends TLTransaction
-
-// Channel C
-// Note (TL-C): See Channel D transactions for forwarded messages
-case class ProbeAck(param: UInt, size: UInt, source: UInt, addr: UInt) extends TLTransaction
-case class ProbeAckData(param: UInt, size: UInt, source: UInt, addr: UInt, data: UInt) extends TLTransaction
-case class ProbeAckDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, datas: List[UInt]) extends TLTransaction
-case class Release(param: UInt, size: UInt, source: UInt, addr: UInt) extends TLTransaction
-case class ReleaseData(param: UInt, size: UInt, source: UInt, addr: UInt, data: UInt) extends TLTransaction
-case class ReleaseDataBurst(param: UInt, size: UInt, source: UInt, addr: UInt, datas: List[UInt]) extends TLTransaction
-
-// Channel D
-// Note (TL-C): Transactions with fwd = True.B are sent via Channel C. Channel C requires address field (which D does not have)
-case class AccessAck(size: UInt, source : UInt, denied: Bool, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class AccessAckData(size: UInt, source : UInt, denied: Bool, data: UInt, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class AccessAckDataBurst(size: UInt, source : UInt, denied: Bool, datas: List[UInt], fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class HintAck(size: UInt, source : UInt, denied: Bool, fwd: Bool = false.B, addr: UInt = 0x0.U(64.W)) extends TLTransaction
-case class Grant(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool) extends TLTransaction
-case class GrantData(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, data: UInt) extends TLTransaction
-case class GrantDataBurst(param: UInt, size: UInt, source: UInt, sink: UInt, denied: Bool, datas: List[UInt]) extends TLTransaction
-case class ReleaseAck(size: UInt, source: UInt) extends TLTransaction
-
-// Channel E
-case class GrantAck(sink: UInt) extends TLTransaction
 
 package object verifTLUtils {
   // Temporary location for parameters
