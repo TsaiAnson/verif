@@ -7,6 +7,7 @@ import chiseltest._
 
 case class DecoupledTX[T <: Data](gen: T) extends Bundle {
   val data: T = gen.cloneType
+  // TODO: move these meta fields into typeclasses that can be mixed in with DecoupledTX
   val waitCycles: UInt = UInt(32.W)
   val postSendCycles: UInt = UInt(32.W)
   val cycleStamp: UInt = UInt(32.W)
