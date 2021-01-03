@@ -72,7 +72,7 @@ class MultiDirBundlePokeTest extends AnyFlatSpec with ChiselScalatestTester {
         for (f <- inputCache) {
           f.get(c.io).asInstanceOf[Data].poke(f.get(t).asInstanceOf[Data])
         }
-        println(c.io.output.peek().litValue())
+        //println(c.io.output.peek().litValue())
       }
     }
   }
@@ -91,7 +91,7 @@ class MultiDirBundlePokeTest extends AnyFlatSpec with ChiselScalatestTester {
       // Poking
       for (t <- inputTransactions) {
         c.io.pokePartial(t)
-        println(c.io.output.peek().litValue())
+        //println(c.io.output.peek().litValue())
       }
     }
   }

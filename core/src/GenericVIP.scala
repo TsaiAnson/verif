@@ -9,8 +9,8 @@ class GenericDriver[T <: Data] (clock: Clock, interface: T) extends
 
   fork {
     while (true) {
-      if (hasNextTransaction()) {
-        val t = getNextTransaction()
+      if (hasNextTransaction) {
+        val t = getNextTransaction
         interface.asInstanceOf[Bundle].pokePartial(t.asInstanceOf[Bundle])
       }
       clock.step()

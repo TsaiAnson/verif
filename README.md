@@ -8,9 +8,36 @@ Still work in progress, APIs are not stable.
 The `core` subproject only depends on Chisel 3.4+ and Chiseltest.
 To run tests:
 ```bash
+~/> git clone git@github.com:TsaiAnson/verif && cd verif
 ~/verif> sbt
 sbt:verif> project core
 sbt:core> testOnly verif.RandomTest
+```
+
+### As a Library
+If you have a Chisel sbt project at `~/proj` and want to use the core library:
+```bash
+~/proj> git submodule add git@github.com:TsaiAnson/verif
+```
+Add these lines to `~/proj/build.sbt`:
+```sbt
+val directoryLayout = Seq(
+  scalaSource in Compile := baseDirectory.value / "src",
+  resourceDirectory in Compile := baseDirectory.value / "resources",
+  scalaSource in Test := baseDirectory.value / "test",
+  resourceDirectory in Test := baseDirectory.value / "resources",
+)
+
+val verifSettings = Seq(
+  scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
+  libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
+  libraryDependencies += "edu.berkeley.cs" %% "chisel3" %% "3.4.+"
+)
+
+lazy val verif = (project in file("./verif/core"))
+  .settings(directoryLayout)
+  .settings(verifSettings)
 ```
 
 ### Inside Chipyard
@@ -93,7 +120,7 @@ sbt:verifTL> testOnly verif.TLL2CacheTest
 │       └── *Test.scala (Test Files)
 ├── cosim/              [verifGemmini]
 │   ├── src/
-│   │   ├── resources/  
+│   │   ├── resources/
 │   │   └── *.scala     (Source Files)
 │   └── test/
 │       └── *Test.scala (Test Files)
@@ -368,15 +395,3 @@ Note that this method is called the "naive" random, as its approach to satisfyin
 
 ## Coverage
 (TODO)
-
-## Etc
-With bloop:
-```bash
-bloop test verif-test -o verif.NoChiselRandomTest -- -z "Deterministic Testing"
-```
-
-### Constrained Random
-- Run the End2EndSMTSpec in FIRRTL which demonstrates simple SMT generation from FIRRTL and a few lines of SMT for BMC
-    `sbt:firrtl> testOnly firrtl.backends.experimental.smt.end2end.EndToEndSMTSpec`
-    - Results in test_run_dir
-- See the SMTCompilationTest in FIRRTL for how to compile a FIRRTL file to SMT

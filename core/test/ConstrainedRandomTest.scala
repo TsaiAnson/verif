@@ -53,4 +53,7 @@ class ConstrainedRandomTest extends AnyFlatSpec {
         assert(k.isRight)
         k.right.get.x.map(_.litValue()).foreach { elem => assert(elem == 7) }
     }
+
+    // test randomization of generic TXs
+    // test randomization of DecoupledTX
 }

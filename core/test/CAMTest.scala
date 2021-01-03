@@ -27,8 +27,11 @@ class CAMTest extends AnyFlatSpec with ChiselScalatestTester {
         val model = new SWAssocCAM(8,8,8)
         val swoutput = inputTransactions.map(inpTx => model.process(inpTx)).toArray[CAMIO]
 
-        assert(outputChecker.checkOutput(output.slice(1,output.size), {t : CAMIO => (t.found.litToBoolean, t.dataRe.litValue())},
-        swoutput, {t : CAMIO => (t.found.litToBoolean, t.dataRe.litValue())}))
+        output.drop(1).zip(swoutput).foreach {
+          case (dut_out, sw_out) =>
+            assert(dut_out.found.litToBoolean == sw_out.found.litToBoolean)
+            assert(dut_out.dataRe.litValue() == sw_out.dataRe.litValue())
+        }
     }
   }
 }

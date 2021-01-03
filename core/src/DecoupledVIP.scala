@@ -2,13 +2,31 @@ package verif
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import scala.collection.mutable.{MutableList, Queue}
 
-case class DecoupledTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Bundle {
-  override def cloneType = DecoupledTX(data, waitCycles, postSendCycles).asInstanceOf[this.type]
+case class DecoupledTX[T <: Data](gen: T) extends Bundle {
+  val data: T = gen.cloneType
+  val waitCycles: UInt = UInt(32.W)
+  val postSendCycles: UInt = UInt(32.W)
+  val cycleStamp: UInt = UInt(32.W)
+
+  // TODO: rename to driver/monitor TX
+  // TODO: split into driver and monitor TXs
+  // TODO: how can we check that data: T fits into gen? (e.g. gen = UInt(2.W), data = 16.U shouldn't work)
+  def tx(data: T, waitCycles: Int, postSendCycles: Int): DecoupledTX[T] = {
+    this.Lit(_.data -> data, _.waitCycles -> waitCycles.U, _.postSendCycles -> postSendCycles.U, _.cycleStamp -> 0.U)
+  }
+  def tx(data: T): DecoupledTX[T] = {
+    this.Lit(_.data -> data, _.waitCycles -> 0.U, _.postSendCycles -> 0.U)
+  }
+  def tx(data: T, cycleStamp: Int): DecoupledTX[T] = {
+    this.Lit(_.data -> data, _.cycleStamp -> cycleStamp.U)
+  }
 }
 
+// TODO: combine driver and monitor into VIP/Agent to keep API clean
+// TODO: VIP/Agent should have master and slave modes (monitor should never peek)
 class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
   AbstractDriver[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
 
@@ -16,8 +34,8 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extend
     var cycleCount = 0
     var idleCycles = 0
     while (true) {
-      if (hasNextTransaction() && idleCycles == 0) {
-        val t = getNextTransaction()
+      if (hasNextTransaction && idleCycles == 0) {
+        val t = getNextTransaction
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
@@ -56,10 +74,8 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extend
   }
 }
 
-class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
+class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) extends
   AbstractMonitor[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
-//  val txns = Queue[DecoupledTX[T]]()
-  var waitCycles = 0
   fork {
     var cycleCount = 0
     var idleCyclesD = 0
@@ -72,11 +88,10 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) exten
       }
       interface.ready.poke(1.B)
       if (interface.valid.peek().litToBoolean) {
-        val t = DecoupledTX[T](interface.bits.peek(), cycleStamp = cycleCount)
+        val t = DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
+        val tLit = t.Lit(_.data -> interface.bits.peek(), _.cycleStamp -> cycleCount.U)
         idleCyclesD = waitCycles
-        // For debugging use
-        // println("DDUT", interface.bits.peek().litValue(), cycleCount)
-        addMonitoredTransaction(t)
+        addMonitoredTransaction(tLit)
       }
       cycleCount += 1
       clock.step()
