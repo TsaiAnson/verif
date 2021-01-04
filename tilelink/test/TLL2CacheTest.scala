@@ -45,7 +45,59 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 //    }
 //  }
 
-  it should "Test New Driver Master" in {
+//  it should "Test New Driver Master" in {
+//    val TLL2 = LazyModule(new VerifTLL2Cache)
+//    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+//
+//      val L1Placeholder = new TLDriverMasterNew(c.clock, TLL2.in)
+//      val monitor = new TLMonitor(c.clock, TLL2.in, hasBCE = true)
+//      val monitor1 = new TLMonitor(c.clock, TLL2.out, hasBCE = false)
+//
+//      val test = HashMap[Int,Int]()
+//      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+//
+//      val txns = Seq(
+//        // Two Acquires in a row, must be sequential
+//        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
+//        AcquireBlock(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, mask = 0xff.U),
+//        // Cannot acquire until release completes
+//        ReleaseData(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, data = 0.U(64.W)),
+//        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x40.U, mask = 0xff.U),
+//        // L2 also sends a ProbeBlock message, and the correct report response is sent
+//      )
+//
+//      L1Placeholder.push(txns)
+//      c.clock.step(200)
+//
+//      println("PERM STATE")
+//      val perm = L1Placeholder.permState
+//      for (x <- perm.keys) {
+//        print(s"(${x}, ${perm(x)}), ")
+//      }
+//      println("")
+//
+//      println("INNER (CORE)")
+//      for (t <- monitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//      println("OUTER (DRAM)")
+//      for (t <- monitor1.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//    }
+//  }
+
+  it should "L2 SWTLFuzzer" in {
+
+//    val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+//      burst = true, arith = true, logic = true, hints = true, acquire = true, tlc = true)
+//    val txns = fuz.generateTransactions(60)
+//
+//    println("TXNS")
+//    for (t <- txns) {
+//      println(t)
+//    }
+
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
@@ -56,15 +108,14 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val test = HashMap[Int,Int]()
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
 
-      val txns = Seq(
-        // Two Acquires in a row, must be sequential
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        AcquireBlock(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, mask = 0xff.U),
-        // Cannot acquire until release completes
-        ReleaseData(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, data = 0.U(64.W)),
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x40.U, mask = 0xff.U),
-        // L2 also sends a ProbeBlock message, and the correct report response is sent
-      )
+      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+        burst = true, arith = true, logic = true, hints = true, tlc = true)
+      val txns = fuz.generateTransactions(60)
+
+      println("TXNS")
+      for (t <- txns) {
+        println(t)
+      }
 
       L1Placeholder.push(txns)
       c.clock.step(200)

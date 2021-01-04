@@ -132,6 +132,10 @@ package object verifTLUtils {
     aligned(data, (1 << base.litValue().toInt).U)
   }
 
+  def alignedMaskLg(mask : UInt, size : UInt) : Boolean = {
+    (1 << (1 << size.litValue().toInt)) - 1 == mask.litValue().toInt
+  }
+
   def contiguous(data : UInt) : Boolean = {
     val dataI = data.litValue()
     ((dataI + 1) & ~dataI) == (dataI + 1)
@@ -438,6 +442,7 @@ package object verifTLUtils {
     // Currently Hardcoding Parameters
     val TLSParam = standaloneSlaveParamsC.managers(0)
     val TLMParam = standaloneMasterParamsC.clients(0)
+    val beatSize = 3 // beatBytes = 8
 
     val bndsq = new Queue[TLChannel]()
     bndsq ++= bnds
@@ -451,11 +456,13 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsPutFull != TransferSizes.none, "(A) Channel does not support PUTFULL requests.")
           assert(bndc.param.litValue() == 0, "(A) Non-zero param field for PUTFULL TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
+          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "(A) PUTFULL Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(A) PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO FIX, MASK IS BYTE BASED
-          //          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) PUTFULL Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) PUTFULL (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
           assert(contiguous(bndc.mask), "(A) PUTFULL MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt PUTFULL TLBundle")
 
@@ -486,8 +493,7 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsPutPartial != TransferSizes.none, "(A) Channel does not support PUTPARTIAL requests.")
           assert(bndc.param.litValue() == 0, "(A) Non-zero param field for PUTPARTIAL TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
+          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "(A) PUTPARTIAL Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(A) PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Check that high bits are aligned
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt PUTPARTIAL TLBundle")
@@ -520,8 +526,14 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsArithmetic != TransferSizes.none, "(A) Channel does not support ARITHMETIC requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 4, s"(A) Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
+          assert(containsLg(TLSParam.supportsArithmetic, bndc.size), "(A) ARITHMETIC Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(A) ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO Add checks for mask
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) ARITHMETIC Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) ARITHMETIC (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(A) ARITHMETIC MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ARITHMETIC TLBundle")
 
           // If bundles are in a burst
@@ -553,8 +565,14 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
+          assert(containsLg(TLSParam.supportsLogical, bndc.size), "(A) LOGIC Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(A) LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO Add checks for mask
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) LOGIC Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) LOGIC (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(A) LOGICAL MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt LOGICAL TLBundle")
 
           // If bundles are in a burst
@@ -586,10 +604,12 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsGet != TransferSizes.none, "(A) Channel does not support GET requests.")
           assert(bndc.param.litValue() == 0, "(A) Non-zero param field for GET TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsGet, bndc.size), "(A) GET Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) GET Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) GET (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
           assert(contiguous(bndc.mask), "(A) GET MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt GET TLBundle")
           Get(size = bndc.size, source = bndc.source, mask = bndc.mask, addr = bndc.address)
@@ -598,8 +618,12 @@ package object verifTLUtils {
 
           assert(TLSParam.supportsHint != TransferSizes.none, "(A) Channel does not support INTENT requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 1, s"(A) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsHint, bndc.size), "(A) INTENT Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) INTENT Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) INTENT (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt INTENT TLBundle")
 
           Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
@@ -609,8 +633,13 @@ package object verifTLUtils {
           assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
           assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREBLOCK Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsAcquireT, bndc.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) ACQUIREBLOCK Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) ACQUIREBLOCK (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(A) ACQUIREBLOCK MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREBLOCK TLBundle")
 
           AcquireBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
@@ -620,8 +649,13 @@ package object verifTLUtils {
           assert(TLSParam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
           assert(TLSParam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREPERM Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsAcquireT, bndc.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedLg(bndc.mask, bndc.size), "(A) ACQUIREPERM Mask is not aligned with size")
+          } else {
+            assert(alignedLg(bndc.mask, beatSize.U), "(A) ACQUIREPERM Mask is not aligned with size")
+          }
+          assert(contiguous(bndc.mask), "(A) LOGICAL MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
 
           AcquireBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
@@ -639,11 +673,13 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsPutFull != TransferSizes.none, "(B) Channel does not support PUTFULL requests.")
           assert(bndc.param.litValue() == 0, "(B) Non-zero param field for PUTFULL TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "Size is outside of valid transfer sizes")
+          assert(containsLg(TLSParam.supportsPutFull, bndc.size), "(B) PUTFULL Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(B) PUTFULL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO FIX, MASK IS BYTE BASED
-          //          assert(alignedLg(bndc.mask, bndc.size), s"PUTFULL MASK (${bndc.mask}) is not aligned with size (${bndc.size})")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) PUTFULL Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) PUTFULL (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
           assert(contiguous(bndc.mask), "(B) PUTFULL MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PUTFULL TLBundle")
 
@@ -674,8 +710,7 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsPutPartial != TransferSizes.none, "(B) Channel does not support PUTPARTIAL requests.")
           assert(bndc.param.litValue() == 0, "(B) Non-zero param field for PUTPARTIAL TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "Size is outside of valid transfer sizes")
+          assert(containsLg(TLSParam.supportsPutPartial, bndc.size), "(B) PUTPARTIAL Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(B) PUTPARTIAL Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
           // TODO Check that high bits are aligned
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PUTPARTIAL TLBundle")
@@ -708,8 +743,14 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsArithmetic != TransferSizes.none, "(B) Channel does not support ARITHMETIC requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 4, s"(B) Non-valid PARAM (${bndc.param}) for ARITHMETIC Data Bundle")
+          assert(containsLg(TLSParam.supportsArithmetic, bndc.size), "(B) ARITHMETIC Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(B) ARITHMETIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO Add checks for mask
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) ARITHMETIC Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) ARITHMETIC (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(B) ARITHMETIC MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt ARITHMETIC TLBundle")
 
           // If bundles are in a burst
@@ -741,8 +782,14 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsLogical != TransferSizes.none, "(B) Channel does not support LOGIC requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(B) Non-valid PARAM (${bndc.param}) for LOGIC Data Bundle")
+          assert(containsLg(TLSParam.supportsLogical, bndc.size), "(B) LOGIC Size is outside of valid transfer sizes")
           assert(alignedLg(bndc.address, bndc.size), s"(B) LOGIC Address (${bndc.address}) is NOT aligned with size (${bndc.size})")
-          // TODO Add checks for mask
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) LOGIC Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) LOGIC (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(B) LOGIC MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt LOGICAL TLBundle")
 
           // If bundles are in a burst
@@ -774,10 +821,12 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsGet != TransferSizes.none, "(B) Channel does not support GET requests.")
           assert(bndc.param.litValue() == 0, "(B) Non-zero param field for GET TLBundle")
-          // Only for TL-UL
-          //          assert(containsLg(TLSParam.supportsGet, bndc.size), "Size is outside of valid transfer sizes")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsGet, bndc.size), "(B) GET Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) GET Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) GET (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
           assert(contiguous(bndc.mask), "(B) GET MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt GET TLBundle")
           Get(size = bndc.size, source = bndc.source, mask = bndc.mask, addr = bndc.address, fwd = true.B)
@@ -787,8 +836,13 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLSParam.supportsHint != TransferSizes.none, "(B) Channel does not support INTENT requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 2, s"(B) Non-valid PARAM (${bndc.param}) for INTENT Data Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          assert(containsLg(TLSParam.supportsHint, bndc.size), "(B) INTENT Size is outside of valid transfer sizes")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) INTENT Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) INTENT (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(B) INTEN MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt INTENT TLBundle")
 
           Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask, fwd = true.B)
@@ -798,8 +852,12 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, s"(B) Non-valid PARAM (${bndc.param}) for PROBEBLOCK Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) PROBEBLOCK Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) PROBEBLOCK (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(B) PROBEBLOCK MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEBLOCK TLBundle")
 
           ProbeBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
@@ -809,8 +867,12 @@ package object verifTLUtils {
           // Assertions checking on first TLBundle
           assert(TLMParam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() < 3, s"(B) Non-valid PARAM (${bndc.param}) for PROBEPERM Bundle")
-          // Need to check
-          //          assert(alignedLg(bndc.mask, bndc.size), "GET MASK is not aligned")
+          if (bndc.size.litValue() < beatSize) {
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(B) PROBEPERM Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
+          } else {
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(B) PROBEPERM (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
+          }
+          assert(contiguous(bndc.mask), "(B) PROBEPERM MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(B) Corrupt PROBEPERM TLBundle")
 
           Intent(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
@@ -954,7 +1016,7 @@ package object verifTLUtils {
               val other_bndc = bndsq.dequeue().asInstanceOf[TLBundleD]
 
               assert(bndc.param.litValue() == other_bndc.param.litValue())
-              assert(bndc.size.litValue() == other_bndc.size.litValue())
+              assert(bndc.size.litValue() == other_bndc.size.litValue(), s"${bndc}, ${other_bndc}")
 
               datas += other_bndc.data
             }
