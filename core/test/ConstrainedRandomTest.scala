@@ -53,6 +53,12 @@ class ConstrainedRandomTest extends AnyFlatSpec {
         assert(k.isRight)
         k.right.get.x.map(_.litValue()).foreach { elem => assert(elem == 7) }
     }
+    it should "set one hot" in {
+        val k = K().rand { b =>
+          (b.x & (b.x - 1.U)) === 0.U
+        }
+        print(k.right.get)
+    }
 
     // test randomization of generic TXs
     // test randomization of DecoupledTX
