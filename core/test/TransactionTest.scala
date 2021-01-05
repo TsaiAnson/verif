@@ -15,6 +15,9 @@ class TransactionTest extends AnyFlatSpec {
     assert(a == b)
     assert(a != c)
     assert(b != c)
+    assert(a != d)
+    assert(b != d)
+    assert(c != d)
   }
 }
 

@@ -45,6 +45,7 @@ package object verifTLUtils {
   //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
   //    hasBCE = true)
 
+  /*
   def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
                         mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleA = {
     //    assert(verifTLBundleParams.sizeBits >= size.getWidth)
@@ -74,6 +75,8 @@ package object verifTLUtils {
   def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
     new TLBundleE(verifTLBundleParams).Lit(_.sink -> sink)
   }
+
+   */
 
   // Helper functions for message checking
   def aligned(data : UInt, base : UInt) : Boolean = {
@@ -105,6 +108,7 @@ package object verifTLUtils {
 
   // UPGRADED FROM TLTransactiontoTLBundle
   // TODO Correct MASK assertion checking
+  /*
   def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
     var result = new ListBuffer[TLChannel]()
     txn match {
@@ -280,6 +284,7 @@ package object verifTLUtils {
     }
     result.toList
   }
+   */
 
   // Helper method to get size of TLChannel
   def getTLBundleDataSizeBytes (bnd : TLChannel): Int = {
@@ -390,9 +395,9 @@ package object verifTLUtils {
     result.toList
   }
 
-  // UPGRADED FROM TLBundletoTLTransaction
   // TODO Correct MASK assertion checking
-  def TLBundlestoTLTransaction(bnds : List[TLChannel]) : TLTransaction = {
+  // TODO: move all checks into the TLMonitor
+  def TLBundlestoTLTransaction(bnds: List[TLChannel], params: TLBundleParameters) : TLTransaction[_] = {
     // Currently Hardcoding Parameters
     val TLSParam = standaloneSlaveParamsC.managers(0)
     val TLMParam = standaloneMasterParamsC.clients(0)
@@ -438,7 +443,7 @@ package object verifTLUtils {
               masks += other_bndc.mask
               datas += other_bndc.data
             }
-            PutFullBurst(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList)
+            Put(size = bndc.size, source = bndc.source, addr = bndc.address, masks = masks.toList, datas = datas.toList)
           } else {
             PutFull(source = bndc.source, addr = bndc.address, mask = bndc.mask, data = bndc.data)
           }

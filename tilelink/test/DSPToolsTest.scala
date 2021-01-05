@@ -25,6 +25,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 100
+      implicit val params = TLRegBankSlave.in.params
 
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
