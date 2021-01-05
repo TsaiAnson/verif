@@ -99,19 +99,19 @@ package object verifTLUtils {
       _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
   }
 
-  def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
+  def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
                         mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleB = {
     new TLBundleB(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
   }
 
-  def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 2.U, source: UInt = 1.U, address: UInt = 0.U,
+  def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
                         data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleC = {
     new TLBundleC(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.address -> address, _.data -> data, _.corrupt -> corrupt)
   }
 
-  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U, source: UInt = 1.U, sink: UInt = 0.U,
+  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, sink: UInt = 0.U,
                         data: UInt = 0.U, denied: Bool = false.B, corrupt: Bool = false.B) : TLBundleD = {
     new TLBundleD(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
       _.sink -> sink, _.data -> data, _.denied -> denied, _.corrupt -> corrupt)
@@ -265,14 +265,14 @@ package object verifTLUtils {
         }
       case _: Release =>
         val txnc = txn.asInstanceOf[Release]
-        result += TLUBundleCHelper(opcode = 6.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr)
+        result += TLUBundleCHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr)
       case _: ReleaseData =>
         val txnc = txn.asInstanceOf[ReleaseData]
-        result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr, data = txnc.data)
+        result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
       case _: ReleaseDataBurst =>
         val txnc = txn.asInstanceOf[ReleaseDataBurst]
         for (d <- txnc.datas) {
-          result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.param, source = txnc.source, address = txnc.addr, data = d)
+          result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
         }
       case _: AccessAck =>
         val txnc = txn.asInstanceOf[AccessAck]
@@ -651,14 +651,14 @@ package object verifTLUtils {
           assert(bndc.param.litValue() >= 0 && bndc.param.litValue() <= 3, s"(A) Non-valid PARAM (${bndc.param}) for ACQUIREPERM Bundle")
           assert(containsLg(TLSParam.supportsAcquireT, bndc.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
           if (bndc.size.litValue() < beatSize) {
-            assert(alignedLg(bndc.mask, bndc.size), "(A) ACQUIREPERM Mask is not aligned with size")
+            assert(alignedMaskLg(bndc.mask, bndc.size), s"(A) ACQUIREPERM Mask (${bndc.mask}) is not aligned with size (${bndc.size})")
           } else {
-            assert(alignedLg(bndc.mask, beatSize.U), "(A) ACQUIREPERM Mask is not aligned with size")
+            assert(alignedMaskLg(bndc.mask, beatSize.U), s"(A) ACQUIREPERM (Burst) Mask (${bndc.mask}) is not aligned with beat size ($beatSize)")
           }
           assert(contiguous(bndc.mask), "(A) LOGICAL MASK is not contiguous")
           assert(!bndc.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
 
-          AcquireBlock(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
+          AcquirePerm(param = bndc.param, size = bndc.size, source = bndc.source, addr = bndc.address, mask = bndc.mask)
 
         } else {
 

@@ -10,10 +10,12 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
 class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] = None, beatSize : Int = 3,
+                 // TL-UL
+                 get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
                  // TL-UH
                   burst : Boolean = false, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
                  // TL-C
-                  tlc : Boolean = false, cacheBlockSize : Int = 3, acquire : Boolean = false,
+                  tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
                  // Randomization
                   randSeed : Int = 1234567890) {
 
@@ -21,8 +23,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
   val randGen = Random
   randGen.setSeed(randSeed)
 
-  def getRandomLegalAddress (slaves: Seq[AddressSet]) : Int = {
-    val addressRaw = randGen.nextInt(params.maxAddress.toInt + 1)
+  def getRandomLegalAddress (slaves: Seq[AddressSet], size : Int) : Int = {
+    val addressRaw = randGen.nextInt(params.maxAddress.toInt + 1) & ~((1 << size) - 1)
     val randomAddrSet = slaves(randGen.nextInt(slaves.length))
     val addrSet = overrideAddr.getOrElse(randomAddrSet)
     (addrSet.base | (addrSet.mask & addressRaw)).toInt
@@ -42,9 +44,17 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
     // Internal state for Acquire/Release addresses (make sure releasing valid addresses)
     // Permissions: 0 - None, 1 - Read (Branch), 2 - Read/Write (Tip)
+    // NOTE: This is a close approximation of the internal state, as this model does not take into account of
+    // cache size, random evictions, etc. Some of the transactions will be invalid when model is run.
+    // The New Driver Master VIP can reject/ignore invalid transactions
     val intState = HashMap[Int,Int]()
 
     // Generating Transactions
+    var txnBound = 6
+    if (tlc) {
+      txnBound = 8
+    }
+
     var redo = false
     while (genTxns.length < numbTxn) {
       do {
@@ -58,17 +68,17 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // 6 - Acquire
         // 7 - Release
 
-        if (tlc) {
-          typeTxn = randGen.nextInt.abs % 8
-        } else {
-          typeTxn = randGen.nextInt.abs % 6
-        }
-
-        println(typeTxn)
+        typeTxn = randGen.nextInt.abs % txnBound
 
         // Need to "re-roll" for unwanted txn types
         redo = false
-        if (!arith && typeTxn == 3) {
+        if (!get && typeTxn == 0) {
+          redo = true
+        } else if (!putFull && typeTxn == 1) {
+          redo = true
+        } else if (!putPartial && typeTxn == 2) {
+          redo = true
+        } else if (!arith && typeTxn == 3) {
           redo = true
         } else if (!logic && typeTxn == 4) {
           redo = true
@@ -89,7 +99,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
       if (typeTxn == 0) {
         // Get
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        address = getRandomLegalAddress(params.address, size)
         mask = (1 << (1 << beatSize)) - 1
 
         genTxns += Get(size = size.U, source = source.U, address.U(64.W), mask = mask.U)
@@ -97,7 +107,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
       } else if (typeTxn == 1) {
         // PutFull
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        address = getRandomLegalAddress(params.address, size)
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -116,7 +126,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
       } else if (typeTxn == 2) {
         // PutPartial
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        address = getRandomLegalAddress(params.address, size)
         mask = randGen.nextInt((1 << (1 << beatSize)))
 
         if (size > beatSize && burst) {
@@ -132,7 +142,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // ArithData
         param = randGen.nextInt(5)
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        if (tlc) {
+          address = intState.keys.toList(randGen.nextInt(intState.keys.size))
+        } else{
+          address = getRandomLegalAddress(params.address, size)
+        }
+
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -152,7 +167,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // LogicData
         param = randGen.nextInt(4)
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        if (tlc) {
+          address = intState.keys.toList(randGen.nextInt(intState.keys.size))
+        } else{
+          address = getRandomLegalAddress(params.address, size)
+        }
+
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -172,7 +192,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // Intent
         param = randGen.nextInt(2)
         size = randGen.nextInt(5) + 1
-        address = getRandomLegalAddress(params.address)
+        address = getRandomLegalAddress(params.address, size)
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -215,9 +235,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         while (redoAcquire && repeats < 10) {
           redoAcquire = false
 
-          address = getRandomLegalAddress(params.address)
-          // Getting block-aligned address
-          address = address & ~((1 << cacheBlockSize) - 1)
+          address = getRandomLegalAddress(params.address, cacheBlockSize)
 
           // If given address is already acquired, try increasing permissions or find new address. After 10 tries, convert
           // to release
@@ -244,6 +262,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
           } else {
             genTxns += AcquirePerm(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
           }
+
+          intState(address) = if (param == 0) 1 else 2
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
           param = randGen.nextInt(2) // TtoB or TtoN
@@ -264,7 +284,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
           if (intState.isEmpty) {
             // If nothing acquired yet, skip directly to acquire with random address
             repeats = 10
-            address = getRandomLegalAddress(params.address)
+            address = getRandomLegalAddress(params.address, cacheBlockSize)
             // Getting block-aligned address
             address = address & ~((1 << cacheBlockSize) - 1)
           } else {
@@ -278,14 +298,14 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
               param = randGen.nextInt(2)
             } else {
               // BtoN
-              param = 3
+              param = 2
             }
           }
         }
 
         // If no valid address to release, do acquire instead so that next time there will be a release
         if (repeats != 10) {
-          if (param < 3) {
+          if (param < 2) {
             // Dirty data
             genTxns += ReleaseDataBurst(param = param.U, size = size.U, source = source.U, addr = address.U,
               datas = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
@@ -300,6 +320,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
           } else {
             genTxns += AcquirePerm(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
           }
+
+          intState(address) = if (param == 0) 1 else 2
         }
 
       }
