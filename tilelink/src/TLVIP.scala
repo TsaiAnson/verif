@@ -155,7 +155,7 @@ trait VerifTLMasterFunctions {
     eC.valid.poke(false.B)
   }
 
-  def nonBlockingReadBD(b : ListBuffer[TLChannel], d : ListBuffer[TLChannel], source : Int): Unit = {
+  def nonBlockingReadBD(b : ListBuffer[TLChannel], d : ListBuffer[TLChannel]): Unit = {
     if (TLChannels.b.ready.peek().litToBoolean && TLChannels.b.valid.peek().litToBoolean) {
       b += peekB()
     }
@@ -501,7 +501,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
 }
 
 // TLDriver acting as a Master node (New Design) (For TL-C)
-class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
+class TLDriverMasterNew(clock: Clock, interface: TLBundle, ignoreInvalidTxn : Boolean = false) extends VerifTLMasterFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -521,6 +521,8 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
   var acquireAddr = 0.U
   // Used for release addressing (!!! supports only one release in-flight) TODO use source as IDs
   var releaseInFlight = false
+  // Temporary for non-concurrent operations
+  var inFlight = false
   // Received transactions to be processed
   val tlProcess = ListBuffer[TLTransaction]()
   // TLBundles to be pushed
@@ -539,6 +541,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
         tlProcess += TLBundlestoTLTransaction(bOutput.toList)
         bOutput.clear()
       } else if (isCompleteTLTxn(dOutput.toList)) {
+
         tlProcess += TLBundlestoTLTransaction(dOutput.toList)
         dOutput.clear()
       }
@@ -562,6 +565,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
             // Now able to queue up more releases
             acquireInFlight = false
+            inFlight = false
           }
         case _ : GrantData =>
           val txnc = tlTxn.asInstanceOf[GrantData]
@@ -578,6 +582,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
             // Now able to queue up more releases
             acquireInFlight = false
+            inFlight = false
           }
         case _ : GrantDataBurst =>
           val txnc = tlTxn.asInstanceOf[GrantDataBurst]
@@ -594,13 +599,14 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
             // Now able to queue up more releases
             acquireInFlight = false
+            inFlight = false
           }
         case _ : ProbePerm => // Probe (Return ProbeAck) Don't process if pending Release Ack
           if (!releaseInFlight) {
             val txnc = tlTxn.asInstanceOf[ProbePerm]
             val oldPerm = permState(txnc.addr.litValue().toInt)
             // Given permission
-            val newPerm = txnc.param.litValue().toInt
+            val newPerm = 2 - txnc.param.litValue().toInt
             var newParam = 0.U
 
             // If permissions are the same
@@ -616,8 +622,8 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
               }
 
               // Writing permissions
-              val permData = permRepeater(size = txnc.size, perm = txnc.param)
-              writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+              val permData = permRepeater(size = txnc.size, perm = newPerm.U)
+              writeData(state = permState, size = txnc.size, address = txnc.addr, datas = permData,
                 masks = List.fill(permData.length)(0xff.U))
             }
 
@@ -631,7 +637,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
             val txnc = tlTxn.asInstanceOf[ProbeBlock]
             val oldPerm = permState(txnc.addr.litValue().toInt)
             // Given permission
-            val newPerm = txnc.param.litValue().toInt
+            val newPerm = 2 - txnc.param.litValue().toInt
             var newParam = 0.U
 
             // If permissions are the same
@@ -647,8 +653,8 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
               }
 
               // Writing permissions
-              val permData = permRepeater(size = txnc.size, perm = txnc.param)
-              writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+              val permData = permRepeater(size = txnc.size, perm = newPerm.U)
+              writeData(state = permState, size = txnc.size, address = txnc.addr, datas = permData,
                 masks = List.fill(permData.length)(0xff.U))
             }
 
@@ -668,6 +674,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
           // Now able to queue up more releases
           releaseInFlight = false
+          inFlight = false
         case _ : Get | _ : PutFull | _ : PutFullBurst | _ : PutPartial | _ : PutPartialBurst | _ : ArithData |
           _ : ArithDataBurst | _ : LogicData | _ : LogicDataBurst | _ : Intent =>
 
@@ -676,16 +683,18 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
 
           queuedTLBundles ++= TLTransactiontoTLBundles(results._1)
           tlProcess.remove(processIndex)
+          inFlight = false
         case _ =>
           // Response that requires no processing
           tlProcess.remove(processIndex)
+          inFlight = false
       }
     }
 
     // Determine input transactions
     // Currently limit inFlight instructions, as unsure on handling overloading L2 TODO update
     var inputIndex = 0
-    while (queuedTLBundles.length < 8 && inputIndex < inputTransactions.length) {
+    while (!inFlight && inputIndex < inputTransactions.length) {
       val tlTxn = inputTransactions(inputIndex)
 
       tlTxn match {
@@ -693,22 +702,47 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
           if (acquireInFlight || releaseInFlight) {
             inputIndex += 1
           } else {
-            acquireInFlight = true
-
+            var newParamInt = 0
             tlTxn match {
-              case _ : AcquirePerm => acquireAddr = tlTxn.asInstanceOf[AcquirePerm].addr
-              case _ : AcquireBlock => acquireAddr = tlTxn.asInstanceOf[AcquireBlock].addr
+              case _ : AcquirePerm =>
+                newParamInt = tlTxn.asInstanceOf[AcquirePerm].param.litValue().toInt
+                acquireAddr = tlTxn.asInstanceOf[AcquirePerm].addr
+              case _ : AcquireBlock =>
+                newParamInt = tlTxn.asInstanceOf[AcquireBlock].param.litValue().toInt
+                acquireAddr = tlTxn.asInstanceOf[AcquireBlock].addr
             }
 
-            queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
+            // Sanity check if permission still applies (as of right now the transaction generator statically defines
+            // transactions, has no information on the true state of permissions)
+            var invalid = false
+            val acqAddrInt = acquireAddr.litValue().toInt
+
+            if (newParamInt < 2 && (permState.contains(acqAddrInt) && permState(acqAddrInt) != 0)) {
+              invalid = true
+            } else if (newParamInt == 2 && ((permState.contains(acqAddrInt) && permState(acqAddrInt) != 1) || !permState.contains(acqAddrInt))) {
+              invalid = true
+            }
+
+            if (invalid && !ignoreInvalidTxn) {
+              println(s"WARNING: Transaction $tlTxn has invalid parameters (Acquire param doesn't match current state) " +
+                s"- SKIPPING. To turn this off, set ignoreInvalidTxn = true.")
+            } else {
+              if (invalid) {
+                println(s"WARNING: Invalid transaction ($tlTxn) detected, but ignoreInvalidTxns was set to true.")
+              }
+
+              queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
+
+              acquireInFlight = true
+              inFlight = true
+            }
+
             inputTransactions.remove(inputIndex)
           }
         case _ : Release | _ : ReleaseData | _ : ReleaseDataBurst => // Don't issue if pending Grant or Release Ack
           if (acquireInFlight || releaseInFlight) {
             inputIndex += 1
           } else {
-            releaseInFlight = true
-
             var releaseAddr = 0.U
             var releaseSize = 0.U
             var releaseParam = 0.U
@@ -729,14 +763,38 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
                 releaseSize = txnc.size
                 releaseParam = txnc.param
             }
-            // Only modifying perms since transaction has data already
-            // TODO Hard to randomly generate releases... unless generator has access to state...
-            val intSize = 1 << releaseSize.litValue().toInt
-            val permData = permRepeater(size = releaseSize, perm = releasePermMap(releaseParam.litValue().toInt).U)
-            writeData(state = permState, size = releaseSize, address = acquireAddr, datas = permData,
-              masks = List.fill(permData.length)(0xff.U))
 
-            queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
+            // Sanity check if permission still applies (as of right now the transaction generator statically defines
+            // transactions, has no information on the true state of permissions)
+            var invalid = false
+            val relAddrInt = releaseAddr.litValue().toInt
+            val relParamInt = releaseParam.litValue().toInt
+
+            if (relParamInt < 2 && ((permState.contains(relAddrInt) && permState(relAddrInt) != 2) || !permState.contains(relAddrInt))) {
+              invalid = true
+            } else if (relParamInt == 2 && ((permState.contains(relAddrInt) && permState(relAddrInt) != 1) || !permState.contains(relAddrInt))) {
+              invalid = true
+            }
+
+            if (invalid && !ignoreInvalidTxn) {
+              println(s"WARNING: Transaction $tlTxn has invalid parameters (Release param doesn't match current state) " +
+                s"- SKIPPING. To turn this off, set ignoreInvalidTxn = true.")
+            } else {
+              if (invalid) {
+                println(s"WARNING: Invalid transaction ($tlTxn) detected, but ignoreInvalidTxns was set to true.")
+              }
+
+              // Only modifying perms since transaction has data already
+              val permData = permRepeater(size = releaseSize, perm = releasePermMap(releaseParam.litValue().toInt).U)
+              writeData(state = permState, size = releaseSize, address = releaseAddr, datas = permData,
+                masks = List.fill(permData.length)(0xff.U))
+
+              queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
+
+              releaseInFlight = true
+              inFlight = true
+            }
+
             inputTransactions.remove(inputIndex)
           }
         case _ =>
@@ -744,6 +802,7 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
           // TODO But This may also check the forwarding functionality?
           queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
           inputTransactions.remove(inputIndex)
+          inFlight = true
       }
     }
   }
@@ -760,13 +819,23 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle) extends VerifTLMaster
     while (true) {
       if (!queuedTLBundles.isEmpty) {
         val t = queuedTLBundles.dequeue()
+//        print("PUSH: ")
+//        println(t)
         writeChannel(t)
-      } else {
-        // Generate more transactions if available
-        process()
       }
+      process()
+      // TODO Look into why nonBlockingReadBD can sometimes fail here (works when moved to Monitor region)
+//      // Read on every cycle if available
+//      nonBlockingReadBD(bOutput, dOutput)
+      clock.step()
+    }
+  }
+
+  // Separate thread with nonBlockingRead (see above TODO)
+  fork.withRegion(Monitor) {
+    while (true) {
       // Read on every cycle if available
-      nonBlockingReadBD(bOutput, dOutput, source = 0)
+      nonBlockingReadBD(bOutput, dOutput)
       clock.step()
     }
   }
@@ -859,7 +928,7 @@ class TLMonitor(clock: Clock, interface: TLBundle, hasBCE: Boolean = false) exte
       } else {
         txns ++= readAD()
       }
-      clk.step()
+      clock.step()
     }
   }
 }

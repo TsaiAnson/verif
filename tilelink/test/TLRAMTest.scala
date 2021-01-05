@@ -20,15 +20,18 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
-      val simCycles = 200
+      val simCycles = 400
 
-      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)))
+      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+        burst = true, arith = true, logic = true)
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
       val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      println("TRANSACTIONS TOTAL")
+      println(output.size)
 
       // No SW output checking as RAMModel checks for correctness
     }
