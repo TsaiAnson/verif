@@ -23,16 +23,16 @@ class GemminiTest extends AnyFlatSpec with ChiselScalatestTester {
 
   val dut = LazyModule(
     new VerifRoCCStandaloneWrapper(
-      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true, meshRows = 4,
-                        meshColumns = 4, rob_entries = 4)),
+      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true)), //, meshRows = 4,
+                        //meshColumns = 4, rob_entries = 4)),
       beatBytes = 16,
       addSinks = 1
     ))
   it should "Elaborate Gemmini" in {
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       // Drivers
-      val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, c.io.cmd)
-      val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
+      //val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, c.io.cmd)
+      //val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
       // TODO: tlClientDriver is broken
       //val tlDriver = new TLClientDriverBasic(c.clock, dut.module.tlOut)
 

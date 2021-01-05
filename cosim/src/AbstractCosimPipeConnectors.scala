@@ -14,26 +14,22 @@ abstract class AbstractCosimPipe extends Runnable {
 abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCosimPipe {
   @volatile private var terminate = false
 
-  val in = new FileInputStream(pipe)
 
-  val io: Bundle
-  val monitor: AbstractMonitor[I, S]
   val driver: AbstractDriver[I, S]
   val inputStreamToLiteral: (java.io.InputStream) => D
 
-  def pokeIntoIO(message: D): Unit
+  def pushIntoDriver(message: D): Unit
 
   override def run: Unit = {
+    val in = new FileInputStream(pipe)
+
     while(!terminate) {
       val message = inputStreamToLiteral(in)
 
-      pokeIntoIO(message)
+      pushIntoDriver(message)
 
-      // This would be eliminated with a streaming driver -> monitor inferface
-      // For now we need to be sure the monitored transaction is added to the driver before reading a new message
-      var tx = monitor.getOldestMonitoredTransaction
-      while (tx.isEmpty) { tx = monitor.getOldestMonitoredTransaction}
-      driver.push(tx.get)
+      // We remove the double monitor driver pair because you cannot instantate a wire in a non-module
+      // context
     }
   }
 

@@ -125,8 +125,8 @@ case object VerifTileParams extends TileParams {
   val beuAddr: Option[BigInt] = None
   val blockerCtrlAddr: Option[BigInt] = None
   val btb: Option[BTBParams] = None
-  val dcache: Option[DCacheParams] = Some(DCacheParams())
-  val icache: Option[ICacheParams] = Some(ICacheParams())
+  val dcache: Option[DCacheParams] = Some(DCacheParams(rowBits=128)) // TODO: can these be derived from beat bytes, etc
+  val icache: Option[ICacheParams] = Some(ICacheParams(rowBits=128))
 }
 
 /**
@@ -140,7 +140,7 @@ object VerifTestUtils {
       pAddrBits: Int = 32,
       transferSize: TransferSizes = TransferSizes(1, 64)): Parameters = {
 
-    val origParams = new RocketConfig
+    val origParams = Parameters.empty //new freechips.rocketchip.subsystem.WithoutTLMonitors //RocketConfig
 
     // augment the parameters
     implicit val p = origParams.alterPartial {
@@ -174,7 +174,7 @@ object VerifTestUtils {
 
     dummyOutNode :=
       TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
-        supportsGet = transferSize, supportsPutFull = transferSize)), beatBytes)):=
+        supportsGet = transferSize, supportsPutFull = transferSize)), beatBytes)) :=
       visibilityNode
 
     val outParams = p.alterPartial {

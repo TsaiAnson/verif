@@ -36,14 +36,6 @@ class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8, addSin
         ioInNodes(i)
     }
 
-//  lazy val ioOutNode = BundleBridgeSink[TLBundle]()
-//  val dutInside = LazyModule(dut())
-//
-//  ioOutNode :=
-//    TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
-//      supportsGet = TransferSizes(1, 64), supportsPutFull = TransferSizes(1,64), supportsPutPartial = TransferSizes(1,64))), beatBytes)) :=
-//    dutInside.tlNode
-
   lazy val module = new VerifRoCCStandaloneWrapperModule(this)
 }
 
@@ -57,6 +49,4 @@ class VerifRoCCStandaloneWrapperModule(outer: VerifRoCCStandaloneWrapper) extend
 
   val tlOut = ioOutNodes.map{ (outNode) => outNode.makeIO()}
   val tlIn = ioInNodes.map{ (inNode) => inNode.makeIO()}
-  //val tlOut = ioOutNode.makeIO()
-
 }
