@@ -15,7 +15,7 @@ sbt:core> testOnly verif.RandomTest
 ```
 
 ### As a Library
-If you have a Chisel sbt project at `~/proj` and want to use the core library:
+If you have a Chisel sbt project at `~/proj` and want to use the core library, submodule this repo
 ```bash
 ~/proj> git submodule add git@github.com:TsaiAnson/verif
 ```
@@ -38,6 +38,12 @@ val verifSettings = Seq(
 lazy val verif = (project in file("./verif/core"))
   .settings(directoryLayout)
   .settings(verifSettings)
+```
+
+Alternatively, you can pull this repo as a Git dependency:
+```sbt
+lazy val verif = ProjectRef(uri("git://github.com/TsaiAnson/verif.git"), "core")
+lazy val main = Project("root", file(".")).dependsOn(verif)
 ```
 
 ### Inside Chipyard
