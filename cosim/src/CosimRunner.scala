@@ -1,6 +1,7 @@
 package cosim
 
 import verif.VerifCosimTestUtils
+import java.io.File
 
 class CosimSimulator(simPath: String, simArgs: Seq[String], simTarget: String) extends Runnable {
 
@@ -37,6 +38,12 @@ class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Se
     val simThread = new Thread(sim)
 
     simThread.run
+
+    // Spin until all FIFOs are created
+    val path = "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir" //TODO: get this automatically
+    println(new java.io.File(path).listFiles.size)
+    while (new java.io.File(path).listFiles.size < (drivers ++ monitors).size) {}
+
 
     // Create and start all driver / monitor runnables
     val threads = (drivers ++ monitors).map(cosimPipe => new Thread(cosimPipe))
