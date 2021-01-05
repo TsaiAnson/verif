@@ -7,7 +7,7 @@ import freechips.rocketchip.tilelink._
 import scala.collection.mutable.{HashMap, ListBuffer, MutableList, Queue}
 import verifTLUtils._
 
-import scala.reflect.runtime.universe.typeOf
+import scala.collection.mutable
 
 // Functions for TL Master VIP
 // Currently supports TL-UL, (TL-UH)
@@ -474,22 +474,41 @@ trait VerifTLMonitorFunctions {
 
 // TLDriver acting as a Master node
 class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
-  val clk = clock
-  val TLChannels = interface
+  //val inputTransactions: mutable.Queue[TLChannel] = mutable.Queue[TLChannel]()
+  val params = interface.params
 
-  val inputTransactions = Queue[TLChannel]()
+  private val aDriver = new DecoupledDriver(clock, interface.a)
+  private val dMonitor = new DecoupledMonitor(clock, interface.d, 0)
+  private val bMonitor = if (interface.params.hasBCE) Option(new DecoupledMonitor(clock, interface.b, 0)) else None
+  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriver(clock, interface.c)) else None
+  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriver(clock, interface.e)) else None
 
-  def push(tx: Seq[TLTransaction]): Unit = {
-    for (t <- tx) {
-      inputTransactions ++= TLTransactiontoTLBundles(t)
+  def push(tx: Seq[TLChannel]): Unit = {
+    tx.foreach { channel: TLChannel =>
+        channel match {
+          case a: TLBundleA =>
+            val txProto = DecoupledTX(new TLBundleA(params))
+            val tx = txProto.tx(a)
+            aDriver.push(tx)
+          case c: TLBundleC =>
+            val txProto = DecoupledTX(new TLBundleC(params))
+            val tx = txProto.tx(c)
+            cDriver.get.push(tx) // TODO: will throw exception is hasBCE = false
+          case e: TLBundleE =>
+            val txProto = DecoupledTX(new TLBundleE(params))
+            val tx = txProto.tx(e)
+            eDriver.get.push(tx)
+        }
     }
+    //inputTransactions ++= tx
   }
 
+  /*
   fork {
     // Ready always high (TL monitor always receiving in transactions)
     interface.d.ready.poke(true.B)
     while (true) {
-      if (!inputTransactions.isEmpty) {
+      if (inputTransactions.nonEmpty) {
         val t = inputTransactions.dequeue()
         writeChannel(t)
         clock.step()
@@ -498,6 +517,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
       }
     }
   }
+   */
 }
 
 // TLDriver acting as a Master node (New Design) (For TL-C)
