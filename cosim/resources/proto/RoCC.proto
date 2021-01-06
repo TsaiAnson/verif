@@ -4,10 +4,6 @@ package verif;
 option java_package = "com.verif";
 option java_outer_classname = "RoCCProtos";
 
-service RoCCCommandChannel {
-  rpc SendRoCCCommand(RoCCCommand) returns (RoCCCommandAck) {}
-}
-
 message RoCCCommandAck {
   uint32 ack = 1;
 }

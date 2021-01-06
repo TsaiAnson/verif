@@ -1,0 +1,31 @@
+syntax = "proto3";
+package verif;
+
+option java_package = "com.verif";
+option java_outer_classname = "TLProtos";
+
+message TLA {
+  uint32 opcode = 1;
+  uint32 param = 2;
+  uint32 size = 3;
+  uint32 source = 4;
+  uint32 address = 5;
+  // user
+  // echo
+  uint32 mask = 6;
+  bytes data = 7;
+  bool corrupt = 8;
+}
+
+message TLD {
+  uint32 opcode = 1;
+  uint32 param = 2;
+  uint32 size = 3;
+  uint32 source = 4;
+  uint32 sink = 5;
+  bool denied = 6;
+  // user
+  // echo
+  bytes data = 7;
+  bool corrupt = 8;
+}

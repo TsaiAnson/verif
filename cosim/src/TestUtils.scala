@@ -98,6 +98,22 @@ object VerifProtoBufUtils {
       .apply(args.toList: _*)
       .asInstanceOf[R]
   }
+
+  def BundleToProto[B <: Bundle](bundle: B,
+                                 builder: com.google.protobuf.Message.Builder): com.google.protobuf.Message = {
+    com.google.protobuf.util.JsonFormat.parser().ignoringUnknownFields().merge("{" + BundleToJson(bundle) + "}", builder)
+    builder.build()
+  }
+
+  def BundleToJson[B <: Bundle](bundle: B): String = {
+    bundle.elements.map(tuple => {
+      tuple._2 match {
+        case _: Bundle => s""" "${tuple._1}": { ${BundleToJson(tuple._2.asInstanceOf[Bundle])} }"""
+        case _: Bool => s""""${tuple._1}": ${tuple._2.asInstanceOf[Bool].litToBoolean}"""
+        case _ => s""""${tuple._1}": ${tuple._2.litValue}"""
+      }
+    }).mkString(",\n")
+  }
 }
 
 object VerifRoCCUtils {

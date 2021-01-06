@@ -25,11 +25,16 @@ class ProtoTest extends AnyFlatSpec with ChiselScalatestTester {
       .build()
 
     val bundle = VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand)
+    
+    val roundtrip = VerifProtoBufUtils.BundleToProto(bundle, RoCCProtos.RoCCCommand.newBuilder())
 
     println("--- PROTO MESSAGE ---")
     println(cmd)
     println("--- CHISEL BUNDLE ---")
     println(bundle)
+    println("--- ROUND TRIP PROTO ---")
+    println(roundtrip)
+
 
     assert(true)
   }
