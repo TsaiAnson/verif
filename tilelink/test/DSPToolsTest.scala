@@ -13,6 +13,8 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import scala.collection.mutable.HashMap
 import verifTLUtils._
 
+import TLTransaction._
+
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
   // implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
   // implicit val p: Parameters = (new BaseConfig).toInstance
@@ -25,14 +27,15 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
       val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 100
+
       implicit val params = TLRegBankSlave.in.params
 
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x08.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x10.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x18.U, mask = 0xff.U),
+        Get(0x0),
+        Get(0x08),
+        Get(0x10),
+        Get(0x18),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
         PutFull(source = 0.U, addr = 0.U, mask = 0xff.U, data = 0.U),
         PutFull(source = 0.U, addr = 0x08.U, mask = 0xff.U, data = 1.U),

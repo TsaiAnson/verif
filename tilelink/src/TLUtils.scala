@@ -399,7 +399,7 @@ package object verifTLUtils {
   // TODO: move all checks into the TLMonitor
   def TLBundlestoTLTransaction(bnds: List[TLChannel], params: TLBundleParameters) : TLTransaction[_] = {
     // Currently Hardcoding Parameters
-    val TLSParam = standaloneSlaveParamsC.managers(0)
+    val TLSParam: TLSlaveParameters = standaloneSlaveParamsC.managers(0)
     val TLMParam = standaloneMasterParamsC.clients(0)
     val beatSize = 3 // beatBytes = 8
 

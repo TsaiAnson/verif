@@ -2,18 +2,19 @@ package verif
 
 import chisel3._
 import chisel3.experimental.BundleLiterals._
-import chisel3.experimental.ChiselEnum
-import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleBase, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLMessages}
+import chisel3.util.log2Ceil
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleBase, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel, TLMessages}
 
-import scala.collection.mutable
-
+/*
 case class TLBundleATx(p: TLBundleParameters) extends Bundle with Transaction {
   val a = new TLBundleA(p) with Transaction
 }
+ */
 
 // TLTransactions are just TLChannel Bundle literals
 // There are some helper methods here to construct these literals for user stimulus
 package object TLTransaction {
+  // TL-UH
   def Get(addr: BigInt, size: Int, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
@@ -27,6 +28,65 @@ package object TLTransaction {
       _.data -> 0.U
     )
   }
+  // TL-UL
+  def Get(addr: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
+    Get(addr, log2Ceil(params.dataBits), 2^(params.dataBits/8) - 1, 0)
+  }
+  def Put(addr: BigInt, data: BigInt, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
+
+  }
+  def PutBurst(addr: BigInt, data:Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
+    data.map {
+      (d: BigInt) => Put(addr, d, 0xffff, source)
+    }
+  }
+  def AcquireBlock(param: Int): Unit = {
+    param.value -> UInt
+  }
+  AcquireBlock(TLPermissions.toT)())
+}
+
+object TLPermissions
+{
+  val aWidth = 2
+  val bdWidth = 2
+  val cWidth = 3
+
+  sealed trait Permission {
+    def value: UInt
+  }
+  sealed trait Cap extends Permission
+  case class toT() extends Cap {
+    override def value: UInt = 0.U
+  }
+  // Cap types (Grant = new permissions, Probe = permisions <= target)
+  def toT = UInt(0, bdWidth)
+  def toB = UInt(1, bdWidth)
+  def toN = UInt(2, bdWidth)
+  def isCap(x: UInt) = x <= toN
+
+  // Grow types (Acquire = permissions >= target)
+  def NtoB = UInt(0, aWidth)
+  def NtoT = UInt(1, aWidth)
+  def BtoT = UInt(2, aWidth)
+  def isGrow(x: UInt) = x <= BtoT
+
+  // Shrink types (ProbeAck, Release)
+  def TtoB = UInt(0, cWidth)
+  def TtoN = UInt(1, cWidth)
+  def BtoN = UInt(2, cWidth)
+  def isShrink(x: UInt) = x <= BtoN
+
+  // Report types (ProbeAck, Release)
+  def TtoT = UInt(3, cWidth)
+  def BtoB = UInt(4, cWidth)
+  def NtoN = UInt(5, cWidth)
+  def isReport(x: UInt) = x <= NtoN
+
+  def PermMsgGrow:Seq[String] = Seq("Grow NtoB", "Grow NtoT", "Grow BtoT")
+  def PermMsgCap:Seq[String] = Seq("Cap toT", "Cap toB", "Cap toN")
+  def PermMsgReport:Seq[String] = Seq("Shrink TtoB", "Shrink TtoN", "Shrink BtoN", "Report TotT", "Report BtoB", "Report NtoN")
+  def PermMsgReserved:Seq[String] = Seq("Reserved")
 }
 /*
 //case class TLTransaction(implicit val params: TLBundleParameters) extends TLBundleA(params) with Transaction

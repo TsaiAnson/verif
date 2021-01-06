@@ -3,6 +3,7 @@ package verif
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.BundleLiterals._
+import chisel3.experimental.{DataMirror, Direction}
 import chiseltest._
 
 case class DecoupledTX[T <: Data](gen: T) extends Bundle {
@@ -28,9 +29,9 @@ case class DecoupledTX[T <: Data](gen: T) extends Bundle {
 
 // TODO: combine driver and monitor into VIP/Agent to keep API clean
 // TODO: VIP/Agent should have master and slave modes (monitor should never peek)
-class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
+class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
   AbstractDriver[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
-
+  assert(DataMirror.directionOf(interface.valid) == Direction.Input, "DecoupledDriverMaster is connected to a master port, not a slave")
   fork {
     var cycleCount = 0
     var idleCycles = 0
@@ -40,8 +41,6 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extend
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
-            // For debugging use
-            // println("IDUT", cycleCount)
             idleCycles -= 1
             cycleCount += 1
             clock.step()
@@ -54,10 +53,13 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extend
 
         cycleCount += 1
         timescope {
-          if (t.data.isInstanceOf[Bundle]) {
-            interface.bits.asInstanceOf[Bundle].pokePartial(t.data.asInstanceOf[Bundle])
-          } else {
-            interface.bits.poke(t.data)
+          t.data match {
+            case bundle: Bundle =>
+              //interface.bits.asInstanceOf[Bundle].pokePartial(bundle)
+              // TODO: why is this special cased?
+              interface.bits.poke(t.data)
+            case _ =>
+              interface.bits.poke(t.data)
           }
           interface.valid.poke(true.B)
           clock.step()
@@ -67,16 +69,14 @@ class DecoupledDriver[T <: Data](clock: Clock, interface: DecoupledIO[T]) extend
       } else {
         if (idleCycles > 0) idleCycles -= 1
         cycleCount += 1
-        // For debugging use
-        // println("IDUT", cycleCount)
         clock.step()
       }
     }
   }
 }
 
-class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) extends
-  AbstractMonitor[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
+class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) {
+  assert(DataMirror.directionOf(interface.valid) == Direction.Output, "DecoupledDriverSlave is connected to a slave port, not a master")
   fork {
     var cycleCount = 0
     var idleCyclesD = 0
@@ -87,11 +87,24 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T], waitC
         cycleCount += 1
         clock.step()
       }
-      interface.ready.poke(1.B)
+      interface.ready.poke(true.B)
       if (interface.valid.peek().litToBoolean) {
+        idleCyclesD = waitCycles
+      }
+      cycleCount += 1
+      clock.step()
+    }
+  }
+}
+
+class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
+  AbstractMonitor[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
+  fork.withRegion(Monitor) {
+    var cycleCount = 0
+    while (true) {
+      if (interface.valid.peek().litToBoolean && interface.ready.peek().litToBoolean) {
         val t = DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
         val tLit = t.Lit(_.data -> interface.bits.peek(), _.cycleStamp -> cycleCount.U)
-        idleCyclesD = waitCycles
         addMonitoredTransaction(tLit)
       }
       cycleCount += 1

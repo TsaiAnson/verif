@@ -473,15 +473,16 @@ trait VerifTLMonitorFunctions {
 }
 
 // TLDriver acting as a Master node
-class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFunctions {
+class TLDriverMaster(clock: Clock, interface: TLBundle) {
   //val inputTransactions: mutable.Queue[TLChannel] = mutable.Queue[TLChannel]()
   val params = interface.params
 
-  private val aDriver = new DecoupledDriver(clock, interface.a)
-  private val dMonitor = new DecoupledMonitor(clock, interface.d, 0)
-  private val bMonitor = if (interface.params.hasBCE) Option(new DecoupledMonitor(clock, interface.b, 0)) else None
-  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriver(clock, interface.c)) else None
-  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriver(clock, interface.e)) else None
+  private val aDriver = new DecoupledDriverMaster(clock, interface.a)
+  // TODO: dDriver and bDriver just consume transactions blindly
+  private val dDriver = new DecoupledDriverSlave(clock, interface.d, 0)
+  private val bDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.b, 0)) else None
+  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriverMaster(clock, interface.c)) else None
+  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverMaster(clock, interface.e)) else None
 
   def push(tx: Seq[TLChannel]): Unit = {
     tx.foreach { channel: TLChannel =>
