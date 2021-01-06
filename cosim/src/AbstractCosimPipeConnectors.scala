@@ -16,7 +16,7 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
 
 
   val driver: AbstractDriver[I, S]
-  val inputStreamToLiteral: (java.io.InputStream) => D
+  val inputStreamToProto: (java.io.InputStream) => D
 
   def pushIntoDriver(message: D): Unit
 
@@ -24,12 +24,13 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
     val in = new FileInputStream(pipe)
 
     while(!terminate) {
-      val message = inputStreamToLiteral(in)
+      val message = inputStreamToProto(in)
 
-      pushIntoDriver(message)
+      if (message != null) {
+        pushIntoDriver(message)
+      }
 
-      // We remove the double monitor driver pair because you cannot instantate a wire in a non-module
-      // context
+      // We remove the double monitor driver pair because you cannot instantate a wire in a non-module context
     }
   }
 

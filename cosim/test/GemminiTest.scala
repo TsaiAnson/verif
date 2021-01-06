@@ -23,8 +23,9 @@ class GemminiTest extends AnyFlatSpec with ChiselScalatestTester {
 
   val dut = LazyModule(
     new VerifRoCCStandaloneWrapper(
-      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true)), //, meshRows = 4,
-                        //meshColumns = 4, rob_entries = 4)),
+      () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true,
+        meshRows = 4, meshColumns = 4, rob_entries = 4
+      )),
       beatBytes = 16,
       addSinks = 1
     ))

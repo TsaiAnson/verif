@@ -103,7 +103,7 @@ object VerifProtoBufUtils {
 object VerifRoCCUtils {
   def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
                        (implicit p: Parameters): RoCCCommand = {
-    new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2)
+    new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2, _.status -> MStatusHelper(dprv = 3.U, prv = 3.U))
   }
 
   def RoCCInstructionHelper(funct: UInt = 0.U, rs2: UInt = 0.U, rs1: UInt = 0.U, xd: Bool = false.B,
@@ -111,6 +111,21 @@ object VerifRoCCUtils {
                             opcode: UInt = 0.U): RoCCInstruction = {
     new RoCCInstruction().Lit(_.funct -> funct, _.rs2 -> rs2, _.rs1 -> rs1, _.xd -> xd, _.xs1 -> xs1,
       _.xs2 -> xs2, _.rd -> rd, _.opcode -> opcode)
+  }
+
+  def MStatusHelper(debug: Bool = false.B, cease: Bool = false.B, wfi: Bool = false.B, isa: UInt = 0.U,
+                    dprv: UInt = 0.U, prv: UInt = 0.U, sd: Bool = false.B, zero2: UInt = 0.U, sxl: UInt = 0.U,
+                    uxl: UInt = 0.U, sd_rv32: Bool = false.B, zero1: UInt = 0.U, tsr: Bool = false.B,
+                    tw: Bool = false.B, tvm: Bool = false.B, mxr: Bool = false.B, sum: Bool = false.B,
+                    mprv: Bool = false.B, xs: UInt = 0.U, fs: UInt = 0.U, mpp: UInt = 0.U, vs: UInt = 0.U,
+                    spp: UInt = 0.U, mpie: Bool = false.B, hpie: Bool = false.B, spie: Bool = false.B,
+                    upie: Bool = false.B, mie: Bool = false.B, hie: Bool = false.B, sie: Bool = false.B,
+                    uie: Bool = false.B)(implicit p: Parameters): MStatus = {
+    new MStatus().Lit(_.debug -> debug, _.cease -> cease, _.wfi -> wfi, _.isa -> isa, _.dprv -> dprv, _.prv -> prv,
+      _.sd -> sd, _.zero2 -> zero2, _.sxl -> sxl, _.uxl -> uxl, _.sd_rv32 -> sd_rv32, _.zero1 -> zero1, _.tsr -> tsr,
+      _.tw -> tw, _.tvm -> tvm, _.mxr -> mxr, _.sum -> sum, _.mprv -> mprv, _.xs -> xs, _.fs -> fs, _.mpp -> mpp,
+      _.vs -> vs, _.spp -> spp, _.mpie -> mpie, _.hpie -> hpie, _.spie -> spie, _.upie -> upie, _.mie -> mie,
+      _.hie -> hie, _.sie -> sie, _.uie -> uie)
   }
 }
 
@@ -140,7 +155,7 @@ object VerifTestUtils {
       pAddrBits: Int = 32,
       transferSize: TransferSizes = TransferSizes(1, 64)): Parameters = {
 
-    val origParams = Parameters.empty //new freechips.rocketchip.subsystem.WithoutTLMonitors //RocketConfig
+    val origParams = new RocketConfig //Parameters.empty //new freechips.rocketchip.subsystem.WithoutTLMonitors
 
     // augment the parameters
     implicit val p = origParams.alterPartial {

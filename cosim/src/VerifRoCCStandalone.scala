@@ -11,7 +11,7 @@ import freechips.rocketchip.tilelink.TLRegisterNode
 import scala.collection.mutable.MutableList
 import verif._
 
-class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8, addSinks: Int = 0, addSources: Int = 0)(implicit p: Parameters) extends LazyModule {
+class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8, pAddrBits: Int = 32, addSinks: Int = 0, addSources: Int = 0)(implicit p: Parameters) extends LazyModule {
   def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
     sinkBits = 1, sizeBits = 6,
     echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
@@ -24,7 +24,7 @@ class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8, addSin
     for (i <- 0 until addSinks) {
       ioOutNodes += BundleBridgeSink[TLBundle]()
       ioOutNodes(i) :=
-        TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, 0xfff)),
+        TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
           supportsGet = TransferSizes(1, 64), supportsPutFull = TransferSizes(1,64), supportsPutPartial = TransferSizes(1,64))), beatBytes)) :=
         dutInside.tlNode
     }

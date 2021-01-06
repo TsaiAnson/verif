@@ -7,18 +7,19 @@ import chiseltest._
 import verif._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tile.RoCCCommand
+import com.verif.RoCCProtos
 
 class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, target: verif.DecoupledDriver[RoCCCommand])(implicit p: Parameters) extends
-  AbstractCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCCommand](pipe){
+  AbstractCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipe){
 
     val driver = target
 
-    val inputStreamToLiteral = (input: java.io.InputStream) => {
-      VerifProtoBufUtils.ProtoToBundle(com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(input), VerifRoCCUtils, new RoCCCommand)
+    val inputStreamToProto = (input: java.io.InputStream) => {
+      com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(input)
     }
 
-    def pushIntoDriver(message: RoCCCommand): Unit = {
-      driver.push(new DecoupledTX(message))
+    def pushIntoDriver(message: RoCCProtos.RoCCCommand): Unit = {
+      driver.push(new DecoupledTX(VerifProtoBufUtils.ProtoToBundle(message, VerifRoCCUtils, new RoCCCommand)))
     }
 
 }

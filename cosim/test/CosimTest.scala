@@ -191,7 +191,7 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val runner = new CosimRunner(simPath, Seq(commandPipe), Seq[AbstractCosimPipe]())
 
-      runner.run(simArgs, simTarget, x => true)
+      runner.run(simArgs, simTarget, x => x == 0)
 
       c.clock.step(500)
       assert(true)
