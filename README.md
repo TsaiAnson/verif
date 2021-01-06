@@ -66,7 +66,8 @@ lazy val verifGemmini = (project in file("./tools/verif/cosim"))
   .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, gemmini, verifCore)
   .settings(commonSettings)
   .settings(verifSettings)
-  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.11.0")
+  .settings(libraryDependencies += "com.google.protobuf")
+  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0") % "protobuf-java" % "3.11.0")
 ```
 
 Run tests from Chipyard:
