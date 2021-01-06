@@ -501,7 +501,9 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) extends VerifTLMasterFun
 }
 
 // TLDriver acting as a Master node (New Design) (For TL-C)
-class TLDriverMasterNew(clock: Clock, interface: TLBundle, ignoreInvalidTxn : Boolean = false) extends VerifTLMasterFunctions {
+// allowInvalidTxn and fixInvalidTxn are temporary due to possible invalid transactions from statically generated txns
+class TLDriverMasterNew(clock: Clock, interface: TLBundle, allowInvalidTxn : Boolean = false, fixInvalidTxn : Boolean = true)
+  extends VerifTLMasterFunctions {
   val clk = clock
   val TLChannels = interface
 
@@ -723,12 +725,12 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle, ignoreInvalidTxn : Bo
               invalid = true
             }
 
-            if (invalid && !ignoreInvalidTxn) {
+            if (invalid && !allowInvalidTxn) {
               println(s"WARNING: Transaction $tlTxn has invalid parameters (Acquire param doesn't match current state) " +
-                s"- SKIPPING. To turn this off, set ignoreInvalidTxn = true.")
+                s"- SKIPPING. To turn this off, set allowInvalidTxn = true.")
             } else {
               if (invalid) {
-                println(s"WARNING: Invalid transaction ($tlTxn) detected, but ignoreInvalidTxns was set to true.")
+                println(s"WARNING: Invalid transaction ($tlTxn) detected, but allowInvalidTxn was set to true.")
               }
 
               queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
@@ -776,20 +778,71 @@ class TLDriverMasterNew(clock: Clock, interface: TLBundle, ignoreInvalidTxn : Bo
               invalid = true
             }
 
-            if (invalid && !ignoreInvalidTxn) {
+            // Fixing invalid transactions if enabled -- TODO Not fully tested, temporary
+            var fixed = false
+            var skipped = false
+            var convertToRelease = false
+            var fixedParam = releaseParam
+            if (invalid && !allowInvalidTxn && fixInvalidTxn) {
+              if (relParamInt > 0 && (permState.getOrElse(relAddrInt, 0) > 0)) {
+                if (permState.getOrElse(relAddrInt, 0) == 2) {
+                  fixedParam = 1.U
+                  fixed = true
+                } else {
+                  convertToRelease = true
+                  fixedParam = 2.U
+                  fixed = true
+                }
+
+                println(s"NOTE: Transaction $tlTxn has invalid parameters (Release param doesn't match current state) " +
+                  s" and the initial permission was FIXED to match the current permissions (requested permission stays the same): " +
+                  s"($releaseParam -> $fixedParam) To disable automatic fixing, set fixInvalidTxn = false.")
+
+              } else if ((relParamInt > 0 && permState.getOrElse(relAddrInt, 0) == 0) ||
+                (relParamInt == 0 && permState.getOrElse(relAddrInt, 0) == 1)){
+                println(s"NOTE: Transaction $tlTxn has invalid parameters (Release param doesn't match current state) " +
+                  s" and was SKIPPED since the current permissions already reflect the requested permissions.")
+
+                skipped = true
+              } else {
+                println(s"WARNING: Transaction $tlTxn has invalid parameters (Release param doesn't match current state) " +
+                  s", and was SKIPPED due to requested permission greater than current permissions (unable to fix). To " +
+                  s"disable this, set fixInvalidTxn = false and allowInvalidTxn = true.")
+
+                skipped = true
+              }
+            } else if (invalid && !allowInvalidTxn) {
               println(s"WARNING: Transaction $tlTxn has invalid parameters (Release param doesn't match current state) " +
-                s"- SKIPPING. To turn this off, set ignoreInvalidTxn = true.")
-            } else {
-              if (invalid) {
-                println(s"WARNING: Invalid transaction ($tlTxn) detected, but ignoreInvalidTxns was set to true.")
+                s"- SKIPPING. To turn this off, set allowInvalidTxn = true. To enable automatic fixing, set " +
+                s"fixInvalidTxn = true.")
+
+              skipped = true
+            }
+
+            if (!skipped) {
+              if (invalid && !fixInvalidTxn) {
+                println(s"WARNING: Invalid transaction ($tlTxn) detected, but allowInvalidTxn was set to true.")
               }
 
               // Only modifying perms since transaction has data already
-              val permData = permRepeater(size = releaseSize, perm = releasePermMap(releaseParam.litValue().toInt).U)
+              val permData = permRepeater(size = releaseSize, perm = releasePermMap(fixedParam.litValue().toInt).U)
               writeData(state = permState, size = releaseSize, address = releaseAddr, datas = permData,
                 masks = List.fill(permData.length)(0xff.U))
 
-              queuedTLBundles ++= TLTransactiontoTLBundles(tlTxn)
+              // Fixing up transaction (if enabled)
+              var newtlTxn = tlTxn
+              if (convertToRelease && fixed) {
+                // Convert ReleaseDataBurst to Release
+                val temp = tlTxn.asInstanceOf[ReleaseDataBurst]
+                newtlTxn = Release(param = fixedParam, size = temp.size, source= temp.source, addr = temp.addr)
+              } else if (!convertToRelease && fixed) {
+                // Convert Release to ReleaseDataBurst (can only supply 0...)
+                val temp = tlTxn.asInstanceOf[Release]
+                newtlTxn = ReleaseDataBurst(param = fixedParam, size = temp.size, source = temp.source, addr = temp.addr,
+                  datas = List.fill(4)(0.U))
+              }
+
+              queuedTLBundles ++= TLTransactiontoTLBundles(newtlTxn)
 
               releaseInFlight = true
               inFlight = true

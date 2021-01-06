@@ -312,6 +312,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
           } else {
             genTxns += Release(param = param.U, size = size.U, source = source.U, addr = address.U)
           }
+
+          intState(address) = if (param == 0) 1 else 0
         } else {
           // Converting to Acquire
           param = randGen.nextInt(2) // NtoB or NtoT
