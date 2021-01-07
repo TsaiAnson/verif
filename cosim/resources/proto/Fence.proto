@@ -1,0 +1,13 @@
+syntax = "proto3";
+package verif;
+
+option java_package = "com.verif";
+option java_outer_classname = "FenceProtos";
+
+message FenceReq {
+  bool valid = 1;
+}
+
+message FenceResp {
+  bool complete = 1;
+}

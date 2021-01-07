@@ -31,7 +31,7 @@ class CosimSimulator(simPath: String, simArgs: Seq[String], simTarget: String) e
   }
 }
 
-class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Seq[AbstractCosimPipe]) {
+class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
 
   def run(simArgs: Seq[String], simTarget: String, correctnessCheck: Any => Boolean): Unit = {
     val path = "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir" //TODO: get this automatically
@@ -54,14 +54,14 @@ class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Se
     simThread.start
 
     // Spin until all FIFOs are created
-    while (new File(path).listFiles.size < (drivers ++ monitors).size) {
+    while (new File(path).listFiles.size < pipes.size) {
       println("Waiting for all FIFOs to exist")
       Thread.sleep(500)
     }
 
 
     // Create and start all driver / monitor runnables
-    val threads = (drivers ++ monitors).map(cosimPipe => new Thread(cosimPipe))
+    val threads = pipes.map(cosimPipe => new Thread(cosimPipe))
     threads.foreach(thread => thread.start)
 
     // Wait for sim to terminate
@@ -78,7 +78,7 @@ class CosimRunner(simPath: String, drivers: Seq[AbstractCosimPipe], monitors: Se
     /** END TEMPORARY **/
 
     // Terminate driver and monitor runnables
-    (drivers ++ monitors).foreach(cosimPipe => cosimPipe.exit)
+    pipes.foreach(cosimPipe => cosimPipe.exit)
 
     // Check correctness
     correctnessCheck(exitCode)
