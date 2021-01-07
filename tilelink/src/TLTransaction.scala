@@ -8,6 +8,11 @@ import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleBase, TLBund
 // TLTransactions are just TLChannel Bundle literals
 // There are some helper methods here to construct these literals for user stimulus
 package object TLTransaction {
+
+  // **************************************************************
+  // ************************ CHANNEL A ***************************
+  // **************************************************************
+
   // TL-UH
   def Get(addr: BigInt, size: Int, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
@@ -172,6 +177,11 @@ package object TLTransaction {
     AcquirePerm(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
   }
 
+
+  // **************************************************************
+  // ************************ CHANNEL B ***************************
+  // **************************************************************
+
   def ProbeBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleB = {
     // TODO: add checks for truncation
     new TLBundleB(params).Lit(
@@ -207,6 +217,10 @@ package object TLTransaction {
   def ProbePerm(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleB = {
     ProbeBlock(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
   }
+
+  // **************************************************************
+  // ************************ CHANNEL C ***************************
+  // **************************************************************
 
   def ProbeAck(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
@@ -271,6 +285,10 @@ package object TLTransaction {
       (d: BigInt) => ReleaseData(param = param, addr = addr, data = d, size = log2Ceil(params.dataBits/8), source = source)
     }
   }
+
+  // **************************************************************
+  // ************************ CHANNEL D ***************************
+  // **************************************************************
 
   def AccessAck(denied: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
@@ -383,6 +401,10 @@ package object TLTransaction {
       _.data -> 0.U
     )
   }
+
+  // **************************************************************
+  // ************************ CHANNEL E ***************************
+  // **************************************************************
 
   def GrantAck(sink: Int)(implicit params: TLBundleParameters): TLBundleE = {
     new TLBundleE(params).Lit(
