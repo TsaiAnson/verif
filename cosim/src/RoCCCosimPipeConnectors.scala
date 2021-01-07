@@ -10,6 +10,7 @@ import freechips.rocketchip.tile.{RoCCCommand, RoCCIO}
 import com.verif.RoCCProtos
 import com.verif.FenceProtos
 import java.io.{FileInputStream, FileOutputStream}
+import java.nio.file.{Files, Paths}
 
 class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, target: verif.DecoupledDriver[RoCCCommand])(implicit p: Parameters) extends
   AbstractCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipe) {
@@ -30,12 +31,18 @@ class RoCCFencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, i
     @volatile private var terminate = false
 
     override def run(): Unit = {
+      // Spin until all needed FIFOs are created
+      while (!Files.exists(Paths.get(fenceReqPipe)) || !Files.exists(Paths.get(fenceRespPipe))) {
+        Thread.sleep(250)
+      }
+
       val req = new FileInputStream(fenceReqPipe)
       val resp = new FileOutputStream(fenceRespPipe)
+
       while(!terminate) {
         val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
         if (r != null && r.getValid()) {
-          while(io.busy.peek().litToBoolean) { clock.step() } // step clock while busy
+          //while(io.busy.peek().litToBoolean) { clock.step() } // step clock while busy
           FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeDelimitedTo(resp)
         }
       }

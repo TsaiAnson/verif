@@ -53,13 +53,6 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
 
     simThread.start
 
-    // Spin until all FIFOs are created
-    while (new File(path).listFiles.size < pipes.size) {
-      println("Waiting for all FIFOs to exist")
-      Thread.sleep(500)
-    }
-
-
     // Create and start all driver / monitor runnables
     val threads = pipes.map(cosimPipe => new Thread(cosimPipe))
     threads.foreach(thread => thread.start)
@@ -86,5 +79,8 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
     println(exitCode)
     println(stdOut)
     println(stdErr)
+
+    /** IMPORTANT: Clean **/
+    Runtime.getRuntime().exec(s"rm -rf $path")
   }
 }

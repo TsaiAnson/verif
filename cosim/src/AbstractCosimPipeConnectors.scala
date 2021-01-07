@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import chiseltest._
 import java.io._
+import java.nio.file.{Files, Paths}
 import verif._
 
 abstract class AbstractCosimPipe extends Runnable {
@@ -21,6 +22,11 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
   def pushIntoDriver(message: D): Unit
 
   override def run: Unit = {
+    // Spin until all needed FIFOs are created
+    while (!Files.exists(Paths.get(pipe))) {
+      Thread.sleep(250)
+    }
+
     val in = new FileInputStream(pipe)
 
     while(!terminate) {
