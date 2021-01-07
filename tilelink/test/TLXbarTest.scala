@@ -10,6 +10,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verifTLUtils._
+import TLTransaction._
 
 class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -23,11 +24,12 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 500
 
+      implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
-        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U)
+        Put(addr = 0x0, data = 0x3333),
+        Get(addr = 0x8),
+        Get(addr = 0x8),
+        Get(addr = 0x8)
       )
 
       passInAgent.push(inputTransactions)
@@ -55,13 +57,14 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val simCycles = 500
 
+      implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
-        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x100.U, mask = 0xff.U, data = 0x5555.U),
-        Get(size = 3.U, source = 0.U, addr = 0x100.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x100.U, mask = 0xff.U)
+        Put(addr = 0x0, data = 0x3333),
+        Get(addr = 0x0),
+        Get(addr = 0x0),
+        Put(addr = 0x100, data = 0x5555),
+        Get(addr = 0x100),
+        Get(addr = 0x100)
       )
 
       passInAgent.push(inputTransactions)
@@ -90,26 +93,28 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val simCycles = 500
 
+      // Note: What to do in cases where there are multiple params?
+      implicit val params = TLRAMSlave.inOne.params
       val inputTransactionsOne = Seq(
-        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x1111.U),
-        PutFull(source = 0.U, addr = 0x8.U, mask = 0xff.U, data = 0x2222.U),
-        PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 0x3333.U),
-        PutFull(source = 0.U, addr = 0x18.U, mask = 0xff.U, data = 0x4444.U),
-        Get(source = 0.U, size = 3.U, addr = 0x20.U, mask = 0xff.U),
-        Get(source = 0.U, size = 3.U, addr = 0x28.U, mask = 0xff.U),
-        Get(source = 0.U, size = 3.U, addr = 0x30.U, mask = 0xff.U),
-        Get(source = 0.U, size = 3.U, addr = 0x38.U, mask = 0xff.U),
+        Put(addr = 0x0, data = 0x1111),
+        Put(addr = 0x8, data = 0x2222),
+        Put(addr = 0x10, data = 0x3333),
+        Put(addr = 0x18, data = 0x4444),
+        Get(addr = 0x20),
+        Get(addr = 0x28),
+        Get(addr = 0x30),
+        Get(addr = 0x38)
       )
 
       val inputTransactionsTwo = Seq(
-        PutFull(source = 1.U, addr = 0x20.U, mask = 0xff.U, data = 0x5555.U),
-        PutFull(source = 1.U, addr = 0x28.U, mask = 0xff.U, data = 0x6666.U),
-        PutFull(source = 1.U, addr = 0x30.U, mask = 0xff.U, data = 0x7777.U),
-        PutFull(source = 1.U, addr = 0x38.U, mask = 0xff.U, data = 0x8888.U),
-        Get(source = 1.U, size = 3.U, addr = 0x0.U, mask = 0xff.U),
-        Get(source = 1.U, size = 3.U, addr = 0x08.U, mask = 0xff.U),
-        Get(source = 1.U, size = 3.U, addr = 0x10.U, mask = 0xff.U),
-        Get(source = 1.U, size = 3.U, addr = 0x18.U, mask = 0xff.U),
+        Put(addr = 0x20, data = 0x5555),
+        Put(addr = 0x28, data = 0x6666),
+        Put(addr = 0x30, data = 0x7777),
+        Put(addr = 0x38, data = 0x8888),
+        Get(addr = 0x0),
+        Get(addr = 0x8),
+        Get(addr = 0x10),
+        Get(addr = 0x18)
       )
 
       passInAgentOne.push(inputTransactionsOne)
@@ -122,25 +127,25 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX
       val outputOneRef = Seq(
-        AccessAck(size = 3.U, denied =  false.B, source = 0.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 0.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 0.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 0.U),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x5555.U),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x6666.U),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x7777.U),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x8888.U)
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAckData(data = 0x5555, denied = 0),
+        AccessAckData(data = 0x6666, denied = 0),
+        AccessAckData(data = 0x7777, denied = 0),
+        AccessAckData(data = 0x8888, denied = 0)
       ).toArray
 
       val outputTwoRef = Seq(
-        AccessAck(size = 3.U, denied =  false.B, source = 1.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 1.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 1.U),
-        AccessAck(size = 3.U, denied =  false.B, source = 1.U),
-        AccessAckData(size = 3.U, source = 1.U, denied = false.B, data = 0x1111.U),
-        AccessAckData(size = 3.U, source = 1.U, denied = false.B, data = 0x2222.U),
-        AccessAckData(size = 3.U, source = 1.U, denied = false.B, data = 0x3333.U),
-        AccessAckData(size = 3.U, source = 1.U, denied = false.B, data = 0x4444.U)
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAckData(data = 0x1111, denied = 0),
+        AccessAckData(data = 0x2222, denied = 0),
+        AccessAckData(data = 0x3333, denied = 0),
+        AccessAckData(data = 0x4444, denied = 0)
       ).toArray
 
       assert(outputChecker.checkOutput(outputOne, {t : TLTransaction => t},

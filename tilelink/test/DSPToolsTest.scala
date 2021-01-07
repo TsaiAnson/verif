@@ -12,7 +12,6 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 
 import scala.collection.mutable.HashMap
 import verifTLUtils._
-
 import TLTransaction._
 
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
@@ -29,23 +28,22 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
       val simCycles = 100
 
       implicit val params = TLRegBankSlave.in.params
-
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(0x0),
-        Get(0x08),
-        Get(0x10),
-        Get(0x18),
+        Get(addr = 0x0),
+        Get(addr = 0x08),
+        Get(addr = 0x10),
+        Get(addr = 0x18),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        PutFull(source = 0.U, addr = 0.U, mask = 0xff.U, data = 0.U),
-        PutFull(source = 0.U, addr = 0x08.U, mask = 0xff.U, data = 1.U),
-        PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 2.U),
-        PutFull(source = 0.U, addr = 0x18.U, mask = 0xff.U, data = 3.U),
+        Put(addr = 0x0, data = 0),
+        Put(addr = 0x8, data = 1),
+        Put(addr = 0x10, data = 2),
+        Put(addr = 0x18, data = 3),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x08.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x10.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x18.U, mask = 0xff.U)
+        Get(addr = 0x0),
+        Get(addr = 0x08),
+        Get(addr = 0x10),
+        Get(addr = 0x18)
       )
 
       passInAgent.push(inputTransactions)
@@ -55,18 +53,19 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
-        AccessAck(size = 3.U, source = 0.U, denied = false.B),
-        AccessAck(size = 3.U, source = 0.U, denied = false.B),
-        AccessAck(size = 3.U, source = 0.U, denied = false.B),
-        AccessAck(size = 3.U, source = 0.U, denied = false.B),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 1.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 2.U(64.W)),
-        AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 3.U(64.W)))
+        AccessAckData(data = 0x0, denied = 0),
+        AccessAckData(data = 0x0, denied = 0),
+        AccessAckData(data = 0x0, denied = 0),
+        AccessAckData(data = 0x0, denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAck(denied = 0),
+        AccessAckData(data = 0x0, denied = 0),
+        AccessAckData(data = 0x1, denied = 0),
+        AccessAckData(data = 0x2, denied = 0),
+        AccessAckData(data = 0x3, denied = 0)
+      )
 
       assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
         swoutput, {t : TLTransaction => t}))
@@ -144,16 +143,19 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
       val outputA = monitor.getMonitoredTransactions(filterA).toArray
 
       // TODO Add software model here
+      implicit val params = TLCustomMaster.out.params
       val swoutputA = Array(
-        Get(size = 3.U, source = 0.U, addr = 0.U(64.W), mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x20.U(64.W), mask = 0xff.U, data = 10.U(64.W)),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U(64.W), mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x28.U(64.W), mask = 0xff.U, data = 11.U(64.W)),
-        Get(size = 3.U, source = 0.U, addr = 0x10.U(64.W), mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x30.U(64.W), mask = 0xff.U, data = 12.U(64.W)),
-        Get(size = 3.U, source = 0.U, addr = 0x18.U(64.W), mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x38.U(64.W), mask = 0xff.U, data = 13.U(64.W)))
+        Get(addr = 0x0),
+        Put(addr = 0x20, data = 10),
+        Get(addr = 0x8),
+        Put(addr = 0x20, data = 11),
+        Get(addr = 0x10),
+        Put(addr = 0x30, data = 12),
+        Get(addr = 0x18),
+        Put(addr = 0x38, data = 13)
+      )
 
+      // Where was the new checker again?
       assert(outputChecker.checkOutput(outputA, {t : TLTransaction => t},
         swoutputA, {t : TLTransaction => t}))
     }

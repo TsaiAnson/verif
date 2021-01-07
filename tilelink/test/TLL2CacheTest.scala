@@ -10,6 +10,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verifTLUtils._
+import TLTransaction._
 
 import scala.collection.mutable.HashMap
 
@@ -29,8 +30,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       test(8) = 0x3333
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
 
-      L1Placeholder.push(Seq(Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U)))
-      L1Placeholder.push(Seq(AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U)))
+      implicit val params = TLL2.in.params
+      L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
 
       c.clock.step(200)
 
@@ -56,13 +57,14 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val test = HashMap[Int,Int]()
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
 
+      implicit val params = TLL2.in.params
       val txns = Seq(
         // Two Acquires in a row, must be sequential
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        AcquireBlock(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, mask = 0xff.U),
+        AcquireBlock(param = 1, addr = 0x0, size = 3),
+        AcquireBlock(param = 0, addr = 0x20, size = 3),
         // Cannot acquire until release completes
-        ReleaseData(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, data = 0.U(64.W)),
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x40.U, mask = 0xff.U),
+        ReleaseData(param = 0, addr = 0x20, data = 0x0, size = 3),
+        AcquireBlock(param = 1, addr = 0x40, size = 3),
         // L2 with sets = 2 will evict a block after third Acquire
       )
 

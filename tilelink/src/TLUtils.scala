@@ -35,49 +35,6 @@ package object verifTLUtils {
     supportsHint = TransferSizes(1, 32))))
   def verifTLBundleParamsC: TLBundleParameters = TLBundleParameters(standaloneMasterParamsC, standaloneSlaveParamsC)
 
-
-  //  def verifTLUBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
-  //    sinkBits = 1, sizeBits = 6,
-  //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
-  //    hasBCE = false)
-  //  def verifTLCBundleParams: TLBundleParameters = TLBundleParameters(addressBits = 64, dataBits = 64, sourceBits = 1,
-  //    sinkBits = 1, sizeBits = 6,
-  //    echoFields = Seq(), requestFields = Seq(), responseFields = Seq(),
-  //    hasBCE = true)
-
-  /*
-  def TLUBundleAHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
-                        mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleA = {
-    //    assert(verifTLBundleParams.sizeBits >= size.getWidth)
-    //    println(s"${verifTLBundleParams.sizeBits}, ${size.getWidth}")
-    new TLBundleA(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
-  }
-
-  def TLUBundleBHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
-                        mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleB = {
-    new TLBundleB(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
-  }
-
-  def TLUBundleCHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
-                        data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleC = {
-    new TLBundleC(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.address -> address, _.data -> data, _.corrupt -> corrupt)
-  }
-
-  def TLUBundleDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, sink: UInt = 0.U,
-                        data: UInt = 0.U, denied: Bool = false.B, corrupt: Bool = false.B) : TLBundleD = {
-    new TLBundleD(verifTLBundleParams).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
-      _.sink -> sink, _.data -> data, _.denied -> denied, _.corrupt -> corrupt)
-  }
-
-  def TLUBundleEHelper (sink: UInt = 0.U) : TLBundleE = {
-    new TLBundleE(verifTLBundleParams).Lit(_.sink -> sink)
-  }
-
-   */
-
   // Helper functions for message checking
   def aligned(data : UInt, base : UInt) : Boolean = {
     val dataI = data.litValue()
@@ -104,6 +61,65 @@ package object verifTLUtils {
 
   def containsLg(sizes: TransferSizes, lg: UInt) : Boolean = {
     contains(sizes, (1 << lg.litValue().toInt).U)
+  }
+
+  object TLPermissions
+  {
+    val aWidth = 2
+    val bdWidth = 2
+    val cWidth = 3
+
+    sealed trait Permission {
+      def value: UInt
+    }
+
+    // Cap types (Grant = new permissions, Probe = permisions <= target)
+    sealed trait Cap extends Permission
+    case class toT() extends Cap {
+      override def value: UInt = 0.U(bdWidth.W)
+    }
+    case class toB() extends Cap {
+      override def value: UInt = 1.U(bdWidth.W)
+    }
+    case class toN() extends Cap {
+      override def value: UInt = 2.U(bdWidth.W)
+    }
+
+    // Grow types (Acquire = permissions >= target)
+    sealed trait Grow extends Permission
+    case class NtoB() extends Grow {
+      override def value: UInt = 0.U(bdWidth.W)
+    }
+    case class NtoT() extends Grow {
+      override def value: UInt = 1.U(bdWidth.W)
+    }
+    case class BtoT() extends Grow {
+      override def value: UInt = 2.U(bdWidth.W)
+    }
+
+    // Prune types (ProbeAck, Release)
+    sealed trait Prune extends Permission
+    case class TtoB() extends Prune {
+      override def value: UInt = 0.U(bdWidth.W)
+    }
+    case class TtoN() extends Prune {
+      override def value: UInt = 1.U(bdWidth.W)
+    }
+    case class BtoN() extends Prune {
+      override def value: UInt = 2.U(bdWidth.W)
+    }
+
+    // Report types (ProbeAck, Release)
+    sealed trait Report extends Permission
+    case class ToT() extends Report {
+      override def value: UInt = 3.U(bdWidth.W)
+    }
+    case class BtoB() extends Report {
+      override def value: UInt = 4.U(bdWidth.W)
+    }
+    case class NtoN() extends Report {
+      override def value: UInt = 5.U(bdWidth.W)
+    }
   }
 
   // UPGRADED FROM TLTransactiontoTLBundle
@@ -397,6 +413,7 @@ package object verifTLUtils {
 
   // TODO Correct MASK assertion checking
   // TODO: move all checks into the TLMonitor
+  /*
   def TLBundlestoTLTransaction(bnds: List[TLChannel], params: TLBundleParameters) : TLTransaction[_] = {
     // Currently Hardcoding Parameters
     val TLSParam: TLSlaveParameters = standaloneSlaveParamsC.managers(0)
@@ -1042,6 +1059,7 @@ package object verifTLUtils {
         GrantAck(sink = bndc.sink)
     }
   }
+  */
 
   // Helper methods for filtering monitored transactions
   def filterA (txn : TLChannel) : Boolean = {
@@ -1165,6 +1183,7 @@ package object verifTLUtils {
 
   // Convert TLTransaction to forwarded TODO need a better way of doing this
   // Currently no need for this, but may come in handy
+  /*
   def forwardTransaction(txn : TLTransaction) : TLTransaction = {
     txn match {
       case _ : Get =>
@@ -1211,6 +1230,7 @@ package object verifTLUtils {
         HintAck(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, fwd = true.B)
     }
   }
+   */
 
   // State is a byte-addressed HashMap
   def readData(state: HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
@@ -1275,6 +1295,7 @@ package object verifTLUtils {
   }
 
   // Response function required for TL SDrivers
+  /*
   def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
@@ -1444,4 +1465,5 @@ package object verifTLUtils {
 
     (responseTLTxn, state_int)
   }
+   */
 }

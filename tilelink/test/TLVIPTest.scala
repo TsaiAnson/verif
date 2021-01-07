@@ -10,6 +10,7 @@ import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
 import verifTLUtils._
+import TLTransaction._
 
 import scala.collection.mutable.HashMap
 
@@ -97,46 +98,6 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 //    }
 //  }
 
-  it should "Basic Unittest Burst TLTransaction to TLBundle conversion" in {
-    val results = TLTransactiontoTLBundles(PutFullBurst(source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U),
-      datas = List(0x1234.U(64.W), 0x9876.U(64.W)), size = 4.U))
-    for (tnx <- results) {
-      println(tnx)
-    }
-  }
-
-  it should "Basic Unittest groupTLBundles" in {
-    val results = groupTLBundles(List(TLUBundleAHelper(size = 4.U),TLUBundleAHelper(size = 4.U),
-      TLUBundleDHelper(size = 5.U),TLUBundleDHelper(size = 5.U),TLUBundleDHelper(size = 5.U),
-      TLUBundleDHelper(size = 5.U),TLUBundleAHelper(size = 3.U)))
-    for (tnx <- results) {
-      println(tnx)
-      println()
-    }
-  }
-
-  it should "Basic Unittest TLTransaction to TLBundles to TLTransaction" in {
-    val testTxns = List(AccessAck(size = 3.U, source = 0.U, denied = true.B), AccessAckData(size = 3.U, source = 0.U, denied = false.B, data = 0x1.U(64.W)),
-      AccessAckDataBurst(size = 4.U, source = 0.U, denied = false.B, datas = List(0x02.U(64.W), 0x03.U(64.W))),
-      PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)),
-      PutFullBurst(size = 4.U, source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))),
-      Get(size = 3.U, source = 0.U, addr = 0x15.U, mask = 0xff.U), Get(size = 4.U, source = 0.U, addr = 0x20.U, mask = 0xff.U)
-    )
-    var i = 0
-    for (txn <- testTxns) {
-      println(s"Test ${i}, txn: ${txn}")
-      val result = TLBundlestoTLTransaction(TLTransactiontoTLBundles(txn))
-      println(s"Result: ${result}")
-//      assert (txn == result)
-      i += 1
-    }
-
-    println(PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)) == PutFull(source = 0.U, addr = 0x10.U, mask = 0xff.U, data = 0x11.U(64.W)))
-
-    println(PutFullBurst(size = 4.U, source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))) ==
-      PutFullBurst(size = 4.U, source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0x7f.U), datas = List(0x1234.U(64.W), 0x9876.U(64.W))))
-  }
-
   it should "Temp Sanity Test for New SDriver Skeleton" in {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
@@ -188,22 +149,24 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val simCycles = 500
 
+      implicit val params = TLFeedback.in.params
       val inputTransactions = Seq(
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        PutFull(source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x3333.U),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        PutFullBurst(size = 4.U, source = 0.U, addr = 0x0.U, masks = List(0xff.U, 0xff.U), datas = List(0x3333.U, 0x1234.U)),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
-        LogicData(param = 2.U, source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0.U),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        LogicDataBurst(param = 2.U, source = 0.U, addr = 0x0.U, size = 4.U, masks = List(0xff.U, 0xff.U), datas = List(0.U, 0.U)),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
-        ArithData(param = 4.U, source = 0.U, addr = 0x0.U, mask = 0xff.U, data = 0x8000.U),
-        Get(size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        Get(size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U),
-        ArithDataBurst(param = 4.U, source = 0.U, addr = 0x0.U, size = 4.U, masks = List(0xff.U, 0xff.U), datas = List(0x1234.U, 0x3333.U)),
+        Get(addr = 0x0),
+        Put(addr = 0x0, data = 0x3333),
+        Get(addr = 0x0),
+        PutBurst(addr = 0x0, data = Seq(0x3333, 0x1234)),
+        Get(addr = 0x0),
+        Get(addr = 0x8),
+        Logic(param = 2, addr = 0x0, data = 0x0),
+        Get(addr = 0x0),
+        LogicBurst(param = 2, addr = 0x0, data = Seq(0x0, 0x0)),
+        Get(addr = 0x0),
+        Get(addr = 0x8),
+        Arith(param = 4, addr = 0x0, data = 0x0),
+        Get(addr = 0x0),
+        ArithBurst(param = 4, addr = 0x0, data = Seq(0x0, 0x0)),
+        Get(addr = 0x0),
+        Get(addr = 0x8)
       )
 
       mDriver.push(inputTransactions)
