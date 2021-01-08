@@ -4,13 +4,12 @@ import chisel3._
 import chisel3.util.isPow2
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import chisel3.experimental.BundleLiterals._
+import verif.TLTransaction._
 
-import scala.collection.mutable.{ListBuffer, Queue, HashMap}
+import scala.collection.mutable.{ListBuffer, HashMap}
 import scala.math.ceil
 
-
-package object verifTLUtils {
+package object TLUtils {
   // Temporary location for parameters
   def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
@@ -63,244 +62,6 @@ package object verifTLUtils {
     contains(sizes, (1 << lg.litValue().toInt).U)
   }
 
-  object TLPermissions
-  {
-    val aWidth = 2
-    val bdWidth = 2
-    val cWidth = 3
-
-    sealed trait Permission {
-      def value: UInt
-    }
-
-    // Cap types (Grant = new permissions, Probe = permisions <= target)
-    sealed trait Cap extends Permission
-    case class toT() extends Cap {
-      override def value: UInt = 0.U(bdWidth.W)
-    }
-    case class toB() extends Cap {
-      override def value: UInt = 1.U(bdWidth.W)
-    }
-    case class toN() extends Cap {
-      override def value: UInt = 2.U(bdWidth.W)
-    }
-
-    // Grow types (Acquire = permissions >= target)
-    sealed trait Grow extends Permission
-    case class NtoB() extends Grow {
-      override def value: UInt = 0.U(bdWidth.W)
-    }
-    case class NtoT() extends Grow {
-      override def value: UInt = 1.U(bdWidth.W)
-    }
-    case class BtoT() extends Grow {
-      override def value: UInt = 2.U(bdWidth.W)
-    }
-
-    // Prune types (ProbeAck, Release)
-    sealed trait Prune extends Permission
-    case class TtoB() extends Prune {
-      override def value: UInt = 0.U(bdWidth.W)
-    }
-    case class TtoN() extends Prune {
-      override def value: UInt = 1.U(bdWidth.W)
-    }
-    case class BtoN() extends Prune {
-      override def value: UInt = 2.U(bdWidth.W)
-    }
-
-    // Report types (ProbeAck, Release)
-    sealed trait Report extends Permission
-    case class ToT() extends Report {
-      override def value: UInt = 3.U(bdWidth.W)
-    }
-    case class BtoB() extends Report {
-      override def value: UInt = 4.U(bdWidth.W)
-    }
-    case class NtoN() extends Report {
-      override def value: UInt = 5.U(bdWidth.W)
-    }
-  }
-
-  // UPGRADED FROM TLTransactiontoTLBundle
-  // TODO Correct MASK assertion checking
-  /*
-  def TLTransactiontoTLBundles(txn: TLTransaction): List[TLChannel] = {
-    var result = new ListBuffer[TLChannel]()
-    txn match {
-      case _: PutFull =>
-        val txnc = txn.asInstanceOf[PutFull]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
-        } else {
-          result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, data = txnc.data)
-        }
-      case _: PutFullBurst =>
-        val txnc = txn.asInstanceOf[PutFullBurst]
-        if (txnc.fwd.litToBoolean) {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleBHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        } else {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        }
-      case _: PutPartial =>
-        val txnc = txn.asInstanceOf[PutPartial]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        } else {
-          result += TLUBundleAHelper(opcode = 0.U, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        }
-      case _: PutPartialBurst =>
-        val txnc = txn.asInstanceOf[PutPartialBurst]
-        if (txnc.fwd.litToBoolean) {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleBHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        } else {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleAHelper(opcode = 0.U, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        }
-      case _: ArithData =>
-        val txnc = txn.asInstanceOf[ArithData]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        } else {
-          result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        }
-      case _: ArithDataBurst =>
-        val txnc = txn.asInstanceOf[ArithDataBurst]
-        if (txnc.fwd.litToBoolean) {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleBHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        } else {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleAHelper(opcode = 2.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        }
-      case _: LogicData =>
-        val txnc = txn.asInstanceOf[LogicData]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        } else {
-          result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, source = txnc.source, address = txnc.addr, mask = txnc.mask, data = txnc.data)
-        }
-      case _: LogicDataBurst =>
-        val txnc = txn.asInstanceOf[LogicDataBurst]
-        if (txnc.fwd.litToBoolean) {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleBHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        } else {
-          for ((m, d) <- (txnc.masks zip txnc.datas)) {
-            result += TLUBundleAHelper(opcode = 3.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = m, data = d)
-          }
-        }
-      case _: Get =>
-        val txnc = txn.asInstanceOf[Get]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
-        } else {
-          result += TLUBundleAHelper(opcode = 4.U, size = txnc.size, source = txnc.source, address = txnc.addr)
-        }
-      case _: Intent =>
-        val txnc = txn.asInstanceOf[Intent]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleBHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-        } else {
-          result += TLUBundleAHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-        }
-      case _: AcquireBlock =>
-        val txnc = txn.asInstanceOf[AcquireBlock]
-        result += TLUBundleAHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-      case _: AcquirePerm =>
-        val txnc = txn.asInstanceOf[AcquirePerm]
-        result += TLUBundleAHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-      case _: ProbeBlock =>
-        val txnc = txn.asInstanceOf[ProbeBlock]
-        result += TLUBundleBHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-      case _: ProbePerm =>
-        val txnc = txn.asInstanceOf[ProbePerm]
-        result += TLUBundleBHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, mask = txnc.mask)
-      case _: ProbeAck =>
-        val txnc = txn.asInstanceOf[ProbeAck]
-        result += TLUBundleCHelper(opcode = 4.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr)
-      case _: ProbeAckData =>
-        val txnc = txn.asInstanceOf[ProbeAckData]
-        result += TLUBundleCHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
-      case _: ProbeAckDataBurst =>
-        val txnc = txn.asInstanceOf[ProbeAckDataBurst]
-        for (d <- txnc.datas) {
-          result += TLUBundleCHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
-        }
-      case _: Release =>
-        val txnc = txn.asInstanceOf[Release]
-        result += TLUBundleCHelper(opcode = 6.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr)
-      case _: ReleaseData =>
-        val txnc = txn.asInstanceOf[ReleaseData]
-        result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
-      case _: ReleaseDataBurst =>
-        val txnc = txn.asInstanceOf[ReleaseDataBurst]
-        for (d <- txnc.datas) {
-          result += TLUBundleCHelper(opcode = 7.U, param = txnc.param, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
-        }
-      case _: AccessAck =>
-        val txnc = txn.asInstanceOf[AccessAck]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleCHelper(size = txnc.size, source = txnc.source, address = txnc.addr)
-        } else {
-          result += TLUBundleDHelper(size = txnc.size, source = txnc.source, denied = txnc.denied)
-        }
-      case _: AccessAckData =>
-        val txnc = txn.asInstanceOf[AccessAckData]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleCHelper(opcode = 1.U, size = txnc.size, source = txnc.source, address = txnc.addr, data = txnc.data)
-        } else {
-          result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, denied = txnc.denied, data = txnc.data)
-        }
-      case _: AccessAckDataBurst =>
-        val txnc = txn.asInstanceOf[AccessAckDataBurst]
-        if (txnc.fwd.litToBoolean) {
-          for (d <- txnc.datas) {
-            result += TLUBundleCHelper(opcode = 1.U, size = txnc.size, source = txnc.source, address = txnc.addr, data = d)
-          }
-        } else {
-          for (d <- txnc.datas) {
-            result += TLUBundleDHelper(opcode = 1.U, size = txnc.size, source = txnc.source, denied = txnc.denied, data = d)
-          }
-        }
-      case _: HintAck =>
-        val txnc = txn.asInstanceOf[HintAck]
-        if (txnc.fwd.litToBoolean) {
-          result += TLUBundleCHelper(opcode = 2.U, size = txnc.size, source = txnc.source, address = txnc.addr)
-        } else {
-          result += TLUBundleDHelper(opcode = 2.U, size = txnc.size, source = txnc.source, denied = txnc.denied)
-        }
-      case _: Grant =>
-        val txnc = txn.asInstanceOf[Grant]
-        result += TLUBundleDHelper(opcode = 4.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied)
-      case _: GrantData =>
-        val txnc = txn.asInstanceOf[GrantData]
-        result += TLUBundleDHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied, data = txnc.data)
-      case _: GrantDataBurst =>
-        val txnc = txn.asInstanceOf[GrantDataBurst]
-        for (d <- txnc.datas) {
-          result += TLUBundleDHelper(opcode = 5.U, param = txnc.param, size = txnc.size, source = txnc.source, sink = txnc.sink, denied = txnc.denied, data = d)
-        }
-      case _: ReleaseAck =>
-        val txnc = txn.asInstanceOf[ReleaseAck]
-        result += TLUBundleDHelper(opcode = 6.U, size = txnc.size, source = txnc.source)
-      case _: GrantAck =>
-        val txnc = txn.asInstanceOf[GrantAck]
-        result += TLUBundleEHelper(sink = txnc.sink)
-    }
-    result.toList
-  }
-   */
 
   // Helper method to get size of TLChannel
   def getTLBundleDataSizeBytes (bnd : TLChannel): Int = {
@@ -1181,57 +942,6 @@ package object verifTLUtils {
     resultList.toList
   }
 
-  // Convert TLTransaction to forwarded TODO need a better way of doing this
-  // Currently no need for this, but may come in handy
-  /*
-  def forwardTransaction(txn : TLTransaction) : TLTransaction = {
-    txn match {
-      case _ : Get =>
-        val txnc = txn.asInstanceOf[Get]
-        Get(size = txnc.size, source = txnc.source, addr = txnc.addr, mask = txnc.mask, fwd = true.B)
-      case _ : PutFull =>
-        val txnc = txn.asInstanceOf[PutFull]
-        PutFull(source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
-      case _ : PutFullBurst =>
-        val txnc = txn.asInstanceOf[PutFullBurst]
-        PutFullBurst(size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
-      case _ : PutPartial =>
-        val txnc = txn.asInstanceOf[PutPartial]
-        PutPartial(source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
-      case _ : PutPartialBurst =>
-        val txnc = txn.asInstanceOf[PutPartialBurst]
-        PutPartialBurst(size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
-      case _ : ArithData =>
-        val txnc = txn.asInstanceOf[ArithData]
-        ArithData(param = txnc.param, source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
-      case _ : ArithDataBurst =>
-        val txnc = txn.asInstanceOf[ArithDataBurst]
-        ArithDataBurst(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
-      case _ : LogicData =>
-        val txnc = txn.asInstanceOf[LogicData]
-        LogicData(param = txnc.param, source = txnc.source, addr = txnc.addr, mask = txnc.mask, data = txnc.data, fwd = true.B)
-      case _ : LogicDataBurst =>
-        val txnc = txn.asInstanceOf[LogicDataBurst]
-        LogicDataBurst(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, masks = txnc.masks, datas = txnc.datas, fwd = true.B)
-      case _ : Intent =>
-        val txnc = txn.asInstanceOf[Intent]
-        Intent(param = txnc.param, size = txnc.size, source = txnc.source, addr = txnc.addr, mask = txnc.mask, fwd = true.B)
-      case _ : AccessAck =>
-        val txnc = txn.asInstanceOf[AccessAck]
-        AccessAck(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, fwd = true.B)
-      case _ : AccessAckData =>
-        val txnc = txn.asInstanceOf[AccessAckData]
-        AccessAckData(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, data = txnc.data, fwd = true.B)
-      case _ : AccessAckDataBurst =>
-        val txnc = txn.asInstanceOf[AccessAckDataBurst]
-        AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, datas = txnc.datas, fwd = true.B)
-      case _ : HintAck =>
-        val txnc = txn.asInstanceOf[HintAck]
-        HintAck(size = txnc.size, source = txnc.source, denied = txnc.denied, addr = txnc.addr, fwd = true.B)
-    }
-  }
-   */
-
   // State is a byte-addressed HashMap
   def readData(state: HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
     val sizeInt = 1 << size.litValue().toInt
@@ -1295,175 +1005,87 @@ package object verifTLUtils {
   }
 
   // Response function required for TL SDrivers
-  /*
-  def testResponse (input : TLTransaction, state : HashMap[Int,Int]) : (TLTransaction, HashMap[Int,Int]) = {
+  // TODO: this is written poorly
+  def testResponse (input: TLChannel, state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
-    var responseTLTxn : TLTransaction = AccessAck(0.U, 0.U, true.B)
+    var responseTLTxn = Seq(AccessAck(denied=0, size=0, source=0))
     // Making internal copy of state (non-destructive)
     val state_int = state.clone()
 
     // Transaction response
     input match {
-      case _: Get =>
-        val txnc = input.asInstanceOf[Get]
+      case txnc: TLBundleA =>
+        txnc.opcode.litValue().toInt match {
+          case TLMessages.Get =>
+            // Read Data
+            val readOut = readData(state = state_int, size = txnc.size, address  = txnc.address, mask = txnc.mask)
 
-        // Read Data
-        val readOut = readData(state = state_int, size = txnc.size, address  = txnc.addr, mask = txnc.mask)
+            if (txnc.size.litValue() > beatBytesSize)
+              responseTLTxn = AccessAckDataBurst(source = txnc.source.litValue().toInt, denied = 0, data = readOut.map(_.litValue()))
+            else
+              responseTLTxn = Seq(AccessAckData(readOut.head.litValue(), 0, txnc.source.litValue().toInt))
 
-        if (txnc.size.litValue() > beatBytesSize)
-          responseTLTxn = AccessAckDataBurst(size = txnc.size, source = txnc.source, denied = false.B, datas = readOut, fwd = txnc.fwd)
-        else
-          responseTLTxn = AccessAckData(size = txnc.size, source = txnc.source, denied = false.B, data = readOut(0), fwd = txnc.fwd)
+          case TLMessages.PutFullData | TLMessages.PutPartialData =>
+            // Write Data
+            val size = beatBytesSize.U
+            val source = txnc.source
+            val address = txnc.address
+            val datas = Seq(txnc.data)
+            val masks = Seq(txnc.mask)
+            writeData(state = state_int, size = size, address = address, datas = datas.toList, masks = masks.toList)
 
-      case _: PutFull | _: PutPartial | _: PutFullBurst | _: PutPartialBurst =>
-        var size  = 0.U
-        var source = 0.U
-        var address = 0.U
-        var datas = List[UInt]()
-        var masks  = List[UInt]()
-        var fwd = false.B
+            // Response
+            responseTLTxn = Seq(AccessAck(size = size.litValue().toInt, source = source.litValue().toInt, denied = 0))
 
-        input match {
-          case _: PutFull =>
-            val txnc = input.asInstanceOf[PutFull]
-            size = beatBytesSize.U
-            source = txnc.source
-            address = txnc.addr
-            datas = List(txnc.data)
-            masks = List(txnc.mask)
-            fwd = txnc.fwd
-          case _: PutPartial =>
-            val txnc = input.asInstanceOf[PutPartial]
-            size = beatBytesSize.U
-            source = txnc.source
-            address = txnc.addr
-            datas = List(txnc.data)
-            masks = List(txnc.mask)
-            fwd = txnc.fwd
-          case _: PutFullBurst =>
-            val txnc = input.asInstanceOf[PutFullBurst]
-            size = txnc.size
-            source = txnc.source
-            address = txnc.addr
-            datas = txnc.datas
-            masks = txnc.masks
-            fwd = txnc.fwd
-          case _: PutPartialBurst =>
-            val txnc = input.asInstanceOf[PutPartialBurst]
-            size = txnc.size
-            source = txnc.source
-            address = txnc.addr
-            datas = txnc.datas
-            masks = txnc.masks
-            fwd = txnc.fwd
+          case TLMessages.ArithmeticData =>
+            var function : (UInt, UInt) => UInt = min
+            txnc.param.litValue().toInt match {
+              case 0 => function = min
+              case 1 => function = max
+              case 2 => function = minu
+              case 3 => function = maxu
+              case 4 => function = add
+            }
+
+            // Reading Old Data (to return)
+            val oldData = readData(state = state_int, size = txnc.size, address = txnc.address, mask = 0xff.U)
+
+            // Creating newData (to write)
+            var newData = ListBuffer[UInt]()
+            for (((n, m), o) <- (Seq(txnc.data) zip Seq(txnc.mask)) zip oldData) {
+              newData += function(o, (n.litValue() & toByteMask(m)).U)
+            }
+
+            writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
+            responseTLTxn = Seq(AccessAckData(source = txnc.source.litValue().toInt, denied = 0, data = oldData.head.litValue()))
+
+          case TLMessages.LogicalData =>
+            var function : (UInt, UInt) => UInt = min
+            txnc.param.litValue().toInt match {
+              case 0 => function = xor
+              case 1 => function = or
+              case 2 => function = and
+              case 3 => function = swap
+            }
+
+            // Reading Old Data (to return)
+            val oldData = readData(state = state_int, size = txnc.size, address = txnc.address, mask = 0xff.U)
+
+            // Creating newData (to write)
+            var newData = ListBuffer[UInt]()
+            for (((n, m), o) <- (Seq(txnc.data) zip Seq(txnc.mask)) zip oldData) {
+              newData += function(o, (n.litValue() & toByteMask(m)).U)
+            }
+
+            writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
+            responseTLTxn = Seq(AccessAckData(source = txnc.source.litValue().toInt, denied = 0, data = oldData.head.litValue()))
+
+          case 5 => // TODO: TLMessages doesn't contain Intent (opcode = 5)
+            // Currently don't accept hints
+            responseTLTxn = Seq(HintAck(size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, denied = 1))
         }
-
-        // Write Data
-        writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
-
-        // Response
-        responseTLTxn = AccessAck(size = size, source = source, denied = false.B, fwd = fwd)
-
-      case _: ArithData | _: ArithDataBurst | _: LogicData | _: LogicDataBurst =>
-        var param = 0.U
-        var size  = 0.U
-        var source = 0.U
-        var address = 0.U
-        var datas = List[UInt]()
-        var masks  = List[UInt]()
-        var fwd = false.B
-        var burst = false
-        var arith = true
-
-        input match {
-          case _: ArithData =>
-            val txnc = input.asInstanceOf[ArithData]
-            param = txnc.param
-            size = beatBytesSize.U
-            source = txnc.source
-            address = txnc.addr
-            datas = List(txnc.data)
-            masks = List(txnc.mask)
-            fwd = txnc.fwd
-
-          case _: ArithDataBurst =>
-            val txnc = input.asInstanceOf[ArithDataBurst]
-            param = txnc.param
-            size = txnc.size
-            source = txnc.source
-            address = txnc.addr
-            datas = txnc.datas
-            masks = txnc.masks
-            fwd = txnc.fwd
-            burst = true
-
-          case _: LogicData =>
-            val txnc = input.asInstanceOf[LogicData]
-            param = txnc.param
-            size = beatBytesSize.U
-            source = txnc.source
-            address = txnc.addr
-            datas = List(txnc.data)
-            masks = List(txnc.mask)
-            fwd = txnc.fwd
-            arith = false
-
-          case _: LogicDataBurst =>
-            val txnc = input.asInstanceOf[LogicDataBurst]
-            param = txnc.param
-            size = txnc.size
-            source = txnc.source
-            address = txnc.addr
-            datas = txnc.datas
-            masks = txnc.masks
-            fwd = txnc.fwd
-            burst = true
-            arith = false
-        }
-
-        var function : (UInt, UInt) => UInt = min
-        if (arith) {
-          // Arithmetic Function
-          param.litValue().toInt match {
-            case 0 => function = min
-            case 1 => function = max
-            case 2 => function = minu
-            case 3 => function = maxu
-            case 4 => function = add
-          }
-        } else {
-          // Logical Function
-          param.litValue().toInt match {
-            case 0 => function = xor
-            case 1 => function = or
-            case 2 => function = and
-            case 3 => function = swap
-          }
-        }
-
-        // Reading Old Data (to return)
-        val oldData = readData(state = state_int, size = size, address = address, mask = 0xff.U)
-
-        // Creating newData (to write)
-        var newData = ListBuffer[UInt]()
-        for (((n, m), o) <- (datas zip masks) zip oldData) {
-          newData += function(o, (n.litValue() & toByteMask(m)).U)
-        }
-
-        writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
-
-        if (burst) responseTLTxn = AccessAckDataBurst(size = size, source = source, denied = false.B, datas = oldData, fwd = fwd)
-        else responseTLTxn = AccessAckData(size = beatBytesSize.U, source = source, denied = false.B, data = oldData.head, fwd = fwd)
-
-      case _: Intent =>
-        val txnc = input.asInstanceOf[Intent]
-
-        // Currently don't accept hints
-        responseTLTxn = HintAck(size = txnc.size, source = txnc.source, denied = true.B, fwd = txnc.fwd)
     }
-
     (responseTLTxn, state_int)
   }
-   */
 }

@@ -13,7 +13,6 @@ case class DecoupledTX[T <: Data](gen: T) extends Bundle {
   val postSendCycles: UInt = UInt(32.W)
   val cycleStamp: UInt = UInt(32.W)
 
-  // TODO: rename to driver/monitor TX
   // TODO: split into driver and monitor TXs
   // TODO: how can we check that data: T fits into gen? (e.g. gen = UInt(2.W), data = 16.U shouldn't work)
   def tx(data: T, waitCycles: Int, postSendCycles: Int): DecoupledTX[T] = {
@@ -35,6 +34,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
   fork {
     var cycleCount = 0
     var idleCycles = 0
+    interface.valid.poke(false.B)
     while (true) {
       if (hasNextTransaction && idleCycles == 0) {
         val t = getNextTransaction
@@ -52,7 +52,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
         }
 
         cycleCount += 1
-        timescope {
+        timescope { // TODO: why do we need a new timescope, can we force valid to false later explicitly?
           t.data match {
             case bundle: Bundle =>
               //interface.bits.asInstanceOf[Bundle].pokePartial(bundle)

@@ -13,21 +13,21 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import scala.collection.mutable.HashMap
 import verifTLUtils._
 import TLTransaction._
+import freechips.rocketchip.tilelink.{TLBundleD, TLBundleE, TLBundleParameters, TLDataChannel}
 
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
   // implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
   // implicit val p: Parameters = (new BaseConfig).toInstance
-  implicit val p: Parameters = new WithoutTLMonitors
+  //implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test Slave" in {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-
-      val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val passOutAgent = new TLMonitor(c.clock, TLRegBankSlave.in)
+      val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
+      val monitor = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 100
 
-      implicit val params = TLRegBankSlave.in.params
+      implicit val params: TLBundleParameters = TLRegBankSlave.in.params
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
         Get(addr = 0x0),
@@ -46,10 +46,16 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(addr = 0x18)
       )
 
-      passInAgent.push(inputTransactions)
+      driver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = monitor.getMonitoredTransactions().filter {
+        t =>
+          t.data match {
+            case _: TLBundleD => true
+            case _ => false
+          }
+      }
 
       // TODO Add software model here
       val swoutput = Array(
@@ -67,8 +73,11 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(data = 0x3, denied = 0)
       )
 
-      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
-        swoutput, {t : TLTransaction => t}))
+      assert(output.length == swoutput.length)
+      output.zip(swoutput).foreach {
+        case (dutOut, swOut) =>
+          assert(dutOut.data == swOut)
+      }
     }
   }
 
