@@ -2,14 +2,15 @@ package verif
 
 import chisel3._
 import freechips.rocketchip.diplomacy.AddressSet
-import freechips.rocketchip.tilelink.TLSlaveParameters
+import freechips.rocketchip.tilelink.{TLBundleParameters, TLChannel, TLSlaveParameters}
 
 import scala.math.pow
 import scala.util.Random
-import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.collection.mutable.{HashMap, ListBuffer}
+import verif.TLTransaction._
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
-class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] = None, beatSize : Int = 3,
+class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None, beatSize : Int = 3,
                  // TL-UL
                  get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
                  // TL-UH
@@ -18,6 +19,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
                   tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
                  // Randomization
                   randSeed : Int = 1234567890) {
+
+  implicit val p: TLBundleParameters = bundleParams
 
   // Temporary until we have constrained randoms
   val randGen = Random
@@ -30,8 +33,8 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
     (addrSet.base | (addrSet.mask & addressRaw)).toInt
   }
 
-  def generateTransactions(numbTxn : Int) : Seq[TLTransaction] = {
-    var genTxns = ListBuffer[TLTransaction]()
+  def generateTransactions(numbTxn : Int) : Seq[TLChannel] = {
+    var genTxns = ListBuffer[TLChannel]()
 
     // TLBundle Params
     var typeTxn = 0
@@ -102,7 +105,7 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         address = getRandomLegalAddress(params.address, size)
         mask = (1 << (1 << beatSize)) - 1
 
-        genTxns += Get(size = size.U, source = source.U, address.U(64.W), mask = mask.U)
+        genTxns += Get(address, size, mask, source)
 
       } else if (typeTxn == 1) {
         // PutFull
@@ -116,11 +119,13 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
-          genTxns += PutFullBurst(size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)(mask.U),
-            datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+          // TODO: wtf
+          val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+          val masks = List.fill(beatCount)(mask)
+          genTxns ++= PutBurst(address, data, masks, source)
         } else {
-          data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += PutFull(source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
+          genTxns += Put(address, data, mask)
         }
 
       } else if (typeTxn == 2) {
@@ -131,11 +136,12 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
-          genTxns += PutFullBurst(size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)((randGen.nextInt(mask) + 1).U),
-            datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+          val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+          val masks = List.fill(beatCount)((randGen.nextInt(mask) + 1))
+          genTxns ++= PutBurst(address, data, masks, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += PutFull(source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
+          genTxns += Put(address, data, mask, size, source)
         }
 
       } else if (typeTxn == 3) {
@@ -156,11 +162,11 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
-          genTxns += ArithDataBurst(param = param.U, size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)(mask.U),
-            datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+          val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+          genTxns ++= ArithBurst(param, address, data, source)
         } else {
-          data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += ArithData(param = param.U, source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
+          genTxns += Arith(param, address, BigInt(data), mask, size, source)
         }
 
       } else if (typeTxn == 4) {
@@ -181,11 +187,11 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (size > beatSize) {
           val beatCount = 1 << (size - beatSize)
-          genTxns += LogicDataBurst(param = param.U,size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)(mask.U),
-            datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+          val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+          genTxns += LogicBurst(param, address, data, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += LogicData(param = param.U, source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
+          genTxns += Logic(param, address, data, source)
         }
 
       } else if (typeTxn == 5) {
@@ -200,28 +206,19 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         }
 
         // Unsure how to indicate burst mask...
-        genTxns += Intent(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
+        genTxns += Intent(param, address, size, source)
 
         if (param == 0) {
-          genTxns += Get(size = size.U, source = source.U, address.U(64.W), mask = mask.U)
+          genTxns += Get(address, size, mask, source)
         } else {
           val fullPartial = randGen.nextInt(2)
           if (size > beatSize && burst) {
             val beatCount = 1 << (size - beatSize)
-            if (fullPartial == 0) {
-              genTxns += PutFullBurst(size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)(mask.U),
-                datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
-            } else {
-              genTxns += PutPartialBurst(size = size.U, source = source.U, address.U(64.W), masks = List.fill(beatCount)(mask.U),
-                datas = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
-            }
+            val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
+            genTxns += PutBurst(address, data, mask, source)
           } else {
-            data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-            if (fullPartial == 0) {
-              genTxns += PutFull(source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W)) // Hardcoded mask for now
-            } else {
-              genTxns += PutPartial(source = source.U, addr = address.U(64.W), mask = mask.U, data = data.U(64.W))
-            }
+            val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
+            genTxns += Put(address, data, mask, source)
           }
         }
 
@@ -258,17 +255,17 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
 
         if (repeats != 10) {
           if (randGen.nextInt() % 2 == 1) {
-            genTxns += AcquireBlock(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
+            genTxns += AcquireBlock(param, address, mask, size, source)
           } else {
-            genTxns += AcquirePerm(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
+            genTxns += AcquirePerm(param, address, mask, size, source)
           }
 
           intState(address) = if (param == 0) 1 else 2
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
           param = randGen.nextInt(2) // TtoB or TtoN
-          genTxns += ReleaseDataBurst(param = param.U, size = size.U, source = source.U, addr = address.U,
-            datas = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+          val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
+          genTxns += ReleaseDataBurst(param, address, data, source)
         }
 
       } else if (typeTxn == 7) {
@@ -306,11 +303,10 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
         // If no valid address to release, do acquire instead so that next time there will be a release
         if (repeats != 10) {
           if (param < 2) {
-            // Dirty data
-            genTxns += ReleaseDataBurst(param = param.U, size = size.U, source = source.U, addr = address.U,
-              datas = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt).U(64.W)))
+            val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
+            genTxns ++= ReleaseDataBurst(param, address, data, source)
           } else {
-            genTxns += Release(param = param.U, size = size.U, source = source.U, addr = address.U)
+            genTxns += Release(param, address, size, source)
           }
 
           intState(address) = if (param == 0) 1 else 0
@@ -318,9 +314,9 @@ class SWTLFuzzer (params : TLSlaveParameters, overrideAddr: Option[AddressSet] =
           // Converting to Acquire
           param = randGen.nextInt(2) // NtoB or NtoT
           if (randGen.nextInt() % 2 == 1) {
-            genTxns += AcquireBlock(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
+            genTxns += AcquireBlock(param, address, mask, size, source)
           } else {
-            genTxns += AcquirePerm(param = param.U, size = size.U, source = source.U, addr = address.U, mask = mask.U)
+            genTxns += AcquirePerm(param, address, mask, size, source)
           }
 
           intState(address) = if (param == 0) 1 else 2

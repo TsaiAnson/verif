@@ -1,4 +1,4 @@
-import freechips.rocketchip.tilelink.{TLBundleB, TLBundleD, TLChannel, TLMessages, TLBundleParameters}
+import freechips.rocketchip.tilelink.{TLBundleB, TLBundleD, TLChannel, TLBundleParameters}
 import verif.TLUtils._
 import verif.TLTransaction._
 import chisel3._
@@ -53,7 +53,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
       tlTxn match {
         case txnc: TLBundleD => {
           txnc.opcode.litValue().toInt match {
-            case TLMessages.Grant =>
+            case TLOpcodes.Grant =>
               if (!txnc.denied.litToBoolean) {
                 // Writing permissions
                 val newPerm = (2 - txnc.param.litValue().toInt).U
@@ -68,7 +68,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                 acquireInFlight = false
                 inFlight = false
               }
-            case TLMessages.GrantData =>
+            case TLOpcodes.GrantData =>
               if (!txnc.denied.litToBoolean) {
                 // Writing permissions and data
                 val newPerm = (2 - txnc.param.litValue().toInt).U
@@ -84,7 +84,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                 acquireInFlight = false
                 inFlight = false
               }
-            case TLMessages.ReleaseAck =>
+            case TLOpcodes.ReleaseAck =>
               tlProcess.remove(processIndex)
 
               // Now able to queue up more releases
@@ -94,7 +94,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
         }
         case txnc: TLBundleB =>
           txnc.opcode.litValue().toInt match {
-            case 7 => // TODO: ProbePerm not defined in TLMessages
+            case TLOpcodes.ProbePerm =>
               // Probe (Return ProbeAck) Don't process if pending Release Ack
               if (!releaseInFlight) {
                 val oldPerm = permState(txnc.address.litValue().toInt)
@@ -127,7 +127,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
               } else {
                 processIndex += 1
               }
-            case TLMessages.Probe =>// Probe (Return ProbeAck or ProbeAckData based off perms) Don't process if pending Release Ack
+            case TLOpcodes.ProbeBlock =>// Probe (Return ProbeAck or ProbeAckData based off perms) Don't process if pending Release Ack
               if (!releaseInFlight) {
                 val oldPerm = permState(txnc.address.litValue().toInt)
                 // Given permission
@@ -164,7 +164,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                 processIndex += 1
               }
             // TODO: opcode 5 = Intent, not defined in TLMessages
-            case TLMessages.Get | TLMessages.PutFullData | TLMessages.PutPartialData | TLMessages.ArithmeticData | TLMessages.LogicalData | 5 =>
+            case TLOpcodes.Get | TLOpcodes.PutFullData | TLOpcodes.PutPartialData | TLOpcodes.ArithmeticData | TLOpcodes.LogicalData | TLOpcodes.Hint =>
               // Using the testResponse slave function
               val results = testResponse(input = tlTxn, state = dataState)
 
@@ -181,8 +181,8 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
 
     // Determine input transactions
     // Currently limit inFlight instructions, as unsure on handling overloading L2 TODO update
-    var inputIndex = 0
     /*
+    var inputIndex = 0
     while (!inFlight && inputIndex < inputTransactions.length) {
       val tlTxn = inputTransactions(inputIndex)
 

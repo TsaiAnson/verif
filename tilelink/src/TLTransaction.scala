@@ -3,13 +3,15 @@ package verif
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util.log2Ceil
-import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleBase, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel, TLMessages}
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel}
 
 // TLTransactions are just TLChannel Bundle literals
 // There are some helper methods here to construct these literals for user stimulus
 package object TLTransaction {
   type TLTransaction = TLChannel
 
+  // copied from rocket-chip
+  // converted from raw listing of perm type to UInt to sealed types
   object TLPermissions {
     sealed trait Permission {
       def value: UInt
@@ -64,6 +66,33 @@ package object TLTransaction {
     }
   }
 
+  // Copied from rocket-chip
+  // rocket-chip version uses Chisel 2 compat layer which doesn't support UInt literals
+  object TLOpcodes {
+    //                            A    B    C    D    E
+    val PutFullData    = 0 //     .    .                   => AccessAck
+    val PutPartialData = 1 //     .    .                   => AccessAck
+    val ArithmeticData = 2 //     .    .                   => AccessAckData
+    val LogicalData    = 3 //     .    .                   => AccessAckData
+    val Get            = 4 //     .    .                   => AccessAckData
+    val Hint           = 5 //     .    .                   => HintAck (note: Hint = Intent)
+    val AcquireBlock   = 6 //     .                        => Grant[Data]
+    val AcquirePerm    = 7 //     .                        => Grant[Data]
+    val ProbeBlock     = 6 //          .                   => ProbeAck[Data]
+    val ProbePerm      = 7 //          .                   => ProbeAck
+    val AccessAck      = 0 //               .    .
+    val AccessAckData  = 1 //               .    .
+    val HintAck        = 2 //               .    .
+    val ProbeAck       = 4 //               .
+    val ProbeAckData   = 5 //               .
+    val Release        = 6 //               .              => ReleaseAck
+    val ReleaseData    = 7 //               .              => ReleaseAck
+    val Grant          = 4 //                    .         => GrantAck
+    val GrantData      = 5 //                    .         => GrantAck
+    val ReleaseAck     = 6 //                    .
+    val GrantAck       = 0 //                         .
+  }
+
   // **************************************************************
   // ************************ CHANNEL A ***************************
   // **************************************************************
@@ -72,7 +101,7 @@ package object TLTransaction {
   def Get(addr: BigInt, size: Int, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.Get,
+      _.opcode -> TLOpcodes.Get.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -89,10 +118,10 @@ package object TLTransaction {
   }
 
   def Put(addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int, partialHint: Boolean = false)(implicit params: TLBundleParameters): TLBundleA = {
-    val opcode = if (partialHint || (mask != (2^(params.dataBits/8) - 1))) TLMessages.PutPartialData else TLMessages.PutFullData
+    val opcode = if (partialHint || (mask != (2^(params.dataBits/8) - 1))) TLOpcodes.PutPartialData else TLOpcodes.PutFullData
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> opcode,
+      _.opcode -> opcode.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -129,7 +158,7 @@ package object TLTransaction {
   def Arith(param: Int, addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.ArithmeticData,
+      _.opcode -> TLOpcodes.ArithmeticData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -153,7 +182,7 @@ package object TLTransaction {
   def Logic(param: Int, addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.LogicalData,
+      _.opcode -> TLOpcodes.LogicalData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -177,7 +206,7 @@ package object TLTransaction {
   def Intent(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.Hint,
+      _.opcode -> TLOpcodes.Hint.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -199,7 +228,7 @@ package object TLTransaction {
   def AcquireBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.AcquireBlock,
+      _.opcode -> TLOpcodes.AcquireBlock.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -217,7 +246,7 @@ package object TLTransaction {
   def AcquirePerm(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
-      _.opcode -> TLMessages.AcquirePerm,
+      _.opcode -> TLOpcodes.AcquirePerm.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -240,7 +269,7 @@ package object TLTransaction {
   def ProbeBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleB = {
     // TODO: add checks for truncation
     new TLBundleB(params).Lit(
-      _.opcode -> 6.U, // TLMessages does not have ProbeBlock
+      _.opcode -> TLOpcodes.ProbeBlock.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -258,7 +287,7 @@ package object TLTransaction {
   def ProbePerm(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleB = {
     // TODO: add checks for truncation
     new TLBundleB(params).Lit(
-      _.opcode -> 7.U, // TLMessages does not have ProbePerm
+      _.opcode -> TLOpcodes.ProbePerm.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -280,7 +309,7 @@ package object TLTransaction {
   def ProbeAck(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
     new TLBundleC(params).Lit(
-      _.opcode -> TLMessages.ProbeAckData,
+      _.opcode -> TLOpcodes.ProbeAckData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -293,7 +322,7 @@ package object TLTransaction {
   def ProbeAckData(param: Int, addr: BigInt, data: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
     new TLBundleC(params).Lit(
-      _.opcode -> TLMessages.ProbeAckData,
+      _.opcode -> TLOpcodes.ProbeAckData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -312,7 +341,7 @@ package object TLTransaction {
   def Release(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
     new TLBundleC(params).Lit(
-      _.opcode -> TLMessages.Release,
+      _.opcode -> TLOpcodes.Release.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -325,7 +354,7 @@ package object TLTransaction {
   def ReleaseData(param: Int, addr: BigInt, data: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
     new TLBundleC(params).Lit(
-      _.opcode -> TLMessages.Release,
+      _.opcode -> TLOpcodes.ReleaseData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -348,7 +377,7 @@ package object TLTransaction {
   def AccessAck(denied: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.AccessAck,
+      _.opcode -> TLOpcodes.AccessAck.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -366,7 +395,7 @@ package object TLTransaction {
   def AccessAckData(data: BigInt, denied: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.AccessAckData,
+      _.opcode -> TLOpcodes.AccessAckData.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -390,7 +419,7 @@ package object TLTransaction {
   def HintAck(denied: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.HintAck,
+      _.opcode -> TLOpcodes.HintAck.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -408,7 +437,7 @@ package object TLTransaction {
   def Grant(param: Int, denied: Int, size: Int, source: Int, sink: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.Grant,
+      _.opcode -> TLOpcodes.Grant.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -422,7 +451,7 @@ package object TLTransaction {
   def GrantData(param: Int, data: BigInt, denied: Int, size: Int, source: Int, sink: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.GrantData,
+      _.opcode -> TLOpcodes.GrantData.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -446,7 +475,7 @@ package object TLTransaction {
   def ReleaseAck(size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
     // TODO: add checks for truncation
     new TLBundleD(params).Lit(
-      _.opcode -> TLMessages.ReleaseAck,
+      _.opcode -> TLOpcodes.ReleaseAck.U,
       _.param -> 0.U,
       _.size -> size.U,
       _.source -> source.U,

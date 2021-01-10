@@ -6,7 +6,7 @@ import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.{DataMirror, Direction}
 import chiseltest._
 
-case class DecoupledTX[T <: Data](gen: T) extends Bundle {
+class DecoupledTX[T <: Data](gen: T) extends Bundle {
   val data: T = gen.cloneType
   // TODO: move these meta fields into typeclasses that can be mixed in with DecoupledTX
   val waitCycles: UInt = UInt(32.W)
@@ -103,7 +103,7 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) exten
     var cycleCount = 0
     while (true) {
       if (interface.valid.peek().litToBoolean && interface.ready.peek().litToBoolean) {
-        val t = DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
+        val t = new DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
         val tLit = t.Lit(_.data -> interface.bits.peek(), _.cycleStamp -> cycleCount.U)
         addMonitoredTransaction(tLit)
       }

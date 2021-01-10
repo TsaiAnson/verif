@@ -11,7 +11,7 @@ import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 
 import scala.collection.mutable.HashMap
-import verifTLUtils._
+import TLUtils._
 import TLTransaction._
 import freechips.rocketchip.tilelink.{TLBundleD, TLBundleE, TLBundleParameters, TLDataChannel}
 
