@@ -188,7 +188,7 @@ class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, 
         if (size > beatSize) {
           val beatCount = 1 << (size - beatSize)
           val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-          genTxns += LogicBurst(param, address, data, source)
+          genTxns ++= LogicBurst(param, address, data, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
           genTxns += Logic(param, address, data, source)
@@ -214,11 +214,11 @@ class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, 
           val fullPartial = randGen.nextInt(2)
           if (size > beatSize && burst) {
             val beatCount = 1 << (size - beatSize)
-            val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
-            genTxns += PutBurst(address, data, mask, source)
+            val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+            genTxns ++= PutBurst(address, data, List.fill(beatCount)(mask), source)
           } else {
             val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-            genTxns += Put(address, data, mask, source)
+            genTxns += Put(address, BigInt(data))
           }
         }
 
@@ -264,8 +264,8 @@ class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, 
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
           param = randGen.nextInt(2) // TtoB or TtoN
-          val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
-          genTxns += ReleaseDataBurst(param, address, data, source)
+          val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
+          genTxns ++= ReleaseDataBurst(param, address, data, source)
         }
 
       } else if (typeTxn == 7) {
@@ -303,7 +303,7 @@ class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, 
         // If no valid address to release, do acquire instead so that next time there will be a release
         if (repeats != 10) {
           if (param < 2) {
-            val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt))
+            val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
             genTxns ++= ReleaseDataBurst(param, address, data, source)
           } else {
             genTxns += Release(param, address, size, source)

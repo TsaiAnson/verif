@@ -46,6 +46,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
         dOutput.clear()
       }
     }
+    queuedTLBundles.clear()
 
     var processIndex = 0
     while (processIndex < tlProcess.length) {
@@ -157,7 +158,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                   queuedTLBundles ++= ProbeAckDataBurst(param = newParam.litValue().toInt, source = txnc.source.litValue().toInt, addr = txnc.address.litValue(),
                     data = readData(dataState, size = txnc.size, address = txnc.address, mask = 0xff.U).map(_.litValue()))
                 } else {
-                  queuedTLBundles += ProbeAck(param = newParam.litValue().toInt, size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, addr = txnc.address)
+                  queuedTLBundles += ProbeAck(param = newParam.litValue().toInt, size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, addr = txnc.address.litValue())
                 }
                 tlProcess.remove(processIndex)
               } else {
@@ -168,7 +169,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
               // Using the testResponse slave function
               val results = testResponse(input = tlTxn, state = dataState)
 
-              queuedTLBundles += results._1
+              queuedTLBundles ++= results._1
               tlProcess.remove(processIndex)
               inFlight = false
           }
@@ -177,7 +178,9 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
           tlProcess.remove(processIndex)
           inFlight = false
       }
+      processIndex = processIndex + 1
     }
+    queuedTLBundles
 
     // Determine input transactions
     // Currently limit inFlight instructions, as unsure on handling overloading L2 TODO update

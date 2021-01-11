@@ -23,15 +23,15 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
         assert(channel.isLit())
         channel match {
           case a: TLBundleA =>
-            val txProto = DecoupledTX(new TLBundleA(params))
+            val txProto = new DecoupledTX(new TLBundleA(params))
             val tx = txProto.tx(a)
             aDriver.push(tx)
           case c: TLBundleC =>
-            val txProto = DecoupledTX(new TLBundleC(params))
+            val txProto = new DecoupledTX(new TLBundleC(params))
             val tx = txProto.tx(c)
             cDriver.get.push(tx) // TODO: will throw exception is hasBCE = false
           case e: TLBundleE =>
-            val txProto = DecoupledTX(new TLBundleE(params))
+            val txProto = new DecoupledTX(new TLBundleE(params))
             val tx = txProto.tx(e)
             eDriver.get.push(tx)
           case _ =>
@@ -44,7 +44,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
 
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S) => (TLChannel, S)) {
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S) => (Seq[TLChannel], S)) {
   val txns = ListBuffer[TLChannel]()
   var state = initState
 
