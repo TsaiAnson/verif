@@ -9,8 +9,9 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verifTLUtils._
+import verif.TLUtils._
 import TLTransaction._
+import freechips.rocketchip.tilelink.TLChannel
 
 class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -18,19 +19,18 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "VerifTL Test TLRAM via SWTLFuzzer" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
-
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 400
 
-      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), TLRAMSlave.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val inputTransactions = fuz.generateTransactions(60)
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
       println("TRANSACTIONS TOTAL")
       println(output.size)
 
@@ -41,23 +41,30 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Driver/Monitor Master Hardcoded Burst TLRAM" in {
     val TLRAMSlave = LazyModule(new VerifTLRAMSlave)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLRAMSlave.in.params
 
       val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
         Put(addr = 0x0, data = 0x3333),
         Get(addr = 0x0),
-        PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678)),
+        PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678), source = 0),
         Get(addr = 0x10)
+      ).flatMap(
+        { x : Object =>
+            x match {
+              case x : Seq[TLChannel] => x
+              case x : TLChannel => Seq(x)
+            }
+        }
       )
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
 
       for (out <- output) {
         println(out)
@@ -87,7 +94,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
 
       for (out <- output) {
         println(out)
@@ -106,13 +113,20 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
         // Four Consecutive Writes (burst)
-        PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678, 0x8765, 0x4321))
+        PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678, 0x8765, 0x4321), source = 0)
+      ).flatMap(
+        { x : Object =>
+          x match {
+            case x : Seq[TLChannel] => x
+            case x : TLChannel => Seq(x)
+          }
+        }
       )
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
 
       for (out <- output) {
         println(out)

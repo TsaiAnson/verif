@@ -823,36 +823,36 @@ package object TLUtils {
   */
 
   // Helper methods for filtering monitored transactions
-  def filterA (txn : TLChannel) : Boolean = {
-    txn match {
+  def filterA (txn : DecoupledTX[TLChannel]) : Boolean = {
+    txn.data match {
       case _: TLBundleA => true
       case _ => false
     }
   }
 
-  def filterB (txn : TLChannel) : Boolean = {
-    txn match {
+  def filterB (txn : DecoupledTX[TLChannel]) : Boolean = {
+    txn.data match {
       case _: TLBundleB => true
       case _ => false
     }
   }
 
-  def filterC (txn : TLChannel) : Boolean = {
-    txn match {
+  def filterC (txn : DecoupledTX[TLChannel]) : Boolean = {
+    txn.data match {
       case _: TLBundleC => true
       case _ => false
     }
   }
 
-  def filterD (txn : TLChannel) : Boolean = {
-    txn match {
+  def filterD (txn : DecoupledTX[TLChannel]) : Boolean = {
+    txn.data match {
       case _: TLBundleD => true
       case _ => false
     }
   }
 
-  def filterE (txn : TLChannel) : Boolean = {
-    txn match {
+  def filterE (txn : DecoupledTX[TLChannel]) : Boolean = {
+    txn.data match {
       case _: TLBundleE => true
       case _ => false
     }
@@ -1086,7 +1086,7 @@ package object TLUtils {
             val masks = input.map(_.asInstanceOf[TLBundleA].mask)
 
             var function : (UInt, UInt) => UInt = min
-            txnc.param.litValue().toInt match {
+            param.litValue().toInt match {
               case 0 => function = xor
               case 1 => function = or
               case 2 => function = and
@@ -1102,7 +1102,7 @@ package object TLUtils {
               newData += function(o, (n.litValue() & toByteMask(m)).U)
             }
 
-            writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
+            writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
             responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
 
           case 5 => // TODO: TLOpcodes doesn't contain Intent (opcode = 5)

@@ -9,8 +9,9 @@ import designs._
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
-import verifTLUtils._
+import verif.TLUtils._
 import TLTransaction._
+import freechips.rocketchip.tilelink.TLChannel
 
 import scala.collection.mutable.HashMap
 
@@ -101,6 +102,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Temp Sanity Test for New SDriver Skeleton" in {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLCustomMaster.out.params
 
       // Currently just recording requests, only Driver is needed
       val sDriver = new TLDriverSlave[HashMap[Int,Int]](c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
@@ -140,6 +142,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test for New SDriver" in {
     val TLFeedback = LazyModule(new VerifTLMasterSlaveFeedback)
     test(TLFeedback.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLFeedback.in.params
 
       // Drivers/Monitors
       val mDriver = new TLDriverMaster(c.clock, TLFeedback.in)
@@ -149,12 +152,11 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val simCycles = 500
 
-      implicit val params = TLFeedback.in.params
       val inputTransactions = Seq(
         Get(addr = 0x0),
         Put(addr = 0x0, data = 0x3333),
         Get(addr = 0x0),
-        PutBurst(addr = 0x0, data = Seq(0x3333, 0x1234)),
+        PutBurst(addr = 0x0, data = Seq(0x3333, 0x1234), source = 0),
         Get(addr = 0x0),
         Get(addr = 0x8),
         Logic(param = 2, addr = 0x0, data = 0x0),
@@ -167,12 +169,19 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
         ArithBurst(param = 4, addr = 0x0, data = Seq(0x0, 0x0)),
         Get(addr = 0x0),
         Get(addr = 0x8)
+      ).flatMap(
+        { x : Object =>
+          x match {
+            case x : Seq[TLChannel] => x
+            case x : TLChannel => Seq(x)
+          }
+        }
       )
 
       mDriver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = monitor.getMonitoredTransactions(filterD).toArray
+      val output = monitor.getMonitoredTransactions().filter(filterD).toArray
 
       // Transactions
       for (out <- output) {

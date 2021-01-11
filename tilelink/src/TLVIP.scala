@@ -55,7 +55,16 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response
 //  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.e, 0)) else None
 
   val txns = ListBuffer[TLChannel]()
+  // TODO Currently destructive
   var state = initState
+
+  def setState (newState : S) : Unit = {
+    state = newState
+  }
+
+  def getState () : S = {
+    state
+  }
 
   // Responsible for collecting requests and calling on the user-defined response method
   // Currently only supports single source

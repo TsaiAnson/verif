@@ -9,7 +9,7 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verifTLUtils._
+import verif.TLUtils._
 import TLTransaction._
 
 class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
@@ -35,7 +35,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
 
       for (out <- output) {
         println(out)
@@ -71,11 +71,13 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       passInAgentRef.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions(filterD).toArray
-      val outputRef = passOutAgent.getMonitoredTransactions(filterD).toArray
+      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
+      val outputRef = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
 
-      assert(outputChecker.checkOutput(output, {t : TLTransaction => t},
-        outputRef, {t : TLTransaction => t}))
+      output.zip(outputRef).foreach {
+        case (dut_out, sw_out) =>
+          assert(dut_out.data == sw_out.data)
+      }
     }
   }
 
@@ -121,8 +123,8 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       passInAgentTwo.push(inputTransactionsTwo)
       c.clock.step(simCycles)
 
-      val outputOne = passOutAgentOne.getMonitoredTransactions(filterD).toArray
-      val outputTwo = passOutAgentTwo.getMonitoredTransactions(filterD).toArray
+      val outputOne = passOutAgentOne.getMonitoredTransactions().filter(filterD).toArray
+      val outputTwo = passOutAgentTwo.getMonitoredTransactions().filter(filterD).toArray
 
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX
@@ -148,10 +150,15 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(data = 0x4444, denied = 0)
       ).toArray
 
-      assert(outputChecker.checkOutput(outputOne, {t : TLTransaction => t},
-        outputOneRef, {t : TLTransaction => t}))
-      assert(outputChecker.checkOutput(outputTwo, {t : TLTransaction => t},
-        outputTwoRef, {t : TLTransaction => t}))
+      outputOne.zip(outputOneRef).foreach {
+        case (dut_out, sw_out) =>
+          assert(dut_out.data == sw_out)
+      }
+
+      outputTwo.zip(outputTwoRef).foreach {
+        case (dut_out, sw_out) =>
+          assert(dut_out.data == sw_out)
+      }
     }
   }
 }

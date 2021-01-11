@@ -18,7 +18,7 @@ import freechips.rocketchip.tilelink.{TLBundleD, TLBundleE, TLBundleParameters, 
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
   // implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
   // implicit val p: Parameters = (new BaseConfig).toInstance
-  //implicit val p: Parameters = new WithoutTLMonitors
+  implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test Slave" in {
     val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
@@ -85,6 +85,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)
     test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
+      implicit val params: TLBundleParameters = TLMasterFuzzer.out.params
       val requestHandler = new TLDriverSlave(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLMasterFuzzer.out)
       val simCycles = 100
@@ -143,16 +144,16 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLCustomMaster = LazyModule(new VerifTLCustomMaster)
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
+      implicit val params: TLBundleParameters = TLCustomMaster.out.params
       val requestHandler = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 100
 
       c.clock.step(simCycles)
 
-      val outputA = monitor.getMonitoredTransactions(filterA).toArray
+      val outputA = monitor.getMonitoredTransactions().filter(filterA)
 
       // TODO Add software model here
-      implicit val params = TLCustomMaster.out.params
       val swoutputA = Array(
         Get(addr = 0x0),
         Put(addr = 0x20, data = 10),
@@ -164,9 +165,10 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
         Put(addr = 0x38, data = 13)
       )
 
-      // Where was the new checker again?
-      assert(outputChecker.checkOutput(outputA, {t : TLTransaction => t},
-        swoutputA, {t : TLTransaction => t}))
+      outputA.zip(swoutputA).foreach {
+        case (dut_out, sw_out) =>
+          assert(dut_out.data == sw_out)
+      }
     }
   }
 }

@@ -8,7 +8,7 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink.TLRegisterNode
 import sifive.blocks.inclusivecache.{CacheParameters, InclusiveCache, InclusiveCacheControlParameters, InclusiveCacheMicroParameters, InclusiveCacheParameters, InclusiveCachePortParameters}
-import verif.verifTLUtils._
+import verif.TLUtils._
 
 // Keeping as reference
 trait VerifTLStandaloneBlock extends LazyModule {
