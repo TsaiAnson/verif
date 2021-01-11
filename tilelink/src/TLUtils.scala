@@ -1006,18 +1006,26 @@ package object TLUtils {
 
   // Response function required for TL SDrivers
   // TODO: this is written poorly
-  def testResponse (input: TLChannel, state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
+  def testResponse (input: List[TLChannel], state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
     var responseTLTxn = Seq(AccessAck(denied=0, size=0, source=0))
     // Making internal copy of state (non-destructive)
     val state_int = state.clone()
 
+    // Assert
+    assert(input.nonEmpty, "ERROR: List of TLBundles is EMPTY for testResponse slaving function.")
+
+
+    val inputhead = input.head
     // Transaction response
-    input match {
+    inputhead match {
       case txnc: TLBundleA =>
         txnc.opcode.litValue().toInt match {
-          case TLMessages.Get =>
+          case TLOpcodes.Get =>
+            // Assert
+            assert(input.isEmpty, "ERROR: Get request has too many beats.")
+
             // Read Data
             val readOut = readData(state = state_int, size = txnc.size, address  = txnc.address, mask = txnc.mask)
 
@@ -1026,21 +1034,30 @@ package object TLUtils {
             else
               responseTLTxn = Seq(AccessAckData(readOut.head.litValue(), 0, txnc.source.litValue().toInt))
 
-          case TLMessages.PutFullData | TLMessages.PutPartialData =>
-            // Write Data
-            val size = beatBytesSize.U
+          case TLOpcodes.PutFullData | TLOpcodes.PutPartialData =>
+            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
             val source = txnc.source
             val address = txnc.address
-            val datas = Seq(txnc.data)
-            val masks = Seq(txnc.mask)
-            writeData(state = state_int, size = size, address = address, datas = datas.toList, masks = masks.toList)
+            val datas = input.map(_.asInstanceOf[TLBundleA].data)
+            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
+
+
+            // Write Data
+            writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
 
             // Response
             responseTLTxn = Seq(AccessAck(size = size.litValue().toInt, source = source.litValue().toInt, denied = 0))
 
-          case TLMessages.ArithmeticData =>
+          case TLOpcodes.ArithmeticData =>
+            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
+            val param = txnc.param
+            val source = txnc.source
+            val address = txnc.address
+            val datas = input.map(_.asInstanceOf[TLBundleA].data)
+            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
+
             var function : (UInt, UInt) => UInt = min
-            txnc.param.litValue().toInt match {
+            param.litValue().toInt match {
               case 0 => function = min
               case 1 => function = max
               case 2 => function = minu
@@ -1049,18 +1066,25 @@ package object TLUtils {
             }
 
             // Reading Old Data (to return)
-            val oldData = readData(state = state_int, size = txnc.size, address = txnc.address, mask = 0xff.U)
+            val oldData = readData(state = state_int, size = size, address = address, mask = 0xff.U)
 
             // Creating newData (to write)
             var newData = ListBuffer[UInt]()
-            for (((n, m), o) <- (Seq(txnc.data) zip Seq(txnc.mask)) zip oldData) {
+            for (((n, m), o) <- (datas zip masks) zip oldData) {
               newData += function(o, (n.litValue() & toByteMask(m)).U)
             }
 
             writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
-            responseTLTxn = Seq(AccessAckData(source = txnc.source.litValue().toInt, denied = 0, data = oldData.head.litValue()))
+            responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
 
-          case TLMessages.LogicalData =>
+          case TLOpcodes.LogicalData =>
+            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
+            val param = txnc.param
+            val source = txnc.source
+            val address = txnc.address
+            val datas = input.map(_.asInstanceOf[TLBundleA].data)
+            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
+
             var function : (UInt, UInt) => UInt = min
             txnc.param.litValue().toInt match {
               case 0 => function = xor
@@ -1074,14 +1098,14 @@ package object TLUtils {
 
             // Creating newData (to write)
             var newData = ListBuffer[UInt]()
-            for (((n, m), o) <- (Seq(txnc.data) zip Seq(txnc.mask)) zip oldData) {
+            for (((n, m), o) <- (datas zip masks) zip oldData) {
               newData += function(o, (n.litValue() & toByteMask(m)).U)
             }
 
             writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
-            responseTLTxn = Seq(AccessAckData(source = txnc.source.litValue().toInt, denied = 0, data = oldData.head.litValue()))
+            responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
 
-          case 5 => // TODO: TLMessages doesn't contain Intent (opcode = 5)
+          case 5 => // TODO: TLOpcodes doesn't contain Intent (opcode = 5)
             // Currently don't accept hints
             responseTLTxn = Seq(HintAck(size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, denied = 1))
         }

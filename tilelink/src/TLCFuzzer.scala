@@ -32,6 +32,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
   implicit val p = params
 
   // After receiving txns (on channel B and D), return any TL responses (on A, C, or E)
+  // Whole method has to be re-written for raw TLBundles
   def process(txns: Seq[TLChannel]): Seq[TLChannel] = {
     bOutput ++= txns.collect { case t: TLBundleB => t}
     dOutput ++= txns.collect { case t: TLBundleD => t}
@@ -167,10 +168,11 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
             // TODO: opcode 5 = Intent, not defined in TLMessages
             case TLOpcodes.Get | TLOpcodes.PutFullData | TLOpcodes.PutPartialData | TLOpcodes.ArithmeticData | TLOpcodes.LogicalData | TLOpcodes.Hint =>
               // Using the testResponse slave function
-              val results = testResponse(input = tlTxn, state = dataState)
+              // TODO FIX
+//              val results = testResponse(input = tlTxn, state = dataState)
 
-              queuedTLBundles ++= results._1
-              tlProcess.remove(processIndex)
+//              queuedTLBundles ++= results._1
+//              tlProcess.remove(processIndex)
               inFlight = false
           }
         case _ =>

@@ -142,14 +142,14 @@ package object TLTransaction {
   }
 
   // No masks assume PutFull
-  def PutBurst(addr: BigInt, data: Seq[BigInt], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
+  def PutBurst(addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
       (d: BigInt) => Put(addr = addr, data = d, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8 * data.size), source = source)
     }
   }
 
   // Masks assume PutPartial
-  def PutBurst(addr: BigInt, data: Seq[BigInt], mask: Seq[Int], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
+  def PutBurst(addr: BigInt, data: Seq[BigInt], mask: Seq[Int], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     (mask zip data).map {
       (md : (Int, BigInt)) => Put(addr = addr, data = md._2, mask = md._1, size = log2Ceil(params.dataBits/8 * data.size), source = source, partialHint = true)
     }
@@ -217,12 +217,12 @@ package object TLTransaction {
     )
   }
 
-  def Intent(param: Int, addr: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+  def Intent(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
+    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
   }
 
-  def Intent(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+  def Intent(param: Int, addr: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
+    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
   }
 
   def AcquireBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {

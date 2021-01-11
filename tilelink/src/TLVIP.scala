@@ -44,7 +44,16 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
 
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S) => (Seq[TLChannel], S)) {
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (List[TLChannel], S) => (Seq[TLChannel], S)) {
+  val params: TLBundleParameters = interface.params
+
+  private val aMonitor = new DecoupledMonitor[TLChannel](clock, interface.a)
+  private val dDriver = new DecoupledDriverMaster(clock, interface.d)
+  // TODO DriverSlave currently DOES NOT support BCE
+//  private val bDriver = if (interface.params.hasBCE) Option(new DecoupledDriverMaster(clock, interface.b)) else None
+//  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.c, 0)) else None
+//  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.e, 0)) else None
+
   val txns = ListBuffer[TLChannel]()
   var state = initState
 
@@ -56,36 +65,35 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response
 
     // Checking if list buffer has complete TLTransaction
     if (isCompleteTLTxn(txns.toList)) {
-      // Converting to TLTransaction
-      val tltxn = TLBundlestoTLTransaction(txns.toList)
-      txns.clear()
-
       // Calling on response function
-      val tuple = response(tltxn, state)
+      val tuple = response(txns.toList, state)
+      txns.clear()
       state = tuple._2
 
-      // Converting back to TLChannels
-      val responses = TLTransactiontoTLBundles(tuple._1)
-
       // Writing response(s)
-      for (resp <- responses) {
-        writeChannel(resp)
+      for (resp <- tuple._1) {
+        val txProto = new DecoupledTX(new TLBundleD(params))
+        val tx = txProto.tx(resp.asInstanceOf[TLBundleD])
+        dDriver.push(tx)
 
         // Clock step called here
         // We won't be getting any requests since A ready is low
-        clk.step()
+        clock.step()
       }
     } else {
       // Step clock even if no response is driven (for burst requests)
-      clk.step()
+      clock.step()
     }
   }
 
   // Currently just processes the requests from master
   fork {
-    reset()
     while (true) {
-      process(readA())
+      val decoupledTxn = aMonitor.getOldestMonitoredTransaction.getOrElse(None)
+      if (decoupledTxn != None) {
+        val data = decoupledTxn.asInstanceOf[DecoupledTX[TLChannel]].data
+        process(data.asInstanceOf[TLBundleA])
+      }
     }
   }
 }
