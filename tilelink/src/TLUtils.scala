@@ -127,7 +127,7 @@ package object TLUtils {
   }
 
   // Helper method to test if given TLBundles (TLChannels) make up a complete TLTransaction
-  def isCompleteTLTxn (txns: List[TLChannel]) : Boolean = {
+  def isCompleteTLTxn (txns: Seq[TLChannel]) : Boolean = {
     // Edge case
     if (txns.isEmpty) return false
 
@@ -972,7 +972,7 @@ package object TLUtils {
   }
 
   // State is a byte-addressed HashMap
-  def writeData(state : HashMap[Int,Int], size: UInt, address: UInt, datas: List[UInt], masks: List[UInt], beatBytes: Int = 8): Unit = {
+  def writeData(state : HashMap[Int,Int], size: UInt, address: UInt, datas: Seq[UInt], masks: Seq[UInt], beatBytes: Int = 8): Unit = {
     val sizeInt = 1 << size.litValue().toInt
     val addressInt = address.litValue().toInt
     var allData: BigInt = 0
@@ -1004,9 +1004,23 @@ package object TLUtils {
     }
   }
 
-  // Response function required for TL SDrivers
-  // TODO: this is written poorly
-  def testResponse (input: List[TLChannel], state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
+  // TODO: refactor into one function
+  case class SlaveMemoryState(txnBuffer: Seq[TLChannel], mem: HashMap[Int,Int])
+  object SlaveMemoryState {
+    def init(): SlaveMemoryState = { SlaveMemoryState(Seq(), HashMap[Int, Int]()) }
+  }
+  def testResponseWrapper(input: TLChannel, state: SlaveMemoryState)(implicit p: TLBundleParameters): (Seq[TLChannel], SlaveMemoryState) = {
+    // Collect transactions with the same opcode
+    val newBuffer = state.txnBuffer :+ input
+    if (isCompleteTLTxn(newBuffer)) {
+      val (resp, newState) = testResponse(newBuffer, state.mem)
+      (resp, SlaveMemoryState(Seq(), newState))
+    } else {
+      (Seq(), SlaveMemoryState(newBuffer, state.mem))
+    }
+  }
+
+  def testResponse(input: Seq[TLChannel], state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
     var responseTLTxn = Seq(AccessAck(denied=0, size=0, source=0))
@@ -1105,10 +1119,11 @@ package object TLUtils {
             writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
             responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
 
-          case 5 => // TODO: TLOpcodes doesn't contain Intent (opcode = 5)
+          case TLOpcodes.Hint =>
             // Currently don't accept hints
             responseTLTxn = Seq(HintAck(size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, denied = 1))
         }
+      case _ => ???
     }
     (responseTLTxn, state_int)
   }

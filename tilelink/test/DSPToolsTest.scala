@@ -86,7 +86,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
     test(TLMasterFuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       implicit val params: TLBundleParameters = TLMasterFuzzer.out.params
-      val requestHandler = new TLDriverSlave(c.clock, TLMasterFuzzer.out, HashMap[Int,Int](), testResponse)
+      val requestHandler = new TLDriverSlave(c.clock, TLMasterFuzzer.out, SlaveMemoryState.init(), testResponseWrapper)
       val monitor = new TLMonitor(c.clock, TLMasterFuzzer.out)
       val simCycles = 100
 
@@ -145,7 +145,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
     test(TLCustomMaster.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       implicit val params: TLBundleParameters = TLCustomMaster.out.params
-      val requestHandler = new TLDriverSlave(c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
+      val requestHandler = new TLDriverSlave(c.clock, TLCustomMaster.out, SlaveMemoryState.init(), testResponseWrapper)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 100
 

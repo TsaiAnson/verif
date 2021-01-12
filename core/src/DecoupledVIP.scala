@@ -75,6 +75,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
   }
 }
 
+// TODO: have this return a stream of seen transactions
 class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) {
   assert(DataMirror.directionOf(interface.valid) == Direction.Output, "DecoupledDriverSlave is connected to a slave port, not a master")
   fork {

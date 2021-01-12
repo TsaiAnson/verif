@@ -47,21 +47,14 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 150
 
-      val inputTransactions = Seq(
-        Put(addr = 0x0, data = 0x3333),
-        Get(addr = 0x0),
+      val inputTxns = Seq(
+        Seq(Put(addr = 0x0, data = 0x3333)),
+        Seq(Get(addr = 0x0)),
         PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678), source = 0),
-        Get(addr = 0x10)
-      ).flatMap(
-        { x : Object =>
-            x match {
-              case x : Seq[TLChannel] => x
-              case x : TLChannel => Seq(x)
-            }
-        }
-      )
+        Seq(Get(addr = 0x10))
+      ).flatten
 
-      passInAgent.push(inputTransactions)
+      passInAgent.push(inputTxns)
       c.clock.step(simCycles)
 
       val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
@@ -111,17 +104,9 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       val simCycles = 150
 
       implicit val params = TLRAMSlave.in.params
-      val inputTransactions = Seq(
+      val inputTransactions =
         // Four Consecutive Writes (burst)
         PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678, 0x8765, 0x4321), source = 0)
-      ).flatMap(
-        { x : Object =>
-          x match {
-            case x : Seq[TLChannel] => x
-            case x : TLChannel => Seq(x)
-          }
-        }
-      )
 
       passInAgent.push(inputTransactions)
       c.clock.step(simCycles)

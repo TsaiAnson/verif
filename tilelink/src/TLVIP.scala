@@ -4,9 +4,6 @@ import chisel3._
 import chiseltest._
 import freechips.rocketchip.tilelink._
 
-import scala.collection.mutable.{HashMap, ListBuffer, MutableList, Queue}
-import TLUtils._
-
 // TLDriver acting as a Master node
 class TLDriverMaster(clock: Clock, interface: TLBundle) {
   val params: TLBundleParameters = interface.params
@@ -41,68 +38,46 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
   }
 }
 
-
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (List[TLChannel], S) => (Seq[TLChannel], S)) {
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S) => (Seq[TLChannel], S)) {
   val params: TLBundleParameters = interface.params
 
-  private val aMonitor = new DecoupledMonitor[TLChannel](clock, interface.a)
-  private val dDriver = new DecoupledDriverMaster(clock, interface.d)
-  // TODO DriverSlave currently DOES NOT support BCE
-//  private val bDriver = if (interface.params.hasBCE) Option(new DecoupledDriverMaster(clock, interface.b)) else None
-//  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.c, 0)) else None
-//  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.e, 0)) else None
+  // TODO: once DecoupledDriverSlave returns a stream of seen transactions, remove the monitor
+  private val aDriver = new DecoupledDriverSlave[TLBundleA](clock, interface.a, 0)
+  private val dDriver = new DecoupledDriverMaster[TLBundleD](clock, interface.d)
+  private val bDriver = if (interface.params.hasBCE) Option(new DecoupledDriverMaster(clock, interface.b)) else None
+  private val cDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.c, 0)) else None
+  private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.e, 0)) else None
+  private val monitor = new TLMonitor(clock, interface)
 
-  val txns = ListBuffer[TLChannel]()
-  // TODO Currently destructive
   var state = initState
 
-  def setState (newState : S) : Unit = {
-    state = newState
-  }
-
-  def getState () : S = {
-    state
-  }
-
-  // Responsible for collecting requests and calling on the user-defined response method
-  // Currently only supports single source
-  def process(a : TLBundleA) : Unit = {
-    // Adding request to buffer (to collect for burst)
-    txns += a
-
-    // Checking if list buffer has complete TLTransaction
-    if (isCompleteTLTxn(txns.toList)) {
-      // Calling on response function
-      val tuple = response(txns.toList, state)
-      txns.clear()
-      state = tuple._2
-
-      // Writing response(s)
-      for (resp <- tuple._1) {
-        val txProto = new DecoupledTX(new TLBundleD(params))
-        val tx = txProto.tx(resp.asInstanceOf[TLBundleD])
-        dDriver.push(tx)
-
-        // Clock step called here
-        // We won't be getting any requests since A ready is low
-        clock.step()
-      }
-    } else {
-      // Step clock even if no response is driven (for burst requests)
-      clock.step()
-    }
-  }
-
-  // Currently just processes the requests from master
   fork {
     while (true) {
-      val decoupledTxn = aMonitor.getOldestMonitoredTransaction.getOrElse(None)
-      if (decoupledTxn != None) {
-        val data = decoupledTxn.asInstanceOf[DecoupledTX[TLChannel]].data
-        process(data.asInstanceOf[TLBundleA])
+      // extract TLBundle A,C,E
+      val txFromMaster = monitor.getMonitoredTransactions().map(_.data).flatMap{
+        case _:TLBundleD | _:TLBundleB => None
+        case other => Some(other)
       }
+      val (responseTxns, newState) = txFromMaster.foldLeft((Seq.empty[TLChannel], state)) {
+        case ((responses, state), tx) =>
+          val (newTxns, newState) = response(tx, state)
+          (responses ++ newTxns, newState)
+      }
+      state = newState
+      dDriver.push(responseTxns.collect{ case t: TLBundleD => t }.map {
+        t: TLBundleD =>
+          new DecoupledTX(new TLBundleD(params)).tx(t)
+      })
+      // TODO: use map/foreach over bDriver instead of if-check
+      if (params.hasBCE) {
+        bDriver.get.push(responseTxns.collect{ case t: TLBundleB => t }.map {
+          t: TLBundleB =>
+            new DecoupledTX(new TLBundleB(params)).tx(t)
+        })
+      }
+      clock.step()
     }
   }
 }
@@ -122,6 +97,13 @@ class TLMonitor(clock: Clock, interface: TLBundle) {
       bMonitor.map(_.getMonitoredTransactions).getOrElse(Seq()) ++
       cMonitor.map(_.getMonitoredTransactions).getOrElse(Seq()) ++
       eMonitor.map(_.getMonitoredTransactions).getOrElse(Seq())
+    aMonitor.clearMonitoredTransactions()
+    dMonitor.clearMonitoredTransactions()
+    if (interface.params.hasBCE) {
+      bMonitor.get.clearMonitoredTransactions()
+      cMonitor.get.clearMonitoredTransactions()
+      eMonitor.get.clearMonitoredTransactions()
+    }
     tx.sortBy(_.cycleStamp.litValue())
   }
 }

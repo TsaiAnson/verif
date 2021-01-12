@@ -26,10 +26,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLL2.in)
       val monitor1 = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      test(0) = 0x1234
-      test(8) = 0x3333
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val initialState = SlaveMemoryState(Seq(), HashMap[Int,Int](0 -> 0x1234, 8 -> 0x3333))
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, initialState, testResponseWrapper)
 
       L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
 
@@ -55,8 +53,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLL2.in)
       val monitor1 = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
       val txns = Seq(
         // Two Acquires in a row, must be sequential
@@ -99,8 +96,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLL2.in)
       val monitor1 = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
       val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,

@@ -105,13 +105,13 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params = TLCustomMaster.out.params
 
       // Currently just recording requests, only Driver is needed
-      val sDriver = new TLDriverSlave[HashMap[Int,Int]](c.clock, TLCustomMaster.out, HashMap[Int,Int](), testResponse)
+      val sDriver = new TLDriverSlave(c.clock, TLCustomMaster.out, SlaveMemoryState.init(), testResponseWrapper)
       val monitor = new TLMonitor(c.clock, TLCustomMaster.out)
       val simCycles = 80
 
       // State testing
-      val init_state = HashMap[Int,Int]()
-      sDriver.setState(init_state)
+      val init_state = SlaveMemoryState.init()
+      sDriver.state = init_state
 
       c.clock.step(simCycles)
 
@@ -124,16 +124,16 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // State Map
       println("Resulting State")
-      val hash = sDriver.getState()
-      for (x <- hash.keys) {
-        print(s"(${x}, ${hash(x)}), ")
+      val hash = sDriver.state
+      for (x <- hash.mem.keys) {
+        print(s"(${x}, ${hash.mem(x)}), ")
       }
       println("")
 
       // Init State (making sure that the original state was not modified)
       println("Initial State")
-      for (x <- init_state.keys) {
-        print(s"(${x}, ${init_state(x)}), ")
+      for (x <- init_state.mem.keys) {
+        print(s"(${x}, ${init_state.mem(x)}), ")
       }
       println("")
     }
@@ -146,37 +146,30 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Drivers/Monitors
       val mDriver = new TLDriverMaster(c.clock, TLFeedback.in)
-      val sDriver = new TLDriverSlave(c.clock, TLFeedback.out, HashMap[Int,Int](), testResponse)
+      val sDriver = new TLDriverSlave(c.clock, TLFeedback.out, SlaveMemoryState.init(), testResponseWrapper)
 
       val monitor = new TLMonitor(c.clock, TLFeedback.in)
 
       val simCycles = 500
 
       val inputTransactions = Seq(
-        Get(addr = 0x0),
-        Put(addr = 0x0, data = 0x3333),
-        Get(addr = 0x0),
+        Seq(Get(addr = 0x0)),
+        Seq(Put(addr = 0x0, data = 0x3333)),
+        Seq(Get(addr = 0x0)),
         PutBurst(addr = 0x0, data = Seq(0x3333, 0x1234), source = 0),
-        Get(addr = 0x0),
-        Get(addr = 0x8),
-        Logic(param = 2, addr = 0x0, data = 0x0),
-        Get(addr = 0x0),
+        Seq(Get(addr = 0x0)),
+        Seq(Get(addr = 0x8)),
+        Seq(Logic(param = 2, addr = 0x0, data = 0x0)),
+        Seq(Get(addr = 0x0)),
         LogicBurst(param = 2, addr = 0x0, data = Seq(0x0, 0x0)),
-        Get(addr = 0x0),
-        Get(addr = 0x8),
-        Arith(param = 4, addr = 0x0, data = 0x0),
-        Get(addr = 0x0),
+        Seq(Get(addr = 0x0)),
+        Seq(Get(addr = 0x8)),
+        Seq(Arith(param = 4, addr = 0x0, data = 0x0)),
+        Seq(Get(addr = 0x0)),
         ArithBurst(param = 4, addr = 0x0, data = Seq(0x0, 0x0)),
-        Get(addr = 0x0),
-        Get(addr = 0x8)
-      ).flatMap(
-        { x : Object =>
-          x match {
-            case x : Seq[TLChannel] => x
-            case x : TLChannel => Seq(x)
-          }
-        }
-      )
+        Seq(Get(addr = 0x0)),
+        Seq(Get(addr = 0x8))
+      ).flatten
 
       mDriver.push(inputTransactions)
       c.clock.step(simCycles)
@@ -189,9 +182,9 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
       }
 
       // State Map
-      val hash = sDriver.getState()
-      for (x <- hash.keys) {
-        print(s"(${x}, ${hash(x)}), ")
+      val hash = sDriver.state
+      for (x <- hash.mem.keys) {
+        print(s"(${x}, ${hash.mem(x)}), ")
       }
       println("")
     }
