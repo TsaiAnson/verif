@@ -15,7 +15,7 @@ class QueueTest extends AnyFlatSpec with ChiselScalatestTester {
     val deqDriver = new DecoupledDriverSlave(c, deq, waitCycles)
     val monitor = new DecoupledMonitor(c, deq)
 
-    val txProto = DecoupledTX(gen)
+    val txProto = new DecoupledTX(gen)
     val inputTransactions = Seq(
       txProto.tx(165.U, 0, 1),
       txProto.tx(122.U,1,1),

@@ -83,7 +83,7 @@ class SWQueue[T <: Data](length: Int, gen: T) {
       // Dequeue
       if (deqWaitCycles == 0 && this.internal_queue.nonEmpty) {
         val temp = this.dequeue
-        val txOut = DecoupledTX(gen)
+        val txOut = new DecoupledTX(gen)
         result += txOut.tx(temp, cycles - simCycles)
         // For debugging use
         // println("DGOLD", temp.litValue(), cycles - simCycles)
