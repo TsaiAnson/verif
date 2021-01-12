@@ -33,7 +33,7 @@ class DecoupledTX[T <: Data](gen: T) extends Bundle {
 class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
   AbstractDriver[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
   assert(DataMirror.directionOf(interface.valid) == Direction.Input, "DecoupledDriverMaster is connected to a master port, not a slave")
-  fork {
+  fork.withRegion(TestdriverMain) {
     var cycleCount = 0
     var idleCycles = 0
     interface.valid.poke(false.B)
@@ -80,7 +80,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
 // TODO: have this return a stream of seen transactions
 class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) {
   assert(DataMirror.directionOf(interface.valid) == Direction.Output, "DecoupledDriverSlave is connected to a slave port, not a master")
-  fork {
+  fork.withRegion(TestdriverMain) {
     var cycleCount = 0
     var idleCyclesD = 0
     while (true) {

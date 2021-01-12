@@ -65,14 +65,14 @@ class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
   val model = LazyModule(new TLRAMModel("TLRAMModel"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   val frag = TLFragmenter(8, 32)
-  ram.node := model.node := frag
-  val TLSlave = frag
+  val buffer = TLBuffer(BufferParams.default)
+  ram.node := model.node := frag := buffer
 
   // Standalone Connections
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
   val in = InModuleBody { ioInNode.makeIO() }
 
-  TLSlave :=
+  buffer :=
     BundleBridgeToTL(standaloneMasterParams) :=
     ioInNode
 
