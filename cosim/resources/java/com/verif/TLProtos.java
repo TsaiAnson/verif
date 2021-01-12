@@ -60,10 +60,24 @@ public final class TLProtos {
     int getMask();
 
     /**
-     * <code>bytes data = 7;</code>
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
+     * <code>string data = 7;</code>
      * @return The data.
      */
-    com.google.protobuf.ByteString getData();
+    java.lang.String getData();
+    /**
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
+     * <code>string data = 7;</code>
+     * @return The bytes for data.
+     */
+    com.google.protobuf.ByteString
+        getDataBytes();
 
     /**
      * <code>bool corrupt = 8;</code>
@@ -84,7 +98,7 @@ public final class TLProtos {
       super(builder);
     }
     private TLA() {
-      data_ = com.google.protobuf.ByteString.EMPTY;
+      data_ = "";
     }
 
     @java.lang.Override
@@ -148,8 +162,9 @@ public final class TLProtos {
               break;
             }
             case 58: {
+              java.lang.String s = input.readStringRequireUtf8();
 
-              data_ = input.readBytes();
+              data_ = s;
               break;
             }
             case 64: {
@@ -261,14 +276,49 @@ public final class TLProtos {
     }
 
     public static final int DATA_FIELD_NUMBER = 7;
-    private com.google.protobuf.ByteString data_;
+    private volatile java.lang.Object data_;
     /**
-     * <code>bytes data = 7;</code>
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
+     * <code>string data = 7;</code>
      * @return The data.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getData() {
-      return data_;
+    public java.lang.String getData() {
+      java.lang.Object ref = data_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        data_ = s;
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
+     * <code>string data = 7;</code>
+     * @return The bytes for data.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDataBytes() {
+      java.lang.Object ref = data_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        data_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int CORRUPT_FIELD_NUMBER = 8;
@@ -314,8 +364,8 @@ public final class TLProtos {
       if (mask_ != 0) {
         output.writeUInt32(6, mask_);
       }
-      if (!data_.isEmpty()) {
-        output.writeBytes(7, data_);
+      if (!getDataBytes().isEmpty()) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, data_);
       }
       if (corrupt_ != false) {
         output.writeBool(8, corrupt_);
@@ -353,9 +403,8 @@ public final class TLProtos {
         size += com.google.protobuf.CodedOutputStream
           .computeUInt32Size(6, mask_);
       }
-      if (!data_.isEmpty()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(7, data_);
+      if (!getDataBytes().isEmpty()) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, data_);
       }
       if (corrupt_ != false) {
         size += com.google.protobuf.CodedOutputStream
@@ -565,7 +614,7 @@ public final class TLProtos {
 
         mask_ = 0;
 
-        data_ = com.google.protobuf.ByteString.EMPTY;
+        data_ = "";
 
         corrupt_ = false;
 
@@ -669,8 +718,9 @@ public final class TLProtos {
         if (other.getMask() != 0) {
           setMask(other.getMask());
         }
-        if (other.getData() != com.google.protobuf.ByteString.EMPTY) {
-          setData(other.getData());
+        if (!other.getData().isEmpty()) {
+          data_ = other.data_;
+          onChanged();
         }
         if (other.getCorrupt() != false) {
           setCorrupt(other.getCorrupt());
@@ -905,21 +955,59 @@ public final class TLProtos {
         return this;
       }
 
-      private com.google.protobuf.ByteString data_ = com.google.protobuf.ByteString.EMPTY;
+      private java.lang.Object data_ = "";
       /**
-       * <code>bytes data = 7;</code>
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
+       * <code>string data = 7;</code>
        * @return The data.
        */
-      @java.lang.Override
-      public com.google.protobuf.ByteString getData() {
-        return data_;
+      public java.lang.String getData() {
+        java.lang.Object ref = data_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          data_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
-       * <code>bytes data = 7;</code>
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
+       * <code>string data = 7;</code>
+       * @return The bytes for data.
+       */
+      public com.google.protobuf.ByteString
+          getDataBytes() {
+        java.lang.Object ref = data_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          data_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
+       * <code>string data = 7;</code>
        * @param value The data to set.
        * @return This builder for chaining.
        */
-      public Builder setData(com.google.protobuf.ByteString value) {
+      public Builder setData(
+          java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
@@ -929,12 +1017,36 @@ public final class TLProtos {
         return this;
       }
       /**
-       * <code>bytes data = 7;</code>
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
+       * <code>string data = 7;</code>
        * @return This builder for chaining.
        */
       public Builder clearData() {
         
         data_ = getDefaultInstance().getData();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
+       * <code>string data = 7;</code>
+       * @param value The bytes for data to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDataBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+        
+        data_ = value;
         onChanged();
         return this;
       }
@@ -1068,12 +1180,27 @@ public final class TLProtos {
      * echo
      * </pre>
      *
-     * <code>bytes data = 7;</code>
+     * <code>string data = 7;</code>
      * @return The data.
      */
-    com.google.protobuf.ByteString getData();
+    java.lang.String getData();
+    /**
+     * <pre>
+     * user
+     * echo
+     * </pre>
+     *
+     * <code>string data = 7;</code>
+     * @return The bytes for data.
+     */
+    com.google.protobuf.ByteString
+        getDataBytes();
 
     /**
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
      * <code>bool corrupt = 8;</code>
      * @return The corrupt.
      */
@@ -1092,7 +1219,7 @@ public final class TLProtos {
       super(builder);
     }
     private TLD() {
-      data_ = com.google.protobuf.ByteString.EMPTY;
+      data_ = "";
     }
 
     @java.lang.Override
@@ -1156,8 +1283,9 @@ public final class TLProtos {
               break;
             }
             case 58: {
+              java.lang.String s = input.readStringRequireUtf8();
 
-              data_ = input.readBytes();
+              data_ = s;
               break;
             }
             case 64: {
@@ -1264,24 +1392,60 @@ public final class TLProtos {
     }
 
     public static final int DATA_FIELD_NUMBER = 7;
-    private com.google.protobuf.ByteString data_;
+    private volatile java.lang.Object data_;
     /**
      * <pre>
      * user
      * echo
      * </pre>
      *
-     * <code>bytes data = 7;</code>
+     * <code>string data = 7;</code>
      * @return The data.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getData() {
-      return data_;
+    public java.lang.String getData() {
+      java.lang.Object ref = data_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        data_ = s;
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * user
+     * echo
+     * </pre>
+     *
+     * <code>string data = 7;</code>
+     * @return The bytes for data.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDataBytes() {
+      java.lang.Object ref = data_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        data_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int CORRUPT_FIELD_NUMBER = 8;
     private boolean corrupt_;
     /**
+     * <pre>
+     * NOTE: Using hex string when value &gt; 64 bits
+     * </pre>
+     *
      * <code>bool corrupt = 8;</code>
      * @return The corrupt.
      */
@@ -1322,8 +1486,8 @@ public final class TLProtos {
       if (denied_ != false) {
         output.writeBool(6, denied_);
       }
-      if (!data_.isEmpty()) {
-        output.writeBytes(7, data_);
+      if (!getDataBytes().isEmpty()) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, data_);
       }
       if (corrupt_ != false) {
         output.writeBool(8, corrupt_);
@@ -1361,9 +1525,8 @@ public final class TLProtos {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(6, denied_);
       }
-      if (!data_.isEmpty()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(7, data_);
+      if (!getDataBytes().isEmpty()) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, data_);
       }
       if (corrupt_ != false) {
         size += com.google.protobuf.CodedOutputStream
@@ -1574,7 +1737,7 @@ public final class TLProtos {
 
         denied_ = false;
 
-        data_ = com.google.protobuf.ByteString.EMPTY;
+        data_ = "";
 
         corrupt_ = false;
 
@@ -1678,8 +1841,9 @@ public final class TLProtos {
         if (other.getDenied() != false) {
           setDenied(other.getDenied());
         }
-        if (other.getData() != com.google.protobuf.ByteString.EMPTY) {
-          setData(other.getData());
+        if (!other.getData().isEmpty()) {
+          data_ = other.data_;
+          onChanged();
         }
         if (other.getCorrupt() != false) {
           setCorrupt(other.getCorrupt());
@@ -1899,19 +2063,27 @@ public final class TLProtos {
         return this;
       }
 
-      private com.google.protobuf.ByteString data_ = com.google.protobuf.ByteString.EMPTY;
+      private java.lang.Object data_ = "";
       /**
        * <pre>
        * user
        * echo
        * </pre>
        *
-       * <code>bytes data = 7;</code>
+       * <code>string data = 7;</code>
        * @return The data.
        */
-      @java.lang.Override
-      public com.google.protobuf.ByteString getData() {
-        return data_;
+      public java.lang.String getData() {
+        java.lang.Object ref = data_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          data_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
@@ -1919,11 +2091,34 @@ public final class TLProtos {
        * echo
        * </pre>
        *
-       * <code>bytes data = 7;</code>
+       * <code>string data = 7;</code>
+       * @return The bytes for data.
+       */
+      public com.google.protobuf.ByteString
+          getDataBytes() {
+        java.lang.Object ref = data_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          data_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * user
+       * echo
+       * </pre>
+       *
+       * <code>string data = 7;</code>
        * @param value The data to set.
        * @return This builder for chaining.
        */
-      public Builder setData(com.google.protobuf.ByteString value) {
+      public Builder setData(
+          java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
@@ -1938,7 +2133,7 @@ public final class TLProtos {
        * echo
        * </pre>
        *
-       * <code>bytes data = 7;</code>
+       * <code>string data = 7;</code>
        * @return This builder for chaining.
        */
       public Builder clearData() {
@@ -1947,9 +2142,34 @@ public final class TLProtos {
         onChanged();
         return this;
       }
+      /**
+       * <pre>
+       * user
+       * echo
+       * </pre>
+       *
+       * <code>string data = 7;</code>
+       * @param value The bytes for data to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDataBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+        
+        data_ = value;
+        onChanged();
+        return this;
+      }
 
       private boolean corrupt_ ;
       /**
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
        * <code>bool corrupt = 8;</code>
        * @return The corrupt.
        */
@@ -1958,6 +2178,10 @@ public final class TLProtos {
         return corrupt_;
       }
       /**
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
        * <code>bool corrupt = 8;</code>
        * @param value The corrupt to set.
        * @return This builder for chaining.
@@ -1969,6 +2193,10 @@ public final class TLProtos {
         return this;
       }
       /**
+       * <pre>
+       * NOTE: Using hex string when value &gt; 64 bits
+       * </pre>
+       *
        * <code>bool corrupt = 8;</code>
        * @return This builder for chaining.
        */
@@ -2053,10 +2281,10 @@ public final class TLProtos {
       "\n\010TL.proto\022\005verif\"\200\001\n\003TLA\022\016\n\006opcode\030\001 \001(" +
       "\r\022\r\n\005param\030\002 \001(\r\022\014\n\004size\030\003 \001(\r\022\016\n\006source" +
       "\030\004 \001(\r\022\017\n\007address\030\005 \001(\r\022\014\n\004mask\030\006 \001(\r\022\014\n" +
-      "\004data\030\007 \001(\014\022\017\n\007corrupt\030\010 \001(\010\"\177\n\003TLD\022\016\n\006o" +
+      "\004data\030\007 \001(\t\022\017\n\007corrupt\030\010 \001(\010\"\177\n\003TLD\022\016\n\006o" +
       "pcode\030\001 \001(\r\022\r\n\005param\030\002 \001(\r\022\014\n\004size\030\003 \001(\r" +
       "\022\016\n\006source\030\004 \001(\r\022\014\n\004sink\030\005 \001(\r\022\016\n\006denied" +
-      "\030\006 \001(\010\022\014\n\004data\030\007 \001(\014\022\017\n\007corrupt\030\010 \001(\010B\025\n" +
+      "\030\006 \001(\010\022\014\n\004data\030\007 \001(\t\022\017\n\007corrupt\030\010 \001(\010B\025\n" +
       "\tcom.verifB\010TLProtosb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor

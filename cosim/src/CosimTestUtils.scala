@@ -77,6 +77,7 @@ object VerifProtoBufUtils {
         case UINT32 => protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
         case UINT64 => protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
         case BOOL => protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
+        case STRING => protoArgs += (fieldName -> fromBigIntToLiteral(BigInt(value.asInstanceOf[String], 16)).asUInt)
       }
     })
 
@@ -110,13 +111,17 @@ object VerifProtoBufUtils {
       tuple._2 match {
         case _: Bundle => s""" "${tuple._1}": { ${BundleToJson(tuple._2.asInstanceOf[Bundle])} }"""
         case _: Bool => s""""${tuple._1}": ${tuple._2.asInstanceOf[Bool].litToBoolean}"""
+        case _: UInt => tuple._2.asInstanceOf[UInt].getWidth match { // Values wider than 64.W are stored as hex strings
+          case x if x > 64 => s""""${tuple._1}": "${String.format(s"%${x / 4}s", tuple._2.litValue.toString(16).toUpperCase).replace(" ", "0")}""""
+          case _ => s""""${tuple._1}": ${tuple._2.litValue}"""
+        }
         case _ => s""""${tuple._1}": ${tuple._2.litValue}"""
       }
     }).mkString(",\n")
   }
 }
 
-object VerifRoCCUtils {
+object VerifBundleUtils {
   def RoCCCommandHelper(inst: RoCCInstruction = new RoCCInstruction, rs1: UInt = 0.U, rs2: UInt = 0.U)
                        (implicit p: Parameters): RoCCCommand = {
     new RoCCCommand().Lit(_.inst -> inst, _.rs1 -> rs1, _.rs2 -> rs2, _.status -> MStatusHelper(dprv = 3.U, prv = 3.U))
@@ -143,6 +148,18 @@ object VerifRoCCUtils {
       _.vs -> vs, _.spp -> spp, _.mpie -> mpie, _.hpie -> hpie, _.spie -> spie, _.upie -> upie, _.mie -> mie,
       _.hie -> hie, _.sie -> sie, _.uie -> uie)
   }
+
+  def TLAHelper(opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, address: UInt = 0.U,
+                mask: UInt = 0xff.U, data: UInt = 0.U, corrupt: Bool = false.B) : TLBundleA = {
+    new TLBundleA(VerifTestUtils.getVerifTLBundleParameters(16, 32, TransferSizes(1,64))).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.address -> address, _.mask -> mask, _.data -> data, _.corrupt -> corrupt)
+  }
+
+  def TLDHelper (opcode: UInt = 0.U, param: UInt = 0.U, size: UInt = 3.U(3.W), source: UInt = 1.U, sink: UInt = 0.U,
+                 data: UInt = 0.U, denied: Bool = false.B, corrupt: Bool = false.B) : TLBundleD = {
+    new TLBundleD(VerifTestUtils.getVerifTLBundleParameters(16, 32, TransferSizes(1,64))).Lit(_.opcode -> opcode, _.param -> param, _.size -> size, _.source -> source,
+      _.sink -> sink, _.data -> data, _.denied -> denied, _.corrupt -> corrupt)
+  }
 }
 
 /**
@@ -164,6 +181,21 @@ case object VerifTileParams extends TileParams {
  * Factory object to help create a set of Verif parameters to use in tests
  */
 object VerifTestUtils {
+  def getVerifTLMasterPortParameters(): TLMasterPortParameters = {
+    TLMasterPortParameters.v1(Seq(TLMasterParameters.v1("bundleBridgeToTL")))
+  }
+
+  def getVerifTLSlavePortParameters(beatBytes: Int = 16, pAddrBits: Int = 32,
+                                    transferSize: TransferSizes = TransferSizes(1, 64)): TLSlavePortParameters = {
+    TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
+      supportsGet = transferSize, supportsPutFull = transferSize, supportsPutPartial = transferSize)), beatBytes)
+  }
+
+  def getVerifTLBundleParameters(beatBytes: Int = 16, pAddrBits: Int = 32,
+                             transferSize: TransferSizes = TransferSizes(1, 64)): TLBundleParameters = {
+    TLBundleParameters(getVerifTLMasterPortParameters(), getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize))
+  }
+
   def getVerifParameters(
       xLen: Int = 64,
       beatBytes: Int = 16,
@@ -200,12 +232,11 @@ object VerifTestUtils {
 
     visibilityNode :=* tlMasterXbar.node
     tlMasterXbar.node :=
-      BundleBridgeToTL(TLClientPortParameters(Seq(TLClientParameters("bundleBridgeToTL")))) :=
+      BundleBridgeToTL(getVerifTLMasterPortParameters) :=
       dummyInNode
 
     dummyOutNode :=
-      TLToBundleBridge(TLManagerPortParameters(Seq(TLManagerParameters(address = Seq(AddressSet(0x0, BigInt("1"*pAddrBits, 2))),
-        supportsGet = transferSize, supportsPutFull = transferSize)), beatBytes)) :=
+      TLToBundleBridge(getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize)) :=
       visibilityNode
 
     val outParams = p.alterPartial {

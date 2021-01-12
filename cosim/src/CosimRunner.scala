@@ -46,6 +46,8 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
       Thread.sleep(500)
     }
 
+    println("Found cosim_run_dir")
+
 
     // Create and start sim thread (sim creates fifos)
     val sim = new CosimSimulator(simPath, simArgs, simTarget)

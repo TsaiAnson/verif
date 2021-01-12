@@ -10,6 +10,8 @@ import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.tile.{RoCCCommand}
+import freechips.rocketchip.tilelink.{TLBundleA}
+import freechips.rocketchip.diplomacy.{TransferSizes}
 
 import com.verif._
 
@@ -24,17 +26,31 @@ class ProtoTest extends AnyFlatSpec with ChiselScalatestTester {
           .setFunct(2))
       .build()
 
-    val bundle = VerifProtoBufUtils.ProtoToBundle(cmd, VerifRoCCUtils, new RoCCCommand)
+    val cmd_bundle = VerifProtoBufUtils.ProtoToBundle(cmd, VerifBundleUtils, new RoCCCommand)
+    val cmd_roundtrip = VerifProtoBufUtils.BundleToProto(cmd_bundle, RoCCProtos.RoCCCommand.newBuilder())
 
-    val roundtrip = VerifProtoBufUtils.BundleToProto(bundle, RoCCProtos.RoCCCommand.newBuilder())
-
-    println("--- PROTO MESSAGE ---")
+    println("--- PROTO MESSAGE [RoCCCommand] ---")
     println(cmd)
-    println("--- CHISEL BUNDLE ---")
-    println(bundle)
-    println("--- ROUND TRIP PROTO ---")
-    println(roundtrip)
+    println("--- CHISEL BUNDLE [RoCCCommand] ---")
+    println(cmd_bundle)
+    println("--- ROUND TRIP PROTO [RoCCCommand] ---")
+    println(cmd_roundtrip)
 
+
+    val tla = TLProtos.TLA.newBuilder()
+      .setData("0F0E0D0C0B0A09080706050403020100")
+      .build()
+
+
+    val tla_bundle = VerifProtoBufUtils.ProtoToBundle(tla, VerifBundleUtils, new TLBundleA(VerifTestUtils.getVerifTLBundleParameters(16, 32, TransferSizes(1,64))))
+    val tla_roundtrip = VerifProtoBufUtils.BundleToProto(tla_bundle, TLProtos.TLA.newBuilder())
+
+    println("--- PROTO MESSAGE [TLA] ---")
+    println(tla)
+    println("--- CHISEL BUNDLE [TLA] ---")
+    println(tla_bundle)
+    println("--- ROUND TRIP PROTO [TLA] ---")
+    println(tla_roundtrip)
 
     assert(true)
   }

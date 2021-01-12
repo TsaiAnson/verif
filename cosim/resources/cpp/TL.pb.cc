@@ -96,10 +96,10 @@ const char descriptor_table_protodef_TL_2eproto[] PROTOBUF_SECTION_VARIABLE(prot
   "\n\010TL.proto\022\005verif\"\200\001\n\003TLA\022\016\n\006opcode\030\001 \001("
   "\r\022\r\n\005param\030\002 \001(\r\022\014\n\004size\030\003 \001(\r\022\016\n\006source"
   "\030\004 \001(\r\022\017\n\007address\030\005 \001(\r\022\014\n\004mask\030\006 \001(\r\022\014\n"
-  "\004data\030\007 \001(\014\022\017\n\007corrupt\030\010 \001(\010\"\177\n\003TLD\022\016\n\006o"
+  "\004data\030\007 \001(\t\022\017\n\007corrupt\030\010 \001(\010\"\177\n\003TLD\022\016\n\006o"
   "pcode\030\001 \001(\r\022\r\n\005param\030\002 \001(\r\022\014\n\004size\030\003 \001(\r"
   "\022\016\n\006source\030\004 \001(\r\022\014\n\004sink\030\005 \001(\r\022\016\n\006denied"
-  "\030\006 \001(\010\022\014\n\004data\030\007 \001(\014\022\017\n\007corrupt\030\010 \001(\010B\025\n"
+  "\030\006 \001(\010\022\014\n\004data\030\007 \001(\t\022\017\n\007corrupt\030\010 \001(\010B\025\n"
   "\tcom.verifB\010TLProtosb\006proto3"
   ;
 static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_TL_2eproto_deps[1] = {
@@ -243,11 +243,12 @@ const char* TLA::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::intern
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // bytes data = 7;
+      // string data = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 58)) {
           auto str = _internal_mutable_data();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "verif.TLA.data"));
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -322,9 +323,13 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(6, this->_internal_mask(), target);
   }
 
-  // bytes data = 7;
+  // string data = 7;
   if (this->data().size() > 0) {
-    target = stream->WriteBytesMaybeAliased(
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_data().data(), static_cast<int>(this->_internal_data().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "verif.TLA.data");
+    target = stream->WriteStringMaybeAliased(
         7, this->_internal_data(), target);
   }
 
@@ -350,10 +355,10 @@ size_t TLA::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // bytes data = 7;
+  // string data = 7;
   if (this->data().size() > 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
         this->_internal_data());
   }
 
@@ -619,11 +624,12 @@ const char* TLD::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::intern
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // bytes data = 7;
+      // string data = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 58)) {
           auto str = _internal_mutable_data();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "verif.TLD.data"));
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -698,9 +704,13 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteBoolToArray(6, this->_internal_denied(), target);
   }
 
-  // bytes data = 7;
+  // string data = 7;
   if (this->data().size() > 0) {
-    target = stream->WriteBytesMaybeAliased(
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_data().data(), static_cast<int>(this->_internal_data().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "verif.TLD.data");
+    target = stream->WriteStringMaybeAliased(
         7, this->_internal_data(), target);
   }
 
@@ -726,10 +736,10 @@ size_t TLD::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // bytes data = 7;
+  // string data = 7;
   if (this->data().size() > 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
         this->_internal_data());
   }
 

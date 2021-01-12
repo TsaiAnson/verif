@@ -190,13 +190,13 @@ class TLA PROTOBUF_FINAL :
     kMaskFieldNumber = 6,
     kCorruptFieldNumber = 8,
   };
-  // bytes data = 7;
+  // string data = 7;
   void clear_data();
   const std::string& data() const;
   void set_data(const std::string& value);
   void set_data(std::string&& value);
   void set_data(const char* value);
-  void set_data(const void* value, size_t size);
+  void set_data(const char* value, size_t size);
   std::string* mutable_data();
   std::string* release_data();
   void set_allocated_data(std::string* data);
@@ -410,13 +410,13 @@ class TLD PROTOBUF_FINAL :
     kDeniedFieldNumber = 6,
     kCorruptFieldNumber = 8,
   };
-  // bytes data = 7;
+  // string data = 7;
   void clear_data();
   const std::string& data() const;
   void set_data(const std::string& value);
   void set_data(std::string&& value);
   void set_data(const char* value);
-  void set_data(const void* value, size_t size);
+  void set_data(const char* value, size_t size);
   std::string* mutable_data();
   std::string* release_data();
   void set_allocated_data(std::string* data);
@@ -638,7 +638,7 @@ inline void TLA::set_mask(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   // @@protoc_insertion_point(field_set:verif.TLA.mask)
 }
 
-// bytes data = 7;
+// string data = 7;
 inline void TLA::clear_data() {
   data_.ClearToEmpty();
 }
@@ -673,7 +673,7 @@ inline void TLA::set_data(const char* value) {
   data_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(value), GetArena());
   // @@protoc_insertion_point(field_set_char:verif.TLA.data)
 }
-inline void TLA::set_data(const void* value,
+inline void TLA::set_data(const char* value,
     size_t size) {
   
   data_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(
@@ -843,7 +843,7 @@ inline void TLD::set_denied(bool value) {
   // @@protoc_insertion_point(field_set:verif.TLD.denied)
 }
 
-// bytes data = 7;
+// string data = 7;
 inline void TLD::clear_data() {
   data_.ClearToEmpty();
 }
@@ -878,7 +878,7 @@ inline void TLD::set_data(const char* value) {
   data_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(value), GetArena());
   // @@protoc_insertion_point(field_set_char:verif.TLD.data)
 }
-inline void TLD::set_data(const void* value,
+inline void TLD::set_data(const char* value,
     size_t size) {
   
   data_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(

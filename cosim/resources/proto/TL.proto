@@ -13,7 +13,7 @@ message TLA {
   // user
   // echo
   uint32 mask = 6;
-  bytes data = 7;
+  string data = 7; // NOTE: Using hex string when value > 64 bits
   bool corrupt = 8;
 }
 
@@ -26,6 +26,6 @@ message TLD {
   bool denied = 6;
   // user
   // echo
-  bytes data = 7;
-  bool corrupt = 8;
+  string data = 7;
+  bool corrupt = 8; // NOTE: Using hex string when value > 64 bits
 }
