@@ -3,7 +3,7 @@ package verif
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util.log2Ceil
-import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel}
+import freechips.rocketchip.tilelink.{TLBundle, TLBundleA, TLBundleB, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel}
 
 // TLTransactions are just TLChannel Bundle literals
 // There are some helper methods here to construct these literals for user stimulus
@@ -107,7 +107,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -127,7 +127,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -164,7 +164,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -188,7 +188,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -212,7 +212,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -234,7 +234,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -252,7 +252,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -275,7 +275,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -293,7 +293,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.address -> addr.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -314,7 +314,7 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.address -> addr.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -327,7 +327,7 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.address -> addr.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -346,7 +346,7 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.address -> addr.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -359,7 +359,7 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.address -> addr.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -382,8 +382,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> 0.U,
-      _.denied -> denied.U,
-      _.corrupt -> 0.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -400,8 +400,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> 0.U,
-      _.denied -> denied.U,
-      _.corrupt -> 0.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -424,8 +424,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> 0.U,
-      _.denied -> denied.U,
-      _.corrupt -> 0.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -442,8 +442,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> sink.U,
-      _.denied -> denied.U,
-      _.corrupt -> 0.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }
@@ -456,8 +456,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> sink.U,
-      _.denied -> denied.U,
-      _.corrupt -> 0.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.B,
       _.data -> data.U
     )
   }
@@ -480,8 +480,8 @@ package object TLTransaction {
       _.size -> size.U,
       _.source -> source.U,
       _.sink -> 0.U,
-      _.denied -> 0.U,
-      _.corrupt -> 0.U,
+      _.denied -> 0.B,
+      _.corrupt -> 0.B,
       _.data -> 0.U
     )
   }

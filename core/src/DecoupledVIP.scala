@@ -24,6 +24,8 @@ class DecoupledTX[T <: Data](gen: T) extends Bundle {
   def tx(data: T, cycleStamp: Int): DecoupledTX[T] = {
     this.Lit(_.data -> data, _.cycleStamp -> cycleStamp.U)
   }
+
+  override def cloneType: this.type = (new DecoupledTX(gen)).asInstanceOf[this.type]
 }
 
 // TODO: combine driver and monitor into VIP/Agent to keep API clean
