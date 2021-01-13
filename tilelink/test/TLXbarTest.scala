@@ -1,40 +1,39 @@
 package verif
 
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verif.TLUtils._
 import TLTransaction._
+import freechips.rocketchip.tilelink.TLBundleD
 
 class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test TLXbarRAM with directed transactions basic" in {
-    val TLRAMSlave = LazyModule(new VerifTLXbarRAMSimpleSlave)
+    val TLRAMSlave = LazyModule(new XBarToRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Multi Driver/Monitor
-      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
+      val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
       val simCycles = 500
 
       implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
-        Put(addr = 0x0, data = 0x3333),
-        Get(addr = 0x8),
-        Get(addr = 0x8),
-        Get(addr = 0x8)
+        Put(0x0, 0x3333),
+        Get(0x8),
+        Get(0x8),
+        Get(0x8)
       )
 
-      passInAgent.push(inputTransactions)
+      driver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
+      val output = monitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
       for (out <- output) {
         println(out)
@@ -47,31 +46,31 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // XBar DUT
-      val passInAgent = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val passOutAgent = new TLMonitor(c.clock, TLRAMSlave.in)
+      val dutDriver = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val dutMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
 
       // HW Reference
-      val passInAgentRef = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
-      val passOutAgentRef = new TLMonitor(c.clock, TLRAMSlave.inRef)
+      val refDriver = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
+      val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef)
 
       val simCycles = 500
 
       implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
-        Put(addr = 0x0, data = 0x3333),
-        Get(addr = 0x0),
-        Get(addr = 0x0),
-        Put(addr = 0x100, data = 0x5555),
-        Get(addr = 0x100),
-        Get(addr = 0x100)
+        Put(0x0, 0x3333),
+        Get(0x0),
+        Get(0x0),
+        Put(0x100, 0x5555),
+        Get(0x100),
+        Get(0x100)
       )
 
-      passInAgent.push(inputTransactions)
-      passInAgentRef.push(inputTransactions)
+      dutDriver.push(inputTransactions)
+      refDriver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
-      val outputRef = passOutAgent.getMonitoredTransactions().filter(filterD).toArray
+      val output = dutMonitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
+      val outputRef = refMonitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
       output.zip(outputRef).foreach {
         case (dut_out, sw_out) =>
@@ -85,76 +84,76 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Master 1
-      val passInAgentOne = new TLDriverMaster(c.clock, TLRAMSlave.inOne)
-      val passOutAgentOne = new TLMonitor(c.clock, TLRAMSlave.inOne)
+      val driver1 = new TLDriverMaster(c.clock, TLRAMSlave.inOne)
+      val monitor1 = new TLMonitor(c.clock, TLRAMSlave.inOne)
 
       // Master 2
-      val passInAgentTwo = new TLDriverMaster(c.clock, TLRAMSlave.inTwo)
-      val passOutAgentTwo = new TLMonitor(c.clock, TLRAMSlave.inTwo)
+      val driver2 = new TLDriverMaster(c.clock, TLRAMSlave.inTwo)
+      val monitor2 = new TLMonitor(c.clock, TLRAMSlave.inTwo)
 
       val simCycles = 500
 
       // Note: What to do in cases where there are multiple params?
       implicit val params = TLRAMSlave.inOne.params
-      val inputTransactionsOne = Seq(
-        Put(addr = 0x0, data = 0x1111),
-        Put(addr = 0x8, data = 0x2222),
-        Put(addr = 0x10, data = 0x3333),
-        Put(addr = 0x18, data = 0x4444),
-        Get(addr = 0x20),
-        Get(addr = 0x28),
-        Get(addr = 0x30),
-        Get(addr = 0x38)
+      val tx1 = Seq(
+        Put(0x0, 0x1111),
+        Put(0x8, 0x2222),
+        Put(0x10, 0x3333),
+        Put(0x18, 0x4444),
+        Get(0x20),
+        Get(0x28),
+        Get(0x30),
+        Get(0x38)
       )
 
-      val inputTransactionsTwo = Seq(
-        Put(addr = 0x20, data = 0x5555),
-        Put(addr = 0x28, data = 0x6666),
-        Put(addr = 0x30, data = 0x7777),
-        Put(addr = 0x38, data = 0x8888),
-        Get(addr = 0x0),
-        Get(addr = 0x8),
-        Get(addr = 0x10),
-        Get(addr = 0x18)
+      val tx2 = Seq(
+        Put(0x20, 0x5555),
+        Put(0x28, 0x6666),
+        Put(0x30, 0x7777),
+        Put(0x38, 0x8888),
+        Get(0x0),
+        Get(0x8),
+        Get(0x10),
+        Get(0x18)
       )
 
-      passInAgentOne.push(inputTransactionsOne)
-      passInAgentTwo.push(inputTransactionsTwo)
+      driver1.push(tx1)
+      driver2.push(tx2)
       c.clock.step(simCycles)
 
-      val outputOne = passOutAgentOne.getMonitoredTransactions().filter(filterD).toArray
-      val outputTwo = passOutAgentTwo.getMonitoredTransactions().filter(filterD).toArray
+      val out1 = monitor1.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
+      val out2 = monitor2.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX
-      val outputOneRef = Seq(
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAckData(data = 0x5555, denied = 0),
-        AccessAckData(data = 0x6666, denied = 0),
-        AccessAckData(data = 0x7777, denied = 0),
-        AccessAckData(data = 0x8888, denied = 0)
-      ).toArray
+      val out1Ref = Seq(
+        AccessAck(0),
+        AccessAck(0),
+        AccessAck(0),
+        AccessAck(0),
+        AccessAckData(0x5555, 0),
+        AccessAckData(0x6666, 0),
+        AccessAckData(0x7777, 0),
+        AccessAckData(0x8888, 0)
+      )
 
-      val outputTwoRef = Seq(
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAckData(data = 0x1111, denied = 0),
-        AccessAckData(data = 0x2222, denied = 0),
-        AccessAckData(data = 0x3333, denied = 0),
-        AccessAckData(data = 0x4444, denied = 0)
-      ).toArray
+      val out2Ref = Seq(
+        AccessAck(0),
+        AccessAck(0),
+        AccessAck(0),
+        AccessAck(0),
+        AccessAckData(0x1111, 0),
+        AccessAckData(0x2222, 0),
+        AccessAckData(0x3333, 0),
+        AccessAckData(0x4444, 0)
+      )
 
-      outputOne.zip(outputOneRef).foreach {
+      out1.zip(out1Ref).foreach {
         case (dut_out, sw_out) =>
           assert(dut_out.data == sw_out)
       }
 
-      outputTwo.zip(outputTwoRef).foreach {
+      out2.zip(out2Ref).foreach {
         case (dut_out, sw_out) =>
           assert(dut_out.data == sw_out)
       }

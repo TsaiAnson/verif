@@ -9,65 +9,10 @@ import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import TLUtils._
 import TLTransaction._
-import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleE, TLBundleParameters, TLDataChannel}
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters}
 
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
-
-  it should "VerifTL Test Slave" in {
-    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
-    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
-      val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRegBankSlave.in)
-      val simCycles = 100
-
-      implicit val params: TLBundleParameters = TLRegBankSlave.in.params
-      val inputTransactions = Seq(
-        // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(0x0),
-        Get(0x08),
-        Get(0x10),
-        Get(0x18),
-        // Write values into registers 0x00, 0x08, 0x10, 0x18
-        Put(0x0, 0),
-        Put(0x8, 1),
-        Put(0x10, 2),
-        Put(0x18, 3),
-        // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(0x0),
-        Get(0x08),
-        Get(0x10),
-        Get(0x18)
-      )
-
-      driver.push(inputTransactions)
-      c.clock.step(simCycles)
-
-      val output = monitor.getMonitoredTransactions().map(_.data).collect { case t: TLBundleD => t }
-
-      // TODO Add software model here
-      val swoutput = Array(
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x1, denied = 0),
-        AccessAckData(data = 0x2, denied = 0),
-        AccessAckData(data = 0x3, denied = 0)
-      )
-
-      assert(output.length == swoutput.length)
-      output.zip(swoutput).foreach {
-        case (dutOut, swOut) =>
-          assert(dutOut.data == swOut)
-      }
-    }
-  }
 
   it should "VerifTL Test Master Fuzzer" in {
     val TLMasterFuzzer = LazyModule(new VerifTLMasterFuzzer)

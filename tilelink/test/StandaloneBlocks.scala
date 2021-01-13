@@ -32,8 +32,8 @@ trait VerifTLStandaloneBlock extends LazyModule {
   val out = InModuleBody { ioOutNode.makeIO() }
 }
 
-class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
-  val device = new SimpleDevice("VerifTLRegBankSlave", Seq("veriftldriver,veriftlmonitor,testmaster")) // Not sure about compatibility list
+class TLRegBankStandalone(implicit p: Parameters) extends LazyModule  {
+  val device = new SimpleDevice("TLRegBankStandalone", Seq("veriftldriver,veriftlmonitor,testmaster"))
 
   val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
@@ -59,8 +59,7 @@ class VerifTLRegBankSlave(implicit p: Parameters) extends LazyModule  {
   }
 }
 
-class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
-
+class TLRAMStandalone(implicit p: Parameters) extends LazyModule {
   val model = LazyModule(new TLRAMModel("TLRAMModel"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   val frag = TLFragmenter(8, 32)
@@ -78,8 +77,7 @@ class VerifTLRAMSlave(implicit p: Parameters) extends LazyModule {
   lazy val module = new LazyModuleImp(this) {}
 }
 
-class VerifTLXbarRAMSimpleSlave(implicit p: Parameters) extends LazyModule {
-
+class XBarToRAMStandalone(implicit p: Parameters) extends LazyModule {
   val model = LazyModule(new TLRAMModel("TLRAMModelXbarSimple"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   val xbar = LazyModule(new TLXbar)
@@ -270,8 +268,7 @@ class VerifTLMasterPattern(txns: Seq[Pattern])(implicit p: Parameters) extends L
 }
 
 class VerifTLMasterFuzzer(implicit p: Parameters) extends LazyModule  {
-
-  val TLMaster = TLFuzzer(30, inFlight=1)
+  val TLMaster = freechips.rocketchip.tilelink.TLFuzzer(30, inFlight=1)
 
   // Standalone Connections
   val ioOutNode = BundleBridgeSink[TLBundle]()

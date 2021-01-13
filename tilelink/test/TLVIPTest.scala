@@ -9,7 +9,7 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import chiseltest.experimental.TestOptionBuilder._
 import verif.TLUtils._
 import TLTransaction._
-import freechips.rocketchip.tilelink.TLBundleA
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD}
 
 class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -88,7 +88,7 @@ class TLVIPTest extends AnyFlatSpec with ChiselScalatestTester {
       mDriver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = monitor.getMonitoredTransactions().filter(filterD).toArray
+      val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
 
       // Transactions
       for (out <- output) {

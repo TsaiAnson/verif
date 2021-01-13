@@ -1,6 +1,5 @@
 package verif
 
-import chisel3._
 import freechips.rocketchip.diplomacy.AddressSet
 import freechips.rocketchip.tilelink.{TLBundleParameters, TLChannel, TLSlaveParameters}
 
@@ -10,14 +9,16 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 import verif.TLTransaction._
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
-class SWTLFuzzer (params : TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None, beatSize : Int = 3,
-                 // TL-UL
-                 get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
-                 // TL-UH
+class TLFuzzer(
+                  params: TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
+                  beatSize : Int = 3,
+                  // TL-UL
+                  get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
+                  // TL-UH
                   burst : Boolean = false, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
-                 // TL-C
+                  // TL-C
                   tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
-                 // Randomization
+                  // Randomization
                   randSeed : Int = 1234567890) {
 
   implicit val p: TLBundleParameters = bundleParams

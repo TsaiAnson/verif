@@ -13,7 +13,7 @@ class SWTLFuzzerTest extends AnyFlatSpec with ChiselScalatestTester {
 
   // Ignoring test since SWRegBank is outdated
   it should "VerifTL Test RegBank via SWTLFuzzer" ignore {
-    val TLRegBankSlave = LazyModule(new VerifTLRegBankSlave)
+    val TLRegBankSlave = LazyModule(new TLRegBankStandalone)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
 //      val passInAgent = new TLDriverMaster(c.clock, TLRegBankSlave.in)

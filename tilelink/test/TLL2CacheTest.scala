@@ -96,7 +96,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
-      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val fuz = new TLFuzzer(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true)
       val txns = fuz.generateTransactions(30)
