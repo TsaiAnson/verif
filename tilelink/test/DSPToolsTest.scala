@@ -1,23 +1,17 @@
 package verif
 
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
 import chiseltest._
-import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-
-import scala.collection.mutable.HashMap
 import TLUtils._
 import TLTransaction._
-import freechips.rocketchip.tilelink.{TLBundleD, TLBundleE, TLBundleParameters, TLDataChannel}
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleE, TLBundleParameters, TLDataChannel}
 
 class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
-  // implicit val p: Parameters = Parameters.empty.asInstanceOf[Parameters]
-  // implicit val p: Parameters = (new BaseConfig).toInstance
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "VerifTL Test Slave" in {
@@ -30,32 +24,26 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = TLRegBankSlave.in.params
       val inputTransactions = Seq(
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(addr = 0x0),
-        Get(addr = 0x08),
-        Get(addr = 0x10),
-        Get(addr = 0x18),
+        Get(0x0),
+        Get(0x08),
+        Get(0x10),
+        Get(0x18),
         // Write values into registers 0x00, 0x08, 0x10, 0x18
-        Put(addr = 0x0, data = 0),
-        Put(addr = 0x8, data = 1),
-        Put(addr = 0x10, data = 2),
-        Put(addr = 0x18, data = 3),
+        Put(0x0, 0),
+        Put(0x8, 1),
+        Put(0x10, 2),
+        Put(0x18, 3),
         // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-        Get(addr = 0x0),
-        Get(addr = 0x08),
-        Get(addr = 0x10),
-        Get(addr = 0x18)
+        Get(0x0),
+        Get(0x08),
+        Get(0x10),
+        Get(0x18)
       )
 
       driver.push(inputTransactions)
       c.clock.step(simCycles)
 
-      val output = monitor.getMonitoredTransactions().filter {
-        t =>
-          t.data match {
-            case _: TLBundleD => true
-            case _ => false
-          }
-      }
+      val output = monitor.getMonitoredTransactions().map(_.data).collect { case t: TLBundleD => t }
 
       // TODO Add software model here
       val swoutput = Array(
@@ -151,7 +139,7 @@ class DSPToolsTest extends AnyFlatSpec with ChiselScalatestTester {
 
       c.clock.step(simCycles)
 
-      val outputA = monitor.getMonitoredTransactions().filter(filterA)
+      val outputA = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleA => t}
 
       // TODO Add software model here
       val swoutputA = Array(

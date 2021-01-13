@@ -1,17 +1,12 @@
 package verif
 
-import TestUtils.SWRegBank
-import designs._
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
 import chiseltest._
-import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verif.TLUtils._
 
 class SWTLFuzzerTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors

@@ -1,9 +1,7 @@
 package verif
 
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
 import chiseltest._
-import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
@@ -12,7 +10,7 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verif.TLUtils._
 import TLTransaction._
 
-import scala.collection.mutable.HashMap
+import scala.collection.immutable
 
 class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -26,7 +24,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLL2.in)
       val monitor1 = new TLMonitor(c.clock, TLL2.out)
 
-      val initialState = SlaveMemoryState(Seq(), HashMap[Int,Int](0 -> 0x1234, 8 -> 0x3333))
+      val initialState = SlaveMemoryState(Seq(), immutable.HashMap[Int,Int](0 -> 0x1234, 8 -> 0x3333))
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, initialState, testResponseWrapper)
 
       L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))

@@ -6,7 +6,8 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import verif.TLTransaction._
 
-import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.collection.immutable
+import scala.collection.mutable
 import scala.math.ceil
 
 package object TLUtils {
@@ -145,15 +146,15 @@ package object TLUtils {
   def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
     // TODO Hardcoded for now, update when configurability is added
     val beatBytes = 8
-    val txnsLB = new ListBuffer[TLChannel]
+    val txnsLB = new mutable.ListBuffer[TLChannel]
     txnsLB ++= txns
-    var result = new ListBuffer[List[TLChannel]]
+    var result = new mutable.ListBuffer[List[TLChannel]]
 
     while (txnsLB.nonEmpty) {
       val txnCount = if (isNonBurst(txnsLB.head)) 1 else ceil(getTLBundleDataSizeBytes(txnsLB.head) / beatBytes.toDouble).toInt
 
       // Grouping txnCount TLTransactions (of the same type)
-      val newList = new ListBuffer[TLChannel]
+      val newList = new mutable.ListBuffer[TLChannel]
       var index = 0
       newList += txnsLB.remove(index)
       // Getting Class as "type"
@@ -822,42 +823,6 @@ package object TLUtils {
   }
   */
 
-  // Helper methods for filtering monitored transactions
-  def filterA (txn : DecoupledTX[TLChannel]) : Boolean = {
-    txn.data match {
-      case _: TLBundleA => true
-      case _ => false
-    }
-  }
-
-  def filterB (txn : DecoupledTX[TLChannel]) : Boolean = {
-    txn.data match {
-      case _: TLBundleB => true
-      case _ => false
-    }
-  }
-
-  def filterC (txn : DecoupledTX[TLChannel]) : Boolean = {
-    txn.data match {
-      case _: TLBundleC => true
-      case _ => false
-    }
-  }
-
-  def filterD (txn : DecoupledTX[TLChannel]) : Boolean = {
-    txn.data match {
-      case _: TLBundleD => true
-      case _ => false
-    }
-  }
-
-  def filterE (txn : DecoupledTX[TLChannel]) : Boolean = {
-    txn.data match {
-      case _: TLBundleE => true
-      case _ => false
-    }
-  }
-
   // Arithmetic Helper Functions
   def max(a : UInt, b : UInt) : UInt = {
     if (a.litValue() < b.litValue()) b else a
@@ -919,7 +884,7 @@ package object TLUtils {
   def permRepeater(size: UInt, perm: UInt, beatBytes : Int = 8) : List[UInt] = {
     val sizeInt = 1 << size.litValue().toInt
     var tempResult: BigInt = 0
-    var resultList = ListBuffer[UInt]()
+    var resultList = mutable.ListBuffer[UInt]()
     var reset = true
 
     for (i <- 0 until sizeInt) {
@@ -943,12 +908,12 @@ package object TLUtils {
   }
 
   // State is a byte-addressed HashMap
-  def readData(state: HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
+  def readData(state: mutable.HashMap[Int,Int], size: UInt, address: UInt, mask: UInt, beatBytes: Int = 8): List[UInt] = {
     val sizeInt = 1 << size.litValue().toInt
     val addressInt = address.litValue().toInt
     val byteMask = toByteMask(mask)
     var tempResult: BigInt = 0
-    var resultList = ListBuffer[UInt]()
+    var resultList = mutable.ListBuffer[UInt]()
     var reset = true
 
     for (i <- 0 until sizeInt) {
@@ -972,7 +937,7 @@ package object TLUtils {
   }
 
   // State is a byte-addressed HashMap
-  def writeData(state : HashMap[Int,Int], size: UInt, address: UInt, datas: Seq[UInt], masks: Seq[UInt], beatBytes: Int = 8): Unit = {
+  def writeData(state: mutable.HashMap[Int,Int], size: UInt, address: UInt, datas: Seq[UInt], masks: Seq[UInt], beatBytes: Int = 8): Unit = {
     val sizeInt = 1 << size.litValue().toInt
     val addressInt = address.litValue().toInt
     var allData: BigInt = 0
@@ -1005,9 +970,9 @@ package object TLUtils {
   }
 
   // TODO: refactor into one function
-  case class SlaveMemoryState(txnBuffer: Seq[TLChannel], mem: HashMap[Int,Int])
+  case class SlaveMemoryState(txnBuffer: Seq[TLChannel], mem: immutable.Map[Int,Int])
   object SlaveMemoryState {
-    def init(): SlaveMemoryState = { SlaveMemoryState(Seq(), HashMap[Int, Int]()) }
+    def init(): SlaveMemoryState = { SlaveMemoryState(Seq(), immutable.HashMap[Int,Int]()) }
   }
   def testResponseWrapper(input: TLChannel, state: SlaveMemoryState)(implicit p: TLBundleParameters): (Seq[TLChannel], SlaveMemoryState) = {
     // Collect transactions with the same opcode
@@ -1020,12 +985,12 @@ package object TLUtils {
     }
   }
 
-  def testResponse(input: Seq[TLChannel], state: HashMap[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], HashMap[Int,Int]) = {
+  def testResponse(input: Seq[TLChannel], state: immutable.Map[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], immutable.Map[Int,Int]) = {
     val beatBytesSize = 3
     // Default response is corrupt transaction
     var responseTLTxn = Seq(AccessAck(denied=0, size=0, source=0))
     // Making internal copy of state (non-destructive)
-    val state_int = state.clone()
+    val state_int: mutable.HashMap[Int,Int] = mutable.HashMap[Int,Int]() ++ state
 
     // Assert
     assert(input.nonEmpty, "ERROR: List of TLBundles is EMPTY for testResponse slaving function.")
@@ -1083,7 +1048,7 @@ package object TLUtils {
             val oldData = readData(state = state_int, size = size, address = address, mask = 0xff.U)
 
             // Creating newData (to write)
-            var newData = ListBuffer[UInt]()
+            var newData = mutable.ListBuffer[UInt]()
             for (((n, m), o) <- (datas zip masks) zip oldData) {
               newData += function(o, (n.litValue() & toByteMask(m)).U)
             }
@@ -1111,7 +1076,7 @@ package object TLUtils {
             val oldData = readData(state = state_int, size = txnc.size, address = txnc.address, mask = 0xff.U)
 
             // Creating newData (to write)
-            var newData = ListBuffer[UInt]()
+            var newData = mutable.ListBuffer[UInt]()
             for (((n, m), o) <- (datas zip masks) zip oldData) {
               newData += function(o, (n.litValue() & toByteMask(m)).U)
             }
@@ -1125,6 +1090,6 @@ package object TLUtils {
         }
       case _ => ???
     }
-    (responseTLTxn, state_int)
+    (responseTLTxn, state_int.toMap)
   }
 }

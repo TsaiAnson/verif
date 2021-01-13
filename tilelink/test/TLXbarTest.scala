@@ -3,7 +3,6 @@ package verif
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chiseltest._
-import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
