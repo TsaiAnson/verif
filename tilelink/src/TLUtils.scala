@@ -1003,7 +1003,7 @@ package object TLUtils {
         txnc.opcode.litValue().toInt match {
           case TLOpcodes.Get =>
             // Assert
-            assert(input.isEmpty, "ERROR: Get request has too many beats.")
+            assert(input.size == 1, "ERROR: Get request has too many beats.")
 
             // Read Data
             val readOut = readData(state = state_int, size = txnc.size, address  = txnc.address, mask = txnc.mask)
