@@ -1,5 +1,6 @@
 package verif
 
+import scala.math.pow
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util.log2Ceil
@@ -97,6 +98,11 @@ package object TLTransaction {
   // ************************ CHANNEL A ***************************
   // **************************************************************
 
+  def fullMask(implicit p: TLBundleParameters): Int = {
+    assert(p.dataBits % 8 == 0)
+    pow(2, p.dataBits/8).toInt - 1
+  }
+
   // TL-UH
   def Get(addr: BigInt, size: Int, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
@@ -114,11 +120,11 @@ package object TLTransaction {
 
   // TL-UL
   def Get(addr: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Get(addr = addr, size = log2Ceil(params.dataBits/8), mask = 2^(params.dataBits/8) - 1, source = 0)
+    Get(addr = addr, size = log2Ceil(params.dataBits/8), mask = fullMask, source = 0)
   }
 
   def Put(addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int, partialHint: Boolean = false)(implicit params: TLBundleParameters): TLBundleA = {
-    val opcode = if (partialHint || (mask != (2^(params.dataBits/8) - 1))) TLOpcodes.PutPartialData else TLOpcodes.PutFullData
+    val opcode = if (partialHint || (mask != fullMask)) TLOpcodes.PutPartialData else TLOpcodes.PutFullData
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
       _.opcode -> opcode.U,
@@ -138,13 +144,13 @@ package object TLTransaction {
   }
 
   def Put(addr: BigInt, data: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Put(addr = addr, data = data, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = 0)
+    Put(addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = 0)
   }
 
   // No masks assume PutFull
   def PutBurst(addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Put(addr = addr, data = d, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8 * data.size), source = source)
+      (d: BigInt) => Put(addr = addr, data = d, mask = fullMask, size = log2Ceil(params.dataBits/8 * data.size), source = source)
     }
   }
 
@@ -170,12 +176,12 @@ package object TLTransaction {
   }
 
   def Arith(param: Int, addr: BigInt, data: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Arith(param = param, addr = addr, data = data, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+    Arith(param = param, addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
   }
 
   def ArithBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Arith(param = param, addr = addr, data = d, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+      (d: BigInt) => Arith(param, addr, d, source)
     }
   }
 
@@ -194,12 +200,12 @@ package object TLTransaction {
   }
 
   def Logic(param: Int, addr: BigInt, data: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Logic(param = param, addr = addr, data = data, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+    Logic(param = param, addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
   }
 
   def LogicBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Arith(param = param, addr = addr, data = d, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+      (d: BigInt) => Logic(param, addr, d, source)
     }
   }
 
@@ -218,11 +224,11 @@ package object TLTransaction {
   }
 
   def Intent(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
-    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+    Intent(param = param, addr = addr, mask = fullMask, size = size, source = source)
   }
 
   def Intent(param: Int, addr: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Intent(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = log2Ceil(params.dataBits/8), source = source)
+    Intent(param = param, addr = addr, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
   }
 
   def AcquireBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
@@ -240,7 +246,7 @@ package object TLTransaction {
   }
 
   def AcquireBlock(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    AcquireBlock(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+    AcquireBlock(param = param, addr = addr, mask = fullMask, size = size, source = source)
   }
 
   def AcquirePerm(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
@@ -258,7 +264,7 @@ package object TLTransaction {
   }
 
   def AcquirePerm(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    AcquirePerm(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+    AcquirePerm(param = param, addr = addr, mask = fullMask, size = size, source = source)
   }
 
 
@@ -281,7 +287,7 @@ package object TLTransaction {
   }
 
   def ProbeBlock(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleB = {
-    ProbeBlock(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+    ProbeBlock(param, addr, fullMask, size, source)
   }
 
   def ProbePerm(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleB = {
@@ -299,7 +305,7 @@ package object TLTransaction {
   }
 
   def ProbePerm(param: Int, addr: BigInt, size: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleB = {
-    ProbeBlock(param = param, addr = addr, mask = 2^(params.dataBits/8) - 1, size = size, source = source)
+    ProbePerm(param, addr, fullMask, size, source)
   }
 
   // **************************************************************

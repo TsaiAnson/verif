@@ -3,7 +3,7 @@ package verif
 import chipsalliance.rocketchip.config.Parameters
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import freechips.rocketchip.tilelink.{TLBundleD, TLBundleParameters}
@@ -15,7 +15,7 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Test the standalone TL reg bank via directed stimulus" in {
     val TLRegBankSlave = LazyModule(new TLRegBankStandalone)
-    test(TLRegBankSlave.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
       val monitor = new TLMonitor(c.clock, TLRegBankSlave.in)
       val simCycles = 100
@@ -60,11 +60,8 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(data = 0x3, denied = 0)
       )
 
-      output.foreach(t => println(t.data))
-      swoutput.foreach(t => println(t.data))
       output.zip(swoutput).foreach {
         case (dutOut, swOut) =>
-          println(dutOut.data, swOut.data)
           assert(dutOut.data.litValue() == swOut.data.litValue())
       }
     }
