@@ -1,3 +1,5 @@
+package verif
+
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel}
 import verif.TLUtils._
 import verif.TLTransaction._
@@ -8,13 +10,13 @@ import scala.collection.mutable.{HashMap, ListBuffer, Queue}
 
 // TL Transaction generator that follows TL-C protocol
 // Requires a TLDriver, TLMonitor, TLTransactionGenerator (for Generator params)
-class TLCFuzzer(driver: TLDriverMaster, monitor: TLMonitor, params: TLBundleParameters, forceTxn: Seq[TLChannel] = Seq(),
-                txnGen: TLTransactionGenerator) {
+class TLCFuzzer(driver: TLDriverMaster, monitor: TLMonitor, params: TLBundleParameters, txnGen: TLTransactionGenerator,
+                forceTxn: Seq[TLChannel] = Seq()) {
   implicit val p = params
 
   // Internal Structures
   val permState = new RWPermState()
-  // May remove dataState completely
+  // Might completely remove dataState
   val dataState = HashMap[Int,Int]()
 
   // Used for state processing (check if permissions/data were given etc)

@@ -101,7 +101,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val gen = new TLTransactionGenerator(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true)
-      val fuzz = new TLCFuzzer()
+      val fuzz = new TLCFuzzer(L1Placeholder, monitor, params, gen)
+      fuzz.fuzzTxn(100)
 
 //      println("PERM STATE")
 //      val perm = L1Placeholder.permState
