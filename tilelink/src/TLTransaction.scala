@@ -103,6 +103,12 @@ package object TLTransaction {
     pow(2, p.dataBits/8).toInt - 1
   }
 
+  def getSize(beats: Int)(implicit p: TLBundleParameters): Int = {
+    assert(p.dataBits % 8 == 0)
+    assert(beats > 0 && (beats & (beats - 1)) == 0) // assert beats is a power of 2
+    log2Ceil(p.dataBits/8 * beats)
+  }
+
   // TL-UH
   def Get(addr: BigInt, size: Int, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
     // TODO: add checks for truncation
@@ -120,7 +126,7 @@ package object TLTransaction {
 
   // TL-UL
   def Get(addr: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Get(addr = addr, size = log2Ceil(params.dataBits/8), mask = fullMask, source = 0)
+    Get(addr = addr, size = getSize(1), mask = fullMask, source = 0)
   }
 
   def Put(addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int, partialHint: Boolean = false)(implicit params: TLBundleParameters): TLBundleA = {
@@ -140,24 +146,24 @@ package object TLTransaction {
 
   // TL-UL
   def Put(addr: BigInt, data: BigInt, mask: Int)(implicit params: TLBundleParameters): TLBundleA = {
-    Put(addr = addr, data = data, mask = mask, size = log2Ceil(params.dataBits/8), source = 0)
+    Put(addr = addr, data = data, mask = mask, size = getSize(1), source = 0)
   }
 
   def Put(addr: BigInt, data: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Put(addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = 0)
+    Put(addr = addr, data = data, mask = fullMask, size = getSize(1), source = 0)
   }
 
   // No masks assume PutFull
   def PutBurst(addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Put(addr = addr, data = d, mask = fullMask, size = log2Ceil(params.dataBits/8 * data.size), source = source)
+      (d: BigInt) => Put(addr = addr, data = d, mask = fullMask, size = getSize(data.length), source = source)
     }
   }
 
   // Masks assume PutPartial
   def PutBurst(addr: BigInt, data: Seq[BigInt], mask: Seq[Int], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     (mask zip data).map {
-      (md : (Int, BigInt)) => Put(addr = addr, data = md._2, mask = md._1, size = log2Ceil(params.dataBits/8 * data.size), source = source, partialHint = true)
+      case (m, d) => Put(addr = addr, data = d, mask = m, size = getSize(data.length), source = source, partialHint = true)
     }
   }
 
@@ -176,12 +182,12 @@ package object TLTransaction {
   }
 
   def Arith(param: Int, addr: BigInt, data: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Arith(param = param, addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
+    Arith(param = param, addr = addr, data = data, mask = fullMask, size = getSize(1), source = source)
   }
 
   def ArithBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Arith(param, addr, d, source)
+      (d: BigInt) => Arith(param, addr, d, fullMask, getSize(data.length), source)
     }
   }
 
@@ -200,12 +206,12 @@ package object TLTransaction {
   }
 
   def Logic(param: Int, addr: BigInt, data: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Logic(param = param, addr = addr, data = data, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
+    Logic(param = param, addr = addr, data = data, mask = fullMask, size = getSize(1), source = source)
   }
 
   def LogicBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Logic(param, addr, d, source)
+      (d: BigInt) => Logic(param, addr, d, fullMask, getSize(data.length), source)
     }
   }
 
@@ -228,7 +234,7 @@ package object TLTransaction {
   }
 
   def Intent(param: Int, addr: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
-    Intent(param = param, addr = addr, mask = fullMask, size = log2Ceil(params.dataBits/8), source = source)
+    Intent(param = param, addr = addr, mask = fullMask, size = getSize(1), source = source)
   }
 
   def AcquireBlock(param: Int, addr: BigInt, mask: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
@@ -315,7 +321,7 @@ package object TLTransaction {
   def ProbeAck(param: Int, addr: BigInt, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleC = {
     // TODO: add checks for truncation
     new TLBundleC(params).Lit(
-      _.opcode -> TLOpcodes.ProbeAckData.U,
+      _.opcode -> TLOpcodes.ProbeAck.U,
       _.param -> param.U,
       _.size -> size.U,
       _.source -> source.U,
@@ -340,7 +346,7 @@ package object TLTransaction {
 
   def ProbeAckDataBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleC] = {
     data.map {
-      (d: BigInt) => ProbeAckData(param = param, addr = addr, data = d, size = log2Ceil(params.dataBits/8), source = source)
+      (d: BigInt) => ProbeAckData(param, addr, d, getSize(data.length), source)
     }
   }
 
@@ -372,7 +378,7 @@ package object TLTransaction {
 
   def ReleaseDataBurst(param: Int, addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleC] = {
     data.map {
-      (d: BigInt) => ReleaseData(param = param, addr = addr, data = d, size = log2Ceil(params.dataBits/8), source = source)
+      (d: BigInt) => ReleaseData(param, addr, d, getSize(data.length), source)
     }
   }
 
@@ -395,7 +401,7 @@ package object TLTransaction {
   }
 
   def AccessAck(denied: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleD = {
-    AccessAck(denied = denied, size = log2Ceil(params.dataBits/8), source = source)
+    AccessAck(denied = denied, size = getSize(1), source = source)
   }
 
   def AccessAckData(data: BigInt, denied: Int, size: Int, source: Int)(implicit params: TLBundleParameters): TLBundleD = {
@@ -413,12 +419,12 @@ package object TLTransaction {
   }
 
   def AccessAckData(data: BigInt, denied: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleD = {
-    AccessAckData(data = data, denied = denied, size = log2Ceil(params.dataBits/8), source = source)
+    AccessAckData(data = data, denied = denied, size = getSize(1), source = source)
   }
 
   def AccessAckDataBurst(data: Seq[BigInt], denied: Int, source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleD] = {
     data.map {
-      (d: BigInt) => AccessAckData(data = d, denied = denied, size = log2Ceil(params.dataBits/8 * data.size), source = source)
+      (d: BigInt) => AccessAckData(data = d, denied = denied, size = getSize(data.length), source = source)
     }
   }
 
@@ -437,7 +443,7 @@ package object TLTransaction {
   }
 
   def HintAck(denied: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleD = {
-    HintAck(denied = denied, size = log2Ceil(params.dataBits/8), source = source)
+    HintAck(denied = denied, size = getSize(1), source = source)
   }
 
   def Grant(param: Int, denied: Int, size: Int, source: Int, sink: Int)(implicit params: TLBundleParameters): TLBundleD = {
@@ -469,12 +475,12 @@ package object TLTransaction {
   }
 
   def GrantData(param: Int, data: BigInt, denied: Int, sink: Int, source: Int = 0)(implicit params: TLBundleParameters): TLBundleD = {
-    GrantData(param = param, data = data, denied = denied, size = log2Ceil(params.dataBits/8), source = source, sink = sink)
+    GrantData(param = param, data = data, denied = denied, size = getSize(1), source = source, sink = sink)
   }
 
   def GrantDataBurst(param: Int, data: Seq[BigInt], denied: Int, sink: Int, source: Int = 0)(implicit params: TLBundleParameters): Seq[TLBundleD] = {
     data.map {
-      (d: BigInt) => GrantData(param = param, data = d, denied = denied, size = log2Ceil(params.dataBits/8 * data.size), source = source, sink = sink)
+      (d: BigInt) => GrantData(param = param, data = d, denied = denied, size = getSize(data.length), source = source, sink = sink)
     }
   }
 
