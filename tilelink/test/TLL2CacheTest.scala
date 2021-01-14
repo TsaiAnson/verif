@@ -42,7 +42,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "Test New Driver Master" in {
+  // Ignoring test as new driver is no longer TLC compliance
+  it should "Driver TLC Compliance Test" ignore {
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
@@ -84,7 +85,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "L2 SWTLFuzzer" in {
+  // Ignored as Fuzzer is still being updated
+  it should "L2 SWTLFuzzer" ignore {
 
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
@@ -96,18 +98,10 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
-      val fuz = new TLFuzzer(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true)
-      val txns = fuz.generateTransactions(30)
-
-      println("TXNS")
-      for (t <- txns) {
-        println(t)
-      }
-
-      L1Placeholder.push(txns)
-      c.clock.step(500)
+      val fuzz = new TLCFuzzer()
 
 //      println("PERM STATE")
 //      val perm = L1Placeholder.permState

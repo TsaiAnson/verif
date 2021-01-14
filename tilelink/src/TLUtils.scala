@@ -1092,4 +1092,26 @@ package object TLUtils {
     }
     (responseTLTxn, state_int.toMap)
   }
+
+  // Wrapper class that stores mapping of Address --> Permissions (Note: does not consider block size)
+  // Permissions: 0 - None, 1 - Read (Branch), 2 - Read/Write (Tip), -1 - Waiting for Grant/Ack
+  class RWPermState {
+    // HashMap implementation
+    private val intState = mutable.HashMap[Int,Int]()
+
+    def getPerm(address: Int): Int = { intState.getOrElse(address, 0) }
+
+    def setPerm(address: Int, permission: Int): Unit = {
+      intState(address) = permission
+    }
+
+    def getAllAddr: List[Int] = {
+      intState.keys.toList
+    }
+
+    // For debugging
+    def getState: mutable.HashMap[Int,Int] = {
+      intState
+    }
+  }
 }

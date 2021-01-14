@@ -1,20 +1,26 @@
-import freechips.rocketchip.tilelink.{TLBundleB, TLBundleD, TLChannel, TLBundleParameters}
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleC, TLBundleD, TLBundleE, TLBundleParameters, TLChannel}
 import verif.TLUtils._
 import verif.TLTransaction._
 import chisel3._
+import verif.{TLDriverMaster, TLMonitor, TLTransactionGenerator}
 
 import scala.collection.mutable.{HashMap, ListBuffer, Queue}
 
-// allowInvalidTxn and fixInvalidTxn are temporary due to possible invalid transactions from statically generated txns
-class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fixInvalidTxn: Boolean = true) {
+// TL Transaction generator that follows TL-C protocol
+// Requires a TLDriver, TLMonitor, TLTransactionGenerator (for Generator params)
+class TLCFuzzer(driver: TLDriverMaster, monitor: TLMonitor, params: TLBundleParameters, forceTxn: Seq[TLChannel] = Seq(),
+                txnGen: TLTransactionGenerator) {
+  implicit val p = params
+
   // Internal Structures
-  // Internal states (Maps address to permissions and address to data) -- Users should not interface with this
-  // Permissions: 0 - None, 1 - Read (Branch), 2 - Read/Write (Tip), -1 - Waiting for Grant/Ack
-  val permState = HashMap[Int,Int]()
+  val permState = new RWPermState()
+  // May remove dataState completely
   val dataState = HashMap[Int,Int]()
+
   // Used for state processing (check if permissions/data were given etc)
   val bOutput = ListBuffer[TLChannel]()
   val dOutput = ListBuffer[TLChannel]()
+
   // Used for acquire addressing (!!! supports only one acquire in-flight) TODO use source as IDs
   var acquireInFlight = false
   var acquireAddr = 0.U
@@ -26,10 +32,32 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
   val tlProcess = ListBuffer[TLChannel]()
   // TLBundles to be pushed
   val queuedTLBundles = Queue[TLChannel]()
-  // Permission map for Acquire and Release
+  // Map param => permission for Acquire and Release
   val acquirePermMap = Map[Int,Int](0 -> 1, 1 -> 2, 2 -> 2)
   val releasePermMap = Map[Int,Int](0 -> 1, 1 -> 0, 2 -> 0, 3 -> 2, 4 -> 1, 5 -> 0)
-  implicit val p = params
+
+  def fuzzTxn(count: Int): Unit = {
+    while (count > 0) {
+
+      // Generate next transaction (passing in permissions)
+      val txns = txnGen.generateTransactions(1, permState)
+
+      val txnHead = txns.head
+      txnHead match {
+        case _: TLBundleA =>
+          // Integrate functionality from process method
+
+        case _: TLBundleC =>
+          // ...
+
+        case _: TLBundleE =>
+          // ...
+      }
+
+      driver.push(txns)
+    }
+  }
+
 
   // After receiving txns (on channel B and D), return any TL responses (on A, C, or E)
   // Whole method has to be re-written for raw TLBundles
@@ -60,8 +88,8 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                 // Writing permissions
                 val newPerm = (2 - txnc.param.litValue().toInt).U
                 val permData = permRepeater(size = txnc.size, perm = newPerm)
-                writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
-                  masks = List.fill(permData.length)(0xff.U))
+//                writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+//                  masks = List.fill(permData.length)(0xff.U))
 
                 queuedTLBundles += GrantAck(sink = txnc.sink.litValue().toInt)
                 tlProcess.remove(processIndex)
@@ -75,8 +103,8 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
                 // Writing permissions and data
                 val newPerm = (2 - txnc.param.litValue().toInt).U
                 val permData = permRepeater(size = txnc.size, perm = newPerm)
-                writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
-                  masks = List.fill(permData.length)(0xff.U))
+//                writeData(state = permState, size = txnc.size, address = acquireAddr, datas = permData,
+//                  masks = List.fill(permData.length)(0xff.U))
                 writeData(state = dataState, size = txnc.size, address = acquireAddr, datas = List(txnc.data), masks = List(0xff.U))
 
                 queuedTLBundles += GrantAck(sink = txnc.sink.litValue().toInt)
@@ -99,7 +127,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
             case TLOpcodes.ProbePerm =>
               // Probe (Return ProbeAck) Don't process if pending Release Ack
               if (!releaseInFlight) {
-                val oldPerm = permState(txnc.address.litValue().toInt)
+                val oldPerm = 0
                 // Given permission
                 val newPerm = 2 - txnc.param.litValue().toInt
                 var newParam = 0.U
@@ -118,8 +146,8 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
 
                   // Writing permissions
                   val permData = permRepeater(size = txnc.size, perm = newPerm.U)
-                  writeData(state = permState, size = txnc.size, address = txnc.address, datas = permData,
-                    masks = List.fill(permData.length)(0xff.U))
+//                  writeData(state = permState, size = txnc.size, address = txnc.address, datas = permData,
+//                    masks = List.fill(permData.length)(0xff.U))
                 }
 
                 // TODO: add bundle constructors for
@@ -131,7 +159,7 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
               }
             case TLOpcodes.ProbeBlock =>// Probe (Return ProbeAck or ProbeAckData based off perms) Don't process if pending Release Ack
               if (!releaseInFlight) {
-                val oldPerm = permState(txnc.address.litValue().toInt)
+                val oldPerm = 0
                 // Given permission
                 val newPerm = 2 - txnc.param.litValue().toInt
                 var newParam = 0.U
@@ -150,8 +178,8 @@ class TLCFuzzer(params: TLBundleParameters, allowInvalidTxn: Boolean = false, fi
 
                   // Writing permissions
                   val permData = permRepeater(size = txnc.size, perm = newPerm.U)
-                  writeData(state = permState, size = txnc.size, address = txnc.address, datas = permData,
-                    masks = List.fill(permData.length)(0xff.U))
+//                  writeData(state = permState, size = txnc.size, address = txnc.address, datas = permData,
+//                    masks = List.fill(permData.length)(0xff.U))
                 }
 
                 // If old permission included write access, need to send back dirty data

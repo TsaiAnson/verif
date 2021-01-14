@@ -7,19 +7,19 @@ import scala.math.pow
 import scala.util.Random
 import scala.collection.mutable.{HashMap, ListBuffer}
 import verif.TLTransaction._
+import verif.TLUtils.RWPermState
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
-class TLFuzzer(
-                  params: TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
-                  beatSize : Int = 3,
-                  // TL-UL
-                  get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
-                  // TL-UH
-                  burst : Boolean = false, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
-                  // TL-C
-                  tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
-                  // Randomization
-                  randSeed : Int = 1234567890) {
+class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
+                               beatSize : Int = 3,
+                               // TL-UL
+                               get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
+                               // TL-UH
+                               burst : Boolean = false, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
+                               // TL-C
+                               tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
+                               // Randomization
+                               randSeed : Int = 1234567890) {
 
   implicit val p: TLBundleParameters = bundleParams
 
@@ -34,26 +34,24 @@ class TLFuzzer(
     (addrSet.base | (addrSet.mask & addressRaw)).toInt
   }
 
-  def generateTransactions(numbTxn : Int) : Seq[TLChannel] = {
+  // permState is used to ensure generated TL-C transactions are legal ()
+  def generateTransactions(numbTxn : Int, permState: RWPermState = new RWPermState()) : Seq[TLChannel] = {
+    // Results
     var genTxns = ListBuffer[TLChannel]()
+
+    // Internal state to ensure we don't duplicate releases within one generate (acquire is OK)
+    var releasedAddr = ListBuffer[Int]()
 
     // TLBundle Params
     var typeTxn = 0
     var param = 0
-    var size = 0 // Limit from 1 - 5 TODO: Use max transfersize to determine
+    var size = 0 // TODO: Use max transfersize to determine
     var source = 0 // Will remain 0 for now (concurrentTxn = 1)
     var address = 0
     var mask = 0
     var data = 0
 
-    // Internal state for Acquire/Release addresses (make sure releasing valid addresses)
-    // Permissions: 0 - None, 1 - Read (Branch), 2 - Read/Write (Tip)
-    // NOTE: This is a close approximation of the internal state, as this model does not take into account of
-    // cache size, random evictions, etc. Some of the transactions will be invalid when model is run.
-    // The New Driver Master VIP can reject/ignore invalid transactions
-    val intState = HashMap[Int,Int]()
-
-    // Generating Transactions
+    // Enable generating TLC messages if set
     var txnBound = 6
     if (tlc) {
       txnBound = 8
@@ -76,29 +74,25 @@ class TLFuzzer(
 
         // Need to "re-roll" for unwanted txn types
         redo = false
-        if (!get && typeTxn == 0) {
+        if ((!get || !params.supportsGet) && typeTxn == 0) {
           redo = true
-        } else if (!putFull && typeTxn == 1) {
+        } else if ((!putFull || !params.supportsPutFull ) && typeTxn == 1) {
           redo = true
-        } else if (!putPartial && typeTxn == 2) {
+        } else if ((!putPartial || !params.supportsPutPartial) && typeTxn == 2) {
           redo = true
-        } else if (!arith && typeTxn == 3) {
+        } else if ((!arith || !params.supportsArithmetic) && typeTxn == 3) {
           redo = true
-        } else if (!logic && typeTxn == 4) {
+        } else if ((!logic || !params.supportsLogical) && typeTxn == 4) {
           redo = true
-        } else if (!hints && typeTxn == 5) {
+        } else if ((!hints || !params.supportsHint) && typeTxn == 5) {
           redo = true
-        } else if (!acquire && typeTxn == 6) {
+        } else if ((!acquire || !params.supportsAcquireB) && typeTxn == 6) {
           redo = true
-        } else if (!acquire && typeTxn == 7) {
+        } else if ((!acquire || !params.supportsAcquireB) && typeTxn == 7) {
+          // Shouldn't be able to release if cannot acquire
           redo = true
         }
       } while (redo)
-
-      // TODO Add support checking for allowed operations
-      // Currently supported (TL-UH) Get, PutFull (PutFullBurst), PutPartial (PutPartialBurst),
-      // ArithData (ArithDataBurst), LogicData (LogicDataBurst), Intent (Hint)
-      // Currently supported (TL-C) AcquireBlock, AcquirePerm, Release, ReleaseData (ReleaseDataBurst)
 
       if (typeTxn == 0) {
         // Get
@@ -120,7 +114,6 @@ class TLFuzzer(
 
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
-          // TODO: wtf
           val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
           val masks = List.fill(beatCount)(mask)
           genTxns ++= PutBurst(address, data, masks, source)
@@ -150,7 +143,7 @@ class TLFuzzer(
         param = randGen.nextInt(5)
         size = randGen.nextInt(5) + 1
         if (tlc) {
-          address = intState.keys.toList(randGen.nextInt(intState.keys.size))
+          address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
         } else{
           address = getRandomLegalAddress(params.address, size)
         }
@@ -175,7 +168,7 @@ class TLFuzzer(
         param = randGen.nextInt(4)
         size = randGen.nextInt(5) + 1
         if (tlc) {
-          address = intState.keys.toList(randGen.nextInt(intState.keys.size))
+          address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
         } else{
           address = getRandomLegalAddress(params.address, size)
         }
@@ -235,19 +228,13 @@ class TLFuzzer(
 
           address = getRandomLegalAddress(params.address, cacheBlockSize)
 
-          // If given address is already acquired, try increasing permissions or find new address. After 10 tries, convert
-          // to release
-          if (intState.contains(address)) {
-            if (intState(address) == 0) {
-              // Permissions can be from NtoB or NtoT
-              param = randGen.nextInt(2)
-            } else if (intState(address) == 1) {
-              // Permissions from B to T
-              param = 2
-            } else {
-              redoAcquire = true
-              repeats += 1
-            }
+          // Try increasing permissions or find new address. After 10 failed attempts, convert to release
+          if (permState.getPerm(address) == 2) {
+            redoAcquire = true
+            repeats += 1
+          } else if (permState.getPerm(address) == 1) {
+            // Must be BtoT for Acquire
+            param = 2
           } else {
             // Permissions can be from NtoB or NtoT
             param = randGen.nextInt(2)
@@ -260,8 +247,6 @@ class TLFuzzer(
           } else {
             genTxns += AcquirePerm(param, address, mask, size, source)
           }
-
-          intState(address) = if (param == 0) 1 else 2
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
           param = randGen.nextInt(2) // TtoB or TtoN
@@ -279,19 +264,19 @@ class TLFuzzer(
         while (redoRelease && repeats < 10) {
           redoRelease = false
 
-          if (intState.isEmpty) {
+          if (permState.getAllAddr.isEmpty) {
             // If nothing acquired yet, skip directly to acquire with random address
             repeats = 10
             address = getRandomLegalAddress(params.address, cacheBlockSize)
             // Getting block-aligned address
             address = address & ~((1 << cacheBlockSize) - 1)
           } else {
-            address = intState.keys.toList(randGen.nextInt(intState.keys.size))
+            address = permState.getPerm(randGen.nextInt(permState.getAllAddr.size))
 
-            if (intState(address) == 0) {
+            if (permState.getPerm(address) == 0) {
               redoRelease = true
               repeats += 1
-            } else if (intState(address) == 2) {
+            } else if (permState.getPerm(address) == 2) {
               // TtoB or TtoN
               param = randGen.nextInt(2)
             } else {
@@ -310,7 +295,7 @@ class TLFuzzer(
             genTxns += Release(param, address, size, source)
           }
 
-          intState(address) = if (param == 0) 1 else 0
+          releasedAddr += address
         } else {
           // Converting to Acquire
           param = randGen.nextInt(2) // NtoB or NtoT
@@ -319,8 +304,6 @@ class TLFuzzer(
           } else {
             genTxns += AcquirePerm(param, address, mask, size, source)
           }
-
-          intState(address) = if (param == 0) 1 else 2
         }
 
       }

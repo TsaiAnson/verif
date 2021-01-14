@@ -22,7 +22,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       val monitor = new TLMonitor(c.clock, TLRAM.in)
       val simCycles = 400
 
-      val fuz = new TLFuzzer(standaloneSlaveParams.managers.head, TLRAM.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val fuz = new TLTransactionGenerator(standaloneSlaveParams.managers.head, TLRAM.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val inputTransactions = fuz.generateTransactions(60)
 

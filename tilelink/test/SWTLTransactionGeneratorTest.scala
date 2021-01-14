@@ -8,7 +8,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 
-class SWTLFuzzerTest extends AnyFlatSpec with ChiselScalatestTester {
+class SWTLTransactionGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   // Ignoring test since SWRegBank is outdated
