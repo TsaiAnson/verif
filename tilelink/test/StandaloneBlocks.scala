@@ -226,7 +226,7 @@ class TLFuzzerStandalone(nOperations: Int)(implicit p: Parameters) extends LazyM
   lazy val module = new LazyModuleImp(this) {}
 }
 
-class TLLoopbackStandalone(implicit p: Parameters) extends LazyModule  {
+class TLBufferStandalone(implicit p: Parameters) extends LazyModule  {
   // IO Connections (Master and Slave are directly connected)
   val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()

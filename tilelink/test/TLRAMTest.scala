@@ -106,6 +106,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
+  // TODO: inject a cover for 4 consecutive writes in TLRAM and check that this test hits it
   it should "TLRAM Throughput Test" in {
     val TLRAMSlave = LazyModule(new TLRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
@@ -124,6 +125,42 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
       for (out <- output) {
         println(out)
+      }
+    }
+  }
+
+  // This test just provides a reference output for the corresponding test in SlaveDriverTest
+  it should "test TLRAM with longer stimulus" in {
+    val TLRAMSlave = LazyModule(new TLRAMStandalone)
+    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val simCycles = 150
+
+      implicit val params: TLBundleParameters = TLRAMSlave.in.params
+      // Four Consecutive Writes (burst)
+      val inputTransactions: Seq[TLBundleA] = Seq(
+        Get(0x0),
+        Put(0x0, 0x3333),
+        Get(0x0)
+      ) ++
+        (PutBurst(0x0, Seq(0x5555, 0x1234), 0) :+
+          Get(0x0) :+
+          Get(0x8)) ++
+        (LogicBurst(2, 0x0, Seq(0x0, 0x0)) :+
+          Get(0x0) :+
+          Get(0x8)) ++
+        ArithBurst(4, 0x0, Seq(0x2222, 0x8888)) :+
+        Get(0x0) :+
+        Get(0x8)
+
+      driver.push(inputTransactions)
+      c.clock.step(simCycles)
+
+      val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
+
+      for (out <- output) {
+        println(out.opcode, out.data, out.size)
       }
     }
   }
