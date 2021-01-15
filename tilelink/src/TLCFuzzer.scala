@@ -4,6 +4,7 @@ import freechips.rocketchip.tilelink.{TLBundleA, TLBundleB, TLBundleC, TLBundleD
 import verif.TLUtils._
 import verif.TLTransaction._
 import chisel3._
+import chisel3.util.log2Ceil
 import verif.{TLDriverMaster, TLMonitor, TLTransactionGenerator}
 
 import scala.collection.mutable.{HashMap, ListBuffer, Queue}
@@ -53,7 +54,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
     val bComplete = getNextCompleteTLTxn(bOutput)
     // D first as Release -> Probe dependency
     if (dComplete.isDefined) {
-      dOutput.remove(0, dComplete.size)
+      dOutput.remove(0, dComplete.get.size)
       tlProcess ++= dComplete.get.filter({ x: TLChannel =>
         val opCode = x.asInstanceOf[TLBundleD].opcode.litValue().toInt
         opCode == TLOpcodes.AccessAck || opCode == TLOpcodes.AccessAckData || opCode == TLOpcodes.Grant ||
@@ -61,7 +62,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
       })
     }
     if (bComplete.isDefined) {
-      bOutput.remove(0, bComplete.size)
+      bOutput.remove(0, bComplete.get.size)
       tlProcess ++= bComplete.get.filter({ x: TLChannel =>
         val opCode = x.asInstanceOf[TLBundleB].opcode.litValue().toInt
         opCode == TLOpcodes.ProbePerm || opCode == TLOpcodes.ProbeBlock
@@ -132,7 +133,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
 
               // Writing Data
               if (txnc.opcode.litValue() == TLOpcodes.GrantData) {
-                val beats = 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
+                val beats = 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
                 writeData(state = dataState, size = txnc.size, address = acquireAddr.U,
                   datas = tlProcess.dropRight(tlProcess.length - beats).map {
                     _.asInstanceOf[TLBundleD].data
@@ -140,17 +141,24 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
                   masks = List.fill(beats)(0xff.U))
               }
 
-              queuedTLBundles += GrantAck(sink = txnc.sink.litValue().toInt)
               acquireInFlight = false
               inFlight = false
-            }
 
-            // Always remove
-            if (txnc.opcode.litValue() == TLOpcodes.GrantData) {
-              val beats = 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
-              tlProcess.remove(processIndex, beats)
+              if (txnc.opcode.litValue() == TLOpcodes.GrantData) {
+                val beats = 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
+                tlProcess.remove(processIndex, beats)
+              } else {
+                tlProcess.remove(processIndex)
+              }
+
+              return Seq(GrantAck(sink = txnc.sink.litValue().toInt))
             } else {
-              tlProcess.remove(processIndex)
+              if (txnc.opcode.litValue() == TLOpcodes.GrantData) {
+                val beats = 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
+                tlProcess.remove(processIndex, beats)
+              } else {
+                tlProcess.remove(processIndex)
+              }
             }
 
           } else if (txnc.opcode.litValue() == TLOpcodes.ReleaseAck) {
@@ -162,7 +170,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
           } else {
             // AccessAck and AccessAckData
             if (txnc.opcode.litValue() == TLOpcodes.AccessAckData) {
-              val beats = 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
+              val beats = 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
               tlProcess.remove(processIndex, beats)
             } else {
               tlProcess.remove(processIndex)
@@ -177,7 +185,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
       val complete = getNextCompleteTLTxn(manTxn)
       if (complete.isDefined) {
         queuedTLBundles ++= complete.get
-        manTxn.remove(0, complete.size)
+        manTxn.remove(0, complete.get.size)
       }
     }
 
@@ -208,7 +216,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
               return Seq(queuedTLBundles.remove(inputIndex))
             }
           } else {
-            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
+            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
             val results = queuedTLBundles.dropRight(queuedTLBundles.length - beats)
             queuedTLBundles.remove(inputIndex, beats)
             inFlight = true
@@ -222,7 +230,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
           val txnc = txnHead.asInstanceOf[TLBundleC]
 
           if (txnc.opcode.litValue().toInt == TLOpcodes.Release || txnc.opcode.litValue().toInt == TLOpcodes.ReleaseData) {
-            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
+            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
             if (acquireInFlight || releaseInFlight) {
               inputIndex += beats
             } else {
@@ -231,10 +239,13 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
               releaseInFlight = true
               inFlight = true
 
+              // Shrinking permissions
+              permState.setPerm(txnc.address.litValue().toInt, releasePermMap(txnc.param.litValue().toInt))
+
               return result
             }
           } else {
-            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - params.dataBits, 0)
+            val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
             val result = queuedTLBundles.dropRight(queuedTLBundles.length - beats)
             queuedTLBundles.remove(inputIndex, beats)
             inFlight = true

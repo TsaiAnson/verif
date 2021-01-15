@@ -104,7 +104,7 @@ package object TLUtils {
       case _: TLBundleC =>
         val bndc = bnd.asInstanceOf[TLBundleC]
         // AccessAck, ProbeAck, Release
-        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5) {
+        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6) {
           return true
         }
         false

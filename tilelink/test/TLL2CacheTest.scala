@@ -9,6 +9,7 @@ import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import verif.TLUtils._
 import TLTransaction._
+import freechips.rocketchip.tilelink._
 
 import scala.collection.immutable
 
@@ -17,7 +18,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "Elaborate L2" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
@@ -31,21 +32,21 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       c.clock.step(200)
 
-      println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
-        println(t)
-      }
+//      println("INNER (CORE)")
+//      for (t <- monitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//      println("OUTER (DRAM)")
+//      for (t <- monitor1.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 
   // Ignoring test as new driver is no longer TLC compliance
   it should "Driver TLC Compliance Test" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
@@ -76,28 +77,21 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step(5)
       }
 
-//      println("PERM STATE")
-//      val perm = L1Placeholder.permState
-//      for (x <- perm.keys) {
-//        print(s"(${x}, ${perm(x)}), ")
+//      println("INNER (CORE)")
+//      for (t <- L1Monitor.getMonitoredTransactions()) {
+//        println(t)
 //      }
-//      println("")
-
-      println("INNER (CORE)")
-      for (t <- L1Monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- DRAMMonitor.getMonitoredTransactions()) {
-        println(t)
-      }
+//      println("OUTER (DRAM)")
+//      for (t <- DRAMMonitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 
-  it should "L2 SWTLFuzzer" ignore {
+  it should "L2 SWTLFuzzer" in {
 
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
@@ -109,44 +103,23 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
-        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
-      val fuzz = new TLCFuzzer(params, gen, 3)
+        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 5)
+      val fuzz = new TLCFuzzer(params, gen, 5)
 
-      for (i <- 0 until 1000) {
-        println(s"loop $i")
-        println("GOT")
-        val blah = FuzzMonitor.getMonitoredTransactions().map({_.data})
-        for (t <- blah) {
-          println(t)
-        }
-        val txns = fuzz.fuzzTxn(blah)
-        println("SENDING")
-        for (t <- txns) {
-          println(t)
-        }
+      for (i <- 0 until 200) {
+        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
         L1Placeholder.push(txns)
-        println("MONITOR")
-        for (t <- DRAMMonitor.getMonitoredTransactions()) {
-          println(t)
-        }
         c.clock.step(5)
       }
 
-//      println("PERM STATE")
-//      val perm = L1Placeholder.permState
-//      for (x <- perm.keys) {
-//        print(s"(${x}, ${perm(x)}), ")
+//      println("INNER (CORE)")
+//      for (t <- L1Monitor.getMonitoredTransactions()) {
+//        println(t)
 //      }
-//      println("")
-
-      println("INNER (CORE)")
-      for (t <- L1Monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- DRAMMonitor.getMonitoredTransactions()) {
-        println(t)
-      }
+//      println("OUTER (DRAM)")
+//      for (t <- DRAMMonitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 }
