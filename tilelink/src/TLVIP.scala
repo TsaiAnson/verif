@@ -40,7 +40,7 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
 
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S) => (Seq[TLChannel], S)) {
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S, TLBundleParameters) => (Seq[TLChannel], S)) {
   val params: TLBundleParameters = interface.params
 
   // TODO: once DecoupledDriverSlave returns a stream of seen transactions, remove the monitor
@@ -62,7 +62,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response
       }
       val (responseTxns, newState) = txFromMaster.foldLeft((Seq.empty[TLChannel], state)) {
         case ((responses, state), tx) =>
-          val (newTxns, newState) = response(tx, state)
+          val (newTxns, newState) = response(tx, state, params)
           (responses ++ newTxns, newState)
       }
       state = newState

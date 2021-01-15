@@ -43,14 +43,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   // Ignoring test as new driver is no longer TLC compliance
-  it should "Driver TLC Compliance Test" ignore {
+  it should "Driver TLC Compliance Test" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
-      val monitor = new TLMonitor(c.clock, TLL2.in)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out)
+      val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
@@ -64,8 +65,16 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
-      L1Placeholder.push(txns)
-      c.clock.step(200)
+      val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+        get = false, putPartial = false, putFull = false,
+        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
+      val fuzz = new TLCFuzzer(params, gen, 3, txns, true)
+
+      for (_<- 0 until 20) {
+        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
+        L1Placeholder.push(txns)
+        c.clock.step(5)
+      }
 
 //      println("PERM STATE")
 //      val perm = L1Placeholder.permState
@@ -75,17 +84,16 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 //      println("")
 
       println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
+      for (t <- L1Monitor.getMonitoredTransactions()) {
         println(t)
       }
       println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
+      for (t <- DRAMMonitor.getMonitoredTransactions()) {
         println(t)
       }
     }
   }
 
-  // Ignored as Fuzzer is still being updated
   it should "L2 SWTLFuzzer" ignore {
 
     val TLL2 = LazyModule(new VerifTLL2Cache)
@@ -93,16 +101,36 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
-      val monitor = new TLMonitor(c.clock, TLL2.in)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out)
+      val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
 
-      val gen = new TLTransactionGenerator(standaloneSlaveParams.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
-        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true)
-      val fuzz = new TLCFuzzer(L1Placeholder, monitor, params, gen)
-      fuzz.fuzzTxn(100)
+        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
+      val fuzz = new TLCFuzzer(params, gen, 3)
+
+      for (i <- 0 until 1000) {
+        println(s"loop $i")
+        println("GOT")
+        val blah = FuzzMonitor.getMonitoredTransactions().map({_.data})
+        for (t <- blah) {
+          println(t)
+        }
+        val txns = fuzz.fuzzTxn(blah)
+        println("SENDING")
+        for (t <- txns) {
+          println(t)
+        }
+        L1Placeholder.push(txns)
+        println("MONITOR")
+        for (t <- DRAMMonitor.getMonitoredTransactions()) {
+          println(t)
+        }
+        c.clock.step(5)
+      }
 
 //      println("PERM STATE")
 //      val perm = L1Placeholder.permState
@@ -112,11 +140,11 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 //      println("")
 
       println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
+      for (t <- L1Monitor.getMonitoredTransactions()) {
         println(t)
       }
       println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
+      for (t <- DRAMMonitor.getMonitoredTransactions()) {
         println(t)
       }
     }

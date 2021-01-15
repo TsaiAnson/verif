@@ -58,9 +58,9 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       // TODO: replace with software RAM model
       val expectedOut = Seq(
         AccessAck(0),
-        AccessAckData(0x33, 0),
+        AccessAckData(0x3333, 0),
         AccessAck(0, 4),
-        AccessAckData(0x34, 0)
+        AccessAckData(0x1234, 0)
       )
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}

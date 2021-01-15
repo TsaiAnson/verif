@@ -142,6 +142,25 @@ package object TLUtils {
     txns.length == expectedTxnCount
   }
 
+  // Helper method to get the next complete TLTransaction (list of TLBundles)
+  // Returns (completeTxn, updatedSeq)
+  def getNextCompleteTLTxn (txns: Seq[TLChannel]): Option[Seq[TLChannel]] = {
+    // Edge case
+    if (txns.isEmpty) return None
+
+    // TODO Hardcoded, update when configurability is added
+    val beatBytes = 8
+    val expectedTxnCount = if (isNonBurst(txns.head)) 1 else
+      ceil(getTLBundleDataSizeBytes(txns.head) / beatBytes.toDouble).toInt
+
+    if (txns.length < expectedTxnCount) {
+      None
+    } else {
+      Some(txns.dropRight(txns.size - expectedTxnCount))
+    }
+  }
+
+
   // Helper method to group together burst TLBundles
   def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
     // TODO Hardcoded for now, update when configurability is added
@@ -974,7 +993,9 @@ package object TLUtils {
   object SlaveMemoryState {
     def init(): SlaveMemoryState = { SlaveMemoryState(Seq(), immutable.HashMap[Int,Int]()) }
   }
-  def testResponseWrapper(input: TLChannel, state: SlaveMemoryState)(implicit p: TLBundleParameters): (Seq[TLChannel], SlaveMemoryState) = {
+  def testResponseWrapper(input: TLChannel, state: SlaveMemoryState, params: TLBundleParameters): (Seq[TLChannel], SlaveMemoryState) = {
+    implicit val p = params
+
     // Collect transactions with the same opcode
     val newBuffer = state.txnBuffer :+ input
     if (isCompleteTLTxn(newBuffer)) {
@@ -1093,16 +1114,17 @@ package object TLUtils {
     (responseTLTxn, state_int.toMap)
   }
 
-  // Wrapper class that stores mapping of Address --> Permissions (Note: does not consider block size)
+  // Wrapper class that stores mapping of Address --> Permissions (Note: is block aligned)
   // Permissions: 0 - None, 1 - Read (Branch), 2 - Read/Write (Tip), -1 - Waiting for Grant/Ack
-  class RWPermState {
+  class RWPermState(blockSize: Int = 3) {
     // HashMap implementation
     private val intState = mutable.HashMap[Int,Int]()
+    private val mask = ~((1 << blockSize) - 1)
 
-    def getPerm(address: Int): Int = { intState.getOrElse(address, 0) }
+    def getPerm(address: Int): Int = { intState.getOrElse(address & mask, 0) }
 
     def setPerm(address: Int, permission: Int): Unit = {
-      intState(address) = permission
+      intState(address & mask) = permission
     }
 
     def getAllAddr: List[Int] = {

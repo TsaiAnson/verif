@@ -17,9 +17,10 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
                                // TL-UH
                                burst : Boolean = false, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
                                // TL-C
-                               tlc : Boolean = false, cacheBlockSize : Int = 5, acquire : Boolean = false,
+                               tlc : Boolean = false, cacheBlockSize : Int = -1, acquire : Boolean = false,
                                // Randomization
                                randSeed : Int = 1234567890) {
+  assert(tlc && cacheBlockSize != 1, "TLTransactionGenerator: Please set CACHEBLOCKSIZE if TLC is enabled")
 
   implicit val p: TLBundleParameters = bundleParams
 
@@ -58,7 +59,9 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
     }
 
     var redo = false
-    while (genTxns.length < numbTxn) {
+    var count = 0
+    releasedAddr.clear()
+    while (count < numbTxn) {
       do {
         // Determines transaction type
         // 0 - Get
@@ -95,6 +98,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
       } while (redo)
 
       if (typeTxn == 0) {
+        count += 1
         // Get
         size = randGen.nextInt(5) + 1
         address = getRandomLegalAddress(params.address, size)
@@ -103,6 +107,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         genTxns += Get(address, size, mask, source)
 
       } else if (typeTxn == 1) {
+        count += 1
         // PutFull
         size = randGen.nextInt(5) + 1
         address = getRandomLegalAddress(params.address, size)
@@ -123,6 +128,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
       } else if (typeTxn == 2) {
+        count += 1
         // PutPartial
         size = randGen.nextInt(5) + 1
         address = getRandomLegalAddress(params.address, size)
@@ -139,6 +145,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
       } else if (typeTxn == 3) {
+        count += 1
         // ArithData
         param = randGen.nextInt(5)
         size = randGen.nextInt(5) + 1
@@ -164,6 +171,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
       } else if (typeTxn == 4) {
+        count += 1
         // LogicData
         param = randGen.nextInt(4)
         size = randGen.nextInt(5) + 1
@@ -189,6 +197,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
       } else if (typeTxn == 5) {
+        count += 1
         // Intent
         param = randGen.nextInt(2)
         size = randGen.nextInt(5) + 1
@@ -217,6 +226,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
       } else if (typeTxn == 6) {
+        count += 1
         // Acquire
         size = cacheBlockSize
         mask = (1 << (1 << beatSize)) - 1
@@ -250,14 +260,21 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
           param = randGen.nextInt(2) // TtoB or TtoN
+
+          val cacheMask = ~((1 << cacheBlockSize) - 1)
+          while (releasedAddr.contains(address & cacheMask)) {
+            address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
+          }
           val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
           genTxns ++= ReleaseDataBurst(param, address, data, source)
         }
 
       } else if (typeTxn == 7) {
+        count += 1
         // Release
         size = cacheBlockSize
         mask = (1 << (1 << beatSize)) - 1
+        val cacheMask = ~((1 << cacheBlockSize) - 1)
 
         var redoRelease = true
         var repeats = 0
@@ -271,9 +288,9 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
             // Getting block-aligned address
             address = address & ~((1 << cacheBlockSize) - 1)
           } else {
-            address = permState.getPerm(randGen.nextInt(permState.getAllAddr.size))
+            address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
 
-            if (permState.getPerm(address) == 0) {
+            if (permState.getPerm(address) == 0 || releasedAddr.contains(address & cacheMask)) {
               redoRelease = true
               repeats += 1
             } else if (permState.getPerm(address) == 2) {
