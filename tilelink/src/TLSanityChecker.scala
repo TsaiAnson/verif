@@ -267,18 +267,24 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
     }
   }
 
+  // Helper Function to Encode Channel and Source (Since source IDs are only unique to a *single* channel)
+  // 1: A, 2: B, 3: C, 4: D, 5: E
+  def encodeChannel(source: Int, channel: Int): Int = {
+    (source * 10) + channel
+  }
+
   // Helper Functions for Burst Checking
   def burstAHelper(txna: TLBundleA): Unit = {
     // If bundles are in a burst
-    val source = txna.source.litValue().toInt
+    val sourceKey = encodeChannel(txna.source.litValue().toInt, 1)
     if (!isNonBurst(txna) && txna.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(source,0) == 0) {
+      if (sourceState.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(source) = txna
-        sourceState(source) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
+        sourceBurst(sourceKey) = txna
+        sourceState(sourceKey) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(source)
+        val head = sourceBurst(sourceKey)
         head match {
           case heada: TLBundleA =>
             var result = true
@@ -286,29 +292,29 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txna.size.litValue() == heada.size.litValue()
             result &= txna.source.litValue() == heada.source.litValue()
             result &= txna.address.litValue() == heada.address.litValue()
-            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurst(source)}. Given beat: $txna")
+            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
 
-            sourceState(source) += 1
+            sourceState(sourceKey) += 1
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txna")
+            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
         }
       }
-    } else if (sourceState.getOrElse(source,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txna")
+    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
     }
   }
 
   def burstCHelper(txnc: TLBundleC): Unit = {
     // If bundles are in a burst
-    val source = txnc.source.litValue().toInt
+    val sourceKey = encodeChannel(txnc.source.litValue().toInt, 3)
     if (!isNonBurst(txnc) && txnc.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(source,0) == 0) {
+      if (sourceState.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(source) = txnc
-        sourceState(source) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
+        sourceBurst(sourceKey) = txnc
+        sourceState(sourceKey) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(source)
+        val head = sourceBurst(sourceKey)
         head match {
           case headc: TLBundleC =>
             var result = true
@@ -316,29 +322,29 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txnc.size.litValue() == headc.size.litValue()
             result &= txnc.source.litValue() == headc.source.litValue()
             result &= txnc.address.litValue() == headc.address.litValue()
-            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurst(source)}. Given beat: $txnc")
+            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
 
-            sourceState(source) += 1
+            sourceState(sourceKey) += 1
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txnc")
+            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
         }
       }
-    } else if (sourceState.getOrElse(source,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txnc")
+    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
     }
   }
 
   def burstDHelper(txnd: TLBundleD): Unit = {
     // If bundles are in a burst
-    val source = txnd.source.litValue().toInt
+    val sourceKey = encodeChannel(txnd.source.litValue().toInt, 4)
     if (!isNonBurst(txnd) && txnd.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(source,0) == 0) {
+      if (sourceState.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(source) = txnd
-        sourceState(source) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
+        sourceBurst(sourceKey) = txnd
+        sourceState(sourceKey) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(source)
+        val head = sourceBurst(sourceKey)
         head match {
           case headd: TLBundleD =>
             var result = true
@@ -347,15 +353,15 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txnd.source.litValue() == headd.source.litValue()
             result &= txnd.sink.litValue() == headd.sink.litValue()
             result &= txnd.denied.litValue() == headd.denied.litValue()
-            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurst(source)}. Given beat: $txnd")
+            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
 
-            sourceState(source) += 1
+            sourceState(sourceKey) += 1
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txnd")
+            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
         }
       }
-    } else if (sourceState.getOrElse(source,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(source)} beats of burst. Burst head: ${sourceBurst(source)}. Given beat: $txnd")
+    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
     }
   }
 }
