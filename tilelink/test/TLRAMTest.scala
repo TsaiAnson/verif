@@ -30,8 +30,9 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
-      println("TRANSACTIONS TOTAL")
-      println(output.length)
+      val sanity = new TLSanityChecker(TLRAM.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
+
       // No SW output checking as RAMModel checks for correctness
     }
   }
@@ -64,6 +65,9 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity = new TLSanityChecker(TLRAM.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
+
       output.zip(expectedOut).foreach {
         case (dutOut, expOut) =>
           assert(dutOut.opcode.litValue() == expOut.opcode.litValue())
@@ -99,6 +103,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
+      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
 
       for (out <- output) {
         println(out)
@@ -122,6 +128,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
+      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
 
       for (out <- output) {
         println(out)
@@ -158,6 +166,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
+      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
 
       for (out <- output) {
         println(out.opcode, out.data, out.size)

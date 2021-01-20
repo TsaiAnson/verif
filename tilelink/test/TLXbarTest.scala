@@ -9,6 +9,7 @@ import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import TLTransaction._
 import freechips.rocketchip.tilelink.TLBundleD
+import verif.TLUtils._
 
 class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -122,7 +123,11 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val out1 = monitor1.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLRAMSlave.inOne.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity1.sanityCheck(out1)
       val out2 = monitor2.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLRAMSlave.inTwo.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(out2)
 
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX

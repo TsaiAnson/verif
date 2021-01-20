@@ -22,8 +22,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
-      val monitor = new TLMonitor(c.clock, TLL2.in)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
       val initialState = SlaveMemoryState(Seq(), immutable.HashMap[Int,Int](0 -> 0x1234, 8 -> 0x3333))
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, initialState, testResponseWrapper)
@@ -31,6 +31,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
 
       c.clock.step(200)
+
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
+
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
 
 //      println("INNER (CORE)")
 //      for (t <- monitor.getMonitoredTransactions()) {
@@ -77,6 +86,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step(5)
       }
 
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
+
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
+
 //      println("INNER (CORE)")
 //      for (t <- L1Monitor.getMonitoredTransactions()) {
 //        println(t)
@@ -111,6 +129,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         L1Placeholder.push(txns)
         c.clock.step(5)
       }
+
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
+
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
 
 //      println("INNER (CORE)")
 //      for (t <- L1Monitor.getMonitoredTransactions()) {

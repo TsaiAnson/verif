@@ -9,6 +9,7 @@ import freechips.rocketchip.subsystem.WithoutTLMonitors
 import freechips.rocketchip.tilelink.{TLBundleD, TLBundleParameters}
 import org.scalatest.flatspec.AnyFlatSpec
 import verif.TLTransaction.{AccessAck, AccessAckData, Get, Put}
+import verif.TLUtils._
 
 class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
@@ -43,6 +44,8 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect { case t: TLBundleD => t }
+      val sanity = new TLSanityChecker(TLRegBankSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity.sanityCheck(output)
 
       // TODO Add software model here
       val swoutput = Array(
