@@ -74,10 +74,8 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
     while (processIndex < tlProcess.length) {
       val txn = tlProcess(processIndex)
       txn match {
-        case _: TLBundleB => // Always either ProbeBlock or ProbePerm
+        case txnc: TLBundleB => // Always either ProbeBlock or ProbePerm
           if (!releaseInFlight) {
-            val txnc = txn.asInstanceOf[TLBundleB]
-
             // Calculating permissions
             val oldPerm = permState.getPerm(txnc.address.litValue().toInt)
             val newPerm = 2 - txnc.param.litValue().toInt
@@ -121,9 +119,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
             processIndex += 1
           }
 
-        case _: TLBundleD => // Always either Grant, GrantData, ReleaseAck, AccessAck, or AccessAckData
-          val txnc = txn.asInstanceOf[TLBundleD]
-
+        case txnc: TLBundleD => // Always either Grant, GrantData, ReleaseAck, AccessAck, or AccessAckData
           if (txnc.opcode.litValue() == TLOpcodes.Grant || txnc.opcode.litValue() == TLOpcodes.GrantData) {
             if (!txnc.denied.litToBoolean) {
 
@@ -203,9 +199,7 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
       // Extra processessing for AcquireBlock/Perm (A), Release/Data (C), GrantAck (E)
       val txnHead = queuedTLBundles(inputIndex)
       txnHead match {
-        case _: TLBundleA =>
-          val txnc = txnHead.asInstanceOf[TLBundleA]
-
+        case txnc: TLBundleA =>
           if (txnc.opcode.litValue().toInt == TLOpcodes.AcquireBlock || txnc.opcode.litValue().toInt == TLOpcodes.AcquirePerm) {
             if (acquireInFlight || releaseInFlight) {
               inputIndex += 1
@@ -225,10 +219,8 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
           }
 
 
-        case _: TLBundleC =>
+        case txnc: TLBundleC =>
           // Warning: May be invalid release if manually generated. TLTransactionGenerator should not generate invalid txns
-          val txnc = txnHead.asInstanceOf[TLBundleC]
-
           if (txnc.opcode.litValue().toInt == TLOpcodes.Release || txnc.opcode.litValue().toInt == TLOpcodes.ReleaseData) {
             val beats = if (isNonBurst(txnHead)) 1 else 1 << math.max(txnc.size.litValue().toInt - log2Ceil(params.dataBits/8), 0)
             if (acquireInFlight || releaseInFlight) {

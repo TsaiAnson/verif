@@ -20,7 +20,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
                                tlc : Boolean = false, cacheBlockSize : Int = -1, acquire : Boolean = false,
                                // Randomization
                                randSeed : Int = 1234567890) {
-  assert(tlc && cacheBlockSize != 1, "TLTransactionGenerator: Please set CACHEBLOCKSIZE if TLC is enabled")
+  assert(!tlc || (tlc && cacheBlockSize != 1), "TLTransactionGenerator: Please set CACHEBLOCKSIZE if TLC is enabled")
 
   implicit val p: TLBundleParameters = bundleParams
 
