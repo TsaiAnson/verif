@@ -3,6 +3,7 @@ package verif
 import chisel3._
 import chiseltest._
 import freechips.rocketchip.tilelink._
+import verif.TLMemoryModel.WordAddr
 
 // TLDriver acting as a Master node
 class TLDriverMaster(clock: Clock, interface: TLBundle) {
@@ -38,9 +39,21 @@ class TLDriverMaster(clock: Clock, interface: TLBundle) {
   }
 }
 
+trait TLSlaveFunction[S] {
+  def response(tx: TLChannel, state: S): (Seq[TLChannel], S)
+  def respondFromState(txns: Seq[TLChannel], state: S): (Seq[TLChannel], S) = {
+    val (responseTxns, newState) = txns.foldLeft((Seq.empty[TLChannel], state)) {
+      case ((responses, state), tx) =>
+        val (newTxns, newState) = this.response(tx, state)
+        (responses ++ newTxns, newState)
+    }
+    (responseTxns, newState)
+  }
+}
+
 // TLDriver acting as a Slave node
 // Takes in a response function for processing requests
-class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response: (TLChannel, S, TLBundleParameters) => (Seq[TLChannel], S)) {
+class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFunction[S], initialState: S) {
   val params: TLBundleParameters = interface.params
 
   // TODO: once DecoupledDriverSlave returns a stream of seen transactions, remove the monitor
@@ -51,7 +64,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response
   private val eDriver = if (interface.params.hasBCE) Option(new DecoupledDriverSlave(clock, interface.e, 0)) else None
   private val monitor = new TLMonitor(clock, interface)
 
-  var state = initState
+  var state = initialState
 
   fork {
     while (true) {
@@ -62,7 +75,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, initState: S, response
       }
       val (responseTxns, newState) = txFromMaster.foldLeft((Seq.empty[TLChannel], state)) {
         case ((responses, state), tx) =>
-          val (newTxns, newState) = response(tx, state, params)
+          val (newTxns, newState) = slaveFn.response(tx, state)
           (responses ++ newTxns, newState)
       }
       state = newState
