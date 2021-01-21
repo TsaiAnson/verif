@@ -5,7 +5,6 @@ import verif.TLUtils._
 import verif.TLTransaction._
 import chisel3._
 import chisel3.util.log2Ceil
-import verif.{TLDriverMaster, TLMonitor, TLTransactionGenerator}
 
 import scala.collection.mutable.{HashMap, ListBuffer, Queue}
 

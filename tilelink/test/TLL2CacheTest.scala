@@ -25,8 +25,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val L1Monitor = new TLMonitor(c.clock, TLL2.in)
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val initialState = SlaveMemoryState(Seq(), immutable.HashMap[Int,Int](0 -> 0x1234, 8 -> 0x3333))
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, initialState, testResponseWrapper)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.init(Map(0L -> 0x1234, 1L -> 0x3333)))
 
       L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
 
@@ -63,7 +63,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val L1Monitor = new TLMonitor(c.clock, TLL2.in)
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
       val txns = Seq(
         // Two Acquires in a row, must be sequential
@@ -117,7 +118,8 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val L1Monitor = new TLMonitor(c.clock, TLL2.in)
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, SlaveMemoryState.init(), testResponseWrapper)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
       val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
