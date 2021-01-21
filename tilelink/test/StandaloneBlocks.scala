@@ -213,7 +213,8 @@ class TLPatternPusherStandalone(txns: Seq[Pattern])(implicit p: Parameters) exte
 }
 
 class TLFuzzerStandalone(nOperations: Int)(implicit p: Parameters) extends LazyModule  {
-  val TLMaster = freechips.rocketchip.tilelink.TLFuzzer(nOperations, inFlight=1)
+  val tlfuzzer = LazyModule(new freechips.rocketchip.tilelink.TLFuzzer(nOperations, inFlight=1))
+  val TLMaster = tlfuzzer.node
 
   // Standalone Connections
   val ioOutNode = BundleBridgeSink[TLBundle]()

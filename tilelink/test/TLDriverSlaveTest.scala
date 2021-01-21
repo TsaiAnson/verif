@@ -29,14 +29,15 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val monitored = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
       val expected = Seq(AccessAck(0), AccessAckData(100, 0))
-      // TODO: check equality
+      val comparison = equalsTL(monitored, expected)
+      assert(comparison.isEmpty)
     }
   }
 
   it should "handle transactions from the synthesizable TLFuzzer without errors" in {
     val N = 30
     val fuzzer = LazyModule(new TLFuzzerStandalone(N))
-    test(fuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation)) { c =>
+    test(fuzzer.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val bundleParams: TLBundleParameters = fuzzer.out.params
       val slaveFn = new TLMemoryModel(bundleParams)
       val slaveModel = new TLDriverSlave(c.clock, fuzzer.out, slaveFn, TLMemoryModel.State.empty())
@@ -44,8 +45,8 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
 
       c.clock.step(100)
 
-      val output = monitor.getMonitoredTransactions()
-      assert(output.length == 60)
+      val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      assert(output.length == N)
     }
   }
 

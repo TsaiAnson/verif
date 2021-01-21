@@ -1,6 +1,6 @@
 package verif
 
-import scala.math.pow
+import scala.math.{ceil, pow}
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleParameters, TLChannel}
 import verif.TLTransaction._
 
@@ -15,13 +15,12 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
         val byteAddr = txA.address.litValue()
         assert(byteAddr % bytesPerWord == 0)
         val wordAddr = (byteAddr / bytesPerWord).toLong
-        val wordsToProcess = (pow(2, txA.size.litValue().toInt) / bytesPerWord).toInt
+        val wordsToProcess = ceil(pow(2, txA.size.litValue().toInt) / bytesPerWord).toInt
 
         txA.opcode.litValue().toInt match {
           case TLOpcodes.Get =>
             val responseTxs = (0 until wordsToProcess).map {
               wordIdx => TLMemoryModel.read(state.mem, wordAddr + wordIdx, txA.mask.litValue().toInt, bytesPerWord)
-                //if (state.mem.contains(wordAddr+wordIdx)) BigInt(Array(0.toByte) ++ state.mem(wordAddr+wordIdx)) else BigInt(0)
             }.map {
               word => AccessAckData(word, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)
             }
@@ -48,21 +47,42 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
                 (Seq(AccessAck(0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
               }
             }
-            // TODO: handle logic and arithmetic + bursts + masks
+          case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData => // TODO: support logic/arith bursts
+            val writeMask = txA.mask.litValue().toInt
+            // We're currently in a write burst
+            if (state.burstStatus.isDefined) {
+              val burstStatus = state.burstStatus.get
+              val readData = TLMemoryModel.read(state.mem, burstStatus.baseAddr + burstStatus.currentBeat, txA.mask.litValue().toInt, bytesPerWord)
+              val writeData = TLMemoryModel.dataToWrite(readData, txA.data.litValue(), txA.opcode.litValue().toInt, txA.param.litValue().toInt)
+              val newMem = TLMemoryModel.write(state.mem, burstStatus.baseAddr + burstStatus.currentBeat, writeData, writeMask, bytesPerWord)
+              val newBurstStatus = if ((burstStatus.currentBeat + 1) == burstStatus.totalBeats) {
+                None
+              } else {
+                Some(burstStatus.copy(currentBeat = burstStatus.currentBeat + 1))
+              }
+              (Seq(AccessAckData(readData, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = newBurstStatus))
+            } else {
+              val readData = TLMemoryModel.read(state.mem, wordAddr, txA.mask.litValue().toInt, bytesPerWord)
+              val writeData = TLMemoryModel.dataToWrite(readData, txA.data.litValue(), txA.opcode.litValue().toInt, txA.param.litValue().toInt)
+              val newMem = TLMemoryModel.write(state.mem, wordAddr, writeData, writeMask, bytesPerWord)
+              if (wordsToProcess == 1) { // Single beat read-modify-write
+                (Seq(AccessAckData(readData, txA.source.litValue().toInt)), state.copy(mem = newMem))
+              } else { // Starting a burst
+                val burstStatus = TLMemoryModel.BurstStatus(wordAddr, 1, wordsToProcess)
+                (Seq(AccessAckData(readData, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
+              }
+            }
           case _ => ???
         }
       case _ => ???
     }
   }
 }
-// TODO apply method with with varargs of Map for initializing
+
 object TLMemoryModel {
   type WordAddr = Long
-  case class State (
-                     mem: Map[WordAddr, Array[Byte]],
-                     burstStatus: Option[BurstStatus]
-                   )
   case class BurstStatus(baseAddr: WordAddr, currentBeat: Int, totalBeats: Int)
+  case class State(mem: Map[WordAddr, Array[Byte]], burstStatus: Option[BurstStatus])
 
   object State {
     def empty(): State = State(Map[WordAddr, Array[Byte]](), None)
@@ -99,10 +119,33 @@ object TLMemoryModel {
     // However, we choose to zero out the bytes that are low in the mask to potentially uncover issues in other software models
     val bytesToRead = maskToBigEndian(mask, bytesPerWord)
     val readBytes = if (mem.contains(wordAddr)) mem(wordAddr) else Array.fill(bytesPerWord)(0.toByte)
+    assert(readBytes.length == bytesPerWord)
     val readBytesMasked = readBytes.zipWithIndex.foldLeft(Seq.empty[Byte]) {
       case (bytesToReturn, (readByte, idx)) =>
         bytesToReturn :+ (if (bytesToRead.contains(idx)) readByte else 0.toByte)
     }
     BigInt(Array(0.toByte) ++ readBytesMasked)
+  }
+
+  def dataToWrite(readData: BigInt, writeData: BigInt, opcode: Int, param: Int): BigInt = {
+    opcode match {
+      case TLOpcodes.LogicalData =>
+        param match {
+          case 0 => readData ^ writeData
+          case 1 => readData | writeData
+          case 2 => readData & writeData
+          case 3 => writeData
+          case _ => ???
+        }
+      case TLOpcodes.ArithmeticData =>
+        param match {
+          case 0 => readData.min(writeData) // TODO: these are forced unsigned min/max since BigInt is created from Chisel UInt, should be signed
+          case 1 => readData.max(writeData)
+          case 2 => readData.min(writeData)
+          case 3 => readData.max(writeData)
+          case 4 => readData + writeData
+          case _ => ???
+        }
+    }
   }
 }

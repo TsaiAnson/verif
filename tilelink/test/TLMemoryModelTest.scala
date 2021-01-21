@@ -6,6 +6,7 @@ import verif.TLTransaction._
 
 object TLMemoryModelSequences {
   // Manually crafted stimulus to test the TLMemoryModel slaving function
+  // Returns stimulus to poke on A and expected response on D
   def put(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
     require(p.dataBits == 32) // TODO loosen
     (
@@ -54,7 +55,7 @@ object TLMemoryModelSequences {
         Get(0x8),
         Get(0xc),
         Get(0x10),
-        Get(0x14)// TODO: add a PutBurst with mask too
+        Get(0x14)
       ) ++
       PutBurst(0x10, Seq(0xbbbbbbbbL, 0xccccccccL), Seq(Integer.parseInt("0011", 2), Integer.parseInt("1000", 2)), 0) ++
       Seq(
@@ -110,18 +111,98 @@ object TLMemoryModelSequences {
   }
 
   def logic(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
-    ???
+    require(p.dataBits == 32) // TODO loosen
+    val initialData = 0x12345678L
+    val newData = 0xabfd2343L
+    val xored = initialData ^ newData
+    val ored = initialData | newData
+    val anded = initialData & newData
+    val swapped = newData
+    (
+      PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
+      Seq(
+        Logic(0, 0x0, newData),
+        Logic(1, 0x4, newData),
+        Logic(2, 0x8, newData),
+        Logic(3, 0xc, newData),
+        Get(0x0),
+        Get(0x4),
+        Get(0x8),
+        Get(0xc)
+      ),
+      Seq(
+        AccessAck(0, 4, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(xored, 0),
+        AccessAckData(ored, 0),
+        AccessAckData(anded, 0),
+        AccessAckData(swapped, 0)
+      )
+    )
   }
 
-  def logicBurstWithMask(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
-    ???
+  def logicBurst(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
+    require(p.dataBits == 32) // TODO loosen
+    val initialData = 0x12345678L
+    val newData = 0xabfd2343L
+    val xored = initialData ^ newData
+    (
+      PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
+      LogicBurst(0, 0x0, Seq.fill(4)(newData), 0) :+
+      Get(0x0, 4, Integer.parseInt("1111", 2), 0)
+      ,
+      Seq(
+        AccessAck(0, 4, 0),
+        AccessAckData(initialData, 0, 4, 0),
+        AccessAckData(initialData, 0, 4, 0),
+        AccessAckData(initialData, 0, 4, 0),
+        AccessAckData(initialData, 0, 4, 0),
+        AccessAckData(xored, 0, 4, 0),
+        AccessAckData(xored, 0, 4, 0),
+        AccessAckData(xored, 0, 4, 0),
+        AccessAckData(xored, 0, 4, 0)
+      )
+    )
   }
 
   def arith(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
-    ???
+    require(p.dataBits == 32) // TODO loosen
+    val initialData = 0x12345678L
+    val newData = 0xabfd2343L
+    val xored = initialData ^ newData
+    val ored = initialData | newData
+    val anded = initialData & newData
+    val swapped = newData
+    (
+      PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
+        Seq(
+          Logic(0, 0x0, newData),
+          Logic(1, 0x4, newData),
+          Logic(2, 0x8, newData),
+          Logic(3, 0xc, newData),
+          Get(0x0),
+          Get(0x4),
+          Get(0x8),
+          Get(0xc)
+        ),
+      Seq(
+        AccessAck(0, 4, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(initialData, 0),
+        AccessAckData(xored, 0),
+        AccessAckData(ored, 0),
+        AccessAckData(anded, 0),
+        AccessAckData(swapped, 0)
+      )
+    )
   }
 
-  def arithBurstWithMask(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
+  def arithBurst(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
     ???
   }
 
@@ -170,5 +251,14 @@ class TLMemoryModelTest extends AnyFlatSpec {
   }
   it should "get with bursts" in {
     test(() => TLMemoryModelSequences.getBurst(bundleParams))
+  }
+  it should "logic" in {
+    test(() => TLMemoryModelSequences.logic(bundleParams))
+  }
+  it should "logic burst" in {
+    test(() => TLMemoryModelSequences.logicBurst(bundleParams))
+  }
+  it should "arithmetic" in {
+    test(() => TLMemoryModelSequences.arith(bundleParams))
   }
 }
