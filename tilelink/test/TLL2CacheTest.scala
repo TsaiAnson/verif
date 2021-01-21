@@ -53,30 +53,31 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Driver TLC Compliance Test" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      implicit val params = TLL2.in.params
+      val L1PortParams = TLL2.in.params
+      val DRAMPortParams = TLL2.out.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
       val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
       val L1Monitor = new TLMonitor(c.clock, TLL2.in)
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val slaveFn = new TLMemoryModel(params)
+      val slaveFn = new TLMemoryModel(DRAMPortParams)
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
       val txns = Seq(
         // Two Acquires in a row, must be sequential
-        AcquireBlock(param = 1, addr = 0x0, size = 3),
-        AcquireBlock(param = 0, addr = 0x20, size = 3),
+        AcquireBlock(param = 1, addr = 0x0, size = 3)(L1PortParams),
+        AcquireBlock(param = 0, addr = 0x20, size = 3)(L1PortParams),
         // Cannot acquire until release completes
-        ReleaseData(param = 0, addr = 0x20, data = 0x0, size = 3, source = 0),
-        AcquireBlock(param = 1, addr = 0x40, size = 3),
+        ReleaseData(param = 0, addr = 0x20, data = 0x0, size = 3, source = 0)(L1PortParams),
+        AcquireBlock(param = 1, addr = 0x40, size = 3)(L1PortParams),
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
       val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
-      val fuzz = new TLCFuzzer(params, gen, 3, txns, true)
+      val fuzz = new TLCFuzzer(L1PortParams, gen, 3, txns, true)
 
       for (_<- 0 until 20) {
         val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
