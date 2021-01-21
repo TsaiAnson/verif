@@ -188,7 +188,7 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
       val fencePipe = new FencePipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceReqPipe",
         "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceRespPipe", c.clock, c.io)
 
-      val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock);
+      //val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock);
 
       //val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
       // TODO: tlClientDriver is broken
@@ -198,7 +198,7 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
       // val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, c.io.ptw(0).req)
       // val tlMonitor = new TLClientMonitorBasic(c.clock, c.tlOut(0))
 
-      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe))
+      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe)); //, tlPipe));
 
       runner.run(simArgs, simTarget, x => x == 0)
 

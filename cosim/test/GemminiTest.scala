@@ -30,7 +30,7 @@ class GemminiTest extends AnyFlatSpec with ChiselScalatestTester {
       addSinks = 1
     ))
   it should "Elaborate Gemmini" in {
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
       // Drivers
       //val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, c.io.cmd)
       //val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)

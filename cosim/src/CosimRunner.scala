@@ -67,7 +67,7 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
     val stdOut = sim.getStdOut
     val stdErr = sim.getStdErr
 
-    /** TEMPORARY **/
+    /** TEMPORARY REMOVE ONCE FENCE WORKS PROPERLY**/
     // Spin to allow driver to recieve and push
     Thread.sleep(10*1000)
     /** END TEMPORARY **/

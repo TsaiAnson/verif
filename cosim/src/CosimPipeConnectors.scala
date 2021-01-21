@@ -35,13 +35,25 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
         Thread.sleep(250)
       }
 
+      println("All Fence files exist")
+
       val req = new FileInputStream(fenceReqPipe)
       val resp = new FileOutputStream(fenceRespPipe)
 
+      println("Fence streams opened")
+
       while(!terminate) {
         val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
-        if (r != null && r.getValid()) {
-          //while(io.busy.peek().litToBoolean) { clock.step() } // step clock while busy
+        if (r != null) {
+          println("Non-null fence req seen")
+          println(r.getValid())
+        }
+        if (r != null && r.asInstanceOf[FenceProtos.FenceReq].getValid()) {
+//          while(io.busy.peek().litToBoolean) {
+//            println("Waiting for busy to go low")
+//            clock.step()
+//          } // step clock while busy
+          println("Sending response")
           FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeDelimitedTo(resp)
         }
       }
@@ -61,15 +73,16 @@ class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock) extends AbstractCos
       Thread.sleep(250)
     }
 
-    //val tld = new FileInputStream(tldPipe)
-    //val tla = new FileOutputStream(tlaPipe)
+    println("All TL files exist")
+
+    // NOTE: Scala convention is to open inputs before outputs in matching pairs
+    val tld = new FileInputStream(tldPipe)
+    val tla = new FileOutputStream(tlaPipe)
+
+    println("TL streams opened")
 
     while(!terminate) {
-//      val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
-//      if (r != null && r.getValid()) {
-//        //while(io.busy.peek().litToBoolean) { clock.step() } // step clock while busy
-//        FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeDelimitedTo(resp)
-//      }
+
     }
   }
 

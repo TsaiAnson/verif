@@ -27,7 +27,11 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
       Thread.sleep(250)
     }
 
+    println("All Pipe Driver files exist")
+
     val in = new FileInputStream(pipe)
+
+    println("Pipe Driver streams opened")
 
     while(!terminate) {
       val message = inputStreamToProto(in)
