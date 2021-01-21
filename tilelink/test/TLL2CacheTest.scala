@@ -11,24 +11,21 @@ import verif.TLUtils._
 import TLTransaction._
 import freechips.rocketchip.tilelink._
 
-import scala.collection.immutable
-
 class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "Elaborate L2" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
     test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
       val L1Monitor = new TLMonitor(c.clock, TLL2.in)
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val slaveFn = new TLMemoryModel(params)
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.init(Map(0L -> 0x1234, 1L -> 0x3333)))
+      val slaveFn = new TLMemoryModel(TLL2.out.params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.init(Map(0L -> 0x1234, 1L -> 0x3333), TLL2.out.params.dataBits/8))
 
-      L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
+      L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)(TLL2.in.params)))
 
       c.clock.step(200)
 

@@ -82,11 +82,20 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
 object TLMemoryModel {
   type WordAddr = Long
   case class BurstStatus(baseAddr: WordAddr, currentBeat: Int, totalBeats: Int)
-  case class State(mem: Map[WordAddr, Array[Byte]], burstStatus: Option[BurstStatus])
+  case class State(mem: Map[WordAddr, Array[Byte]], burstStatus: Option[BurstStatus]) {
+    // Convert Array[Byte] into hex string
+    override def toString: String = {
+      mem.map{
+        case (addr, word) => f"$addr -> ${BigInt(Array(0.toByte) ++ word)}%#x"
+      }.mkString("\n") + "\n" +
+      burstStatus.toString + "\n"
+    }
+  }
 
   object State {
     def empty(): State = State(Map[WordAddr, Array[Byte]](), None)
-    def init(mem: Map[WordAddr, BigInt]): State = State(mem.mapValues(_.toByteArray), None)
+    def init(mem: Map[WordAddr, BigInt], bytesPerWord: Int): State =
+      State(mem.mapValues(v => padBigEndian(v, bytesPerWord)), None)
   }
 
   private def maskToBigEndian(mask: Int, bytesPerWord: Int): Seq[Int] = {
@@ -95,20 +104,22 @@ object TLMemoryModel {
     }.map(i => bytesPerWord - i - 1)
   }
 
-  def write(mem: Map[WordAddr, Array[Byte]], wordAddr: WordAddr, data: BigInt, mask: Int, bytesPerWord: Int): Map[WordAddr, Array[Byte]] = {
-    // BigInt.toByteArray returns a big endian byte representation
-    // Need to left pad dataBytes to bytesPerWord
-    val dataBytes = data.toByteArray.reverse.padTo(bytesPerWord, 0.toByte).reverse
-
+  // BigInt.toByteArray returns a big endian byte representation
+  // Need to left pad dataBytes to bytesPerWord
+  private def padBigEndian(num: BigInt, padToBytes: Int): Array[Byte] = {
+    val bytes = num.toByteArray.reverse.padTo(padToBytes, 0.toByte).reverse
     // 0xffffffff = Array[Byte](0, -1, -1, -1, -1)
-    assert(dataBytes.length == bytesPerWord || (dataBytes.head == 0.toByte && dataBytes.length == bytesPerWord + 1))
-    val dataBytesCleaned = if (dataBytes.length == bytesPerWord) dataBytes else dataBytes.slice(1, dataBytes.length)
+    assert(bytes.length == padToBytes|| (bytes.head == 0.toByte && bytes.length == padToBytes + 1))
+    if (bytes.length == padToBytes) bytes else bytes.slice(1, bytes.length)
+  }
 
+  def write(mem: Map[WordAddr, Array[Byte]], wordAddr: WordAddr, data: BigInt, mask: Int, bytesPerWord: Int): Map[WordAddr, Array[Byte]] = {
+    val dataBytes = padBigEndian(data, bytesPerWord)
     val bytesToWrite = maskToBigEndian(mask, bytesPerWord)
     val initialValue = if (mem.contains(wordAddr)) mem(wordAddr) else Array.fill(bytesPerWord)(0.toByte)
     var newValue = initialValue
     for (byteIdx <- bytesToWrite) {
-      newValue = newValue.updated(byteIdx, dataBytesCleaned(byteIdx))
+      newValue = newValue.updated(byteIdx, dataBytes(byteIdx))
     }
     mem + (wordAddr -> newValue)
   }
