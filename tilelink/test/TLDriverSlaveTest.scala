@@ -59,14 +59,24 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       val sDriver = new TLDriverSlave(c.clock, passthrough.out, slaveFn, TLMemoryModel.State.empty())
       val monitor = new TLMonitor(c.clock, passthrough.in)
 
-      // TODO: fetch stimulus from memory sequences
-      val stimulus = Seq.empty[TLChannel]
-      val expected = Seq.empty[TLChannel]
+      val (stimulus, expected) = (Seq(
+        Put(0x8, BigInt("0123456789abcdef", 16)),
+        Get(0x8),
+        Put(0x8, BigInt("ffffffffffffffff", 16)),
+        Get(0x8),
+      ),
+      Seq(
+        AccessAck(0),
+        AccessAckData(BigInt("0123456789abcdef", 16), 0),
+        AccessAck(0),
+        AccessAckData(BigInt("ffffffffffffffff", 16), 0)
+      ))
       mDriver.push(stimulus)
       c.clock.step(100)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
-      // TODO: add check
+      val comparison = equalsTL(output, expected)
+      assert(comparison.isEmpty)
     }
   }
 }
