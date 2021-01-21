@@ -1,13 +1,12 @@
 package verif
 
 import chisel3._
-import chisel3.util._
-import chiseltest._
-import scala.collection.mutable.{MutableList, Queue}
 
-// Interface type I, Storage type S, dataType D
+import scala.collection.mutable
+
+// Interface type I, Storage type S (transaction type)
 abstract class AbstractDriver[I, S](clock: Clock, interface: I) {
-  val inputTransactions = Queue[S]()
+  val inputTransactions: mutable.Queue[S] = mutable.Queue[S]()
 
   def push(t: S): Unit = {
     inputTransactions += t
@@ -19,43 +18,29 @@ abstract class AbstractDriver[I, S](clock: Clock, interface: I) {
     }
   }
 
-  def hasNextTransaction(): Boolean = {
-    !inputTransactions.isEmpty
+  def hasNextTransaction: Boolean = {
+    inputTransactions.nonEmpty
   }
 
-  def getNextTransaction(): S = {
+  def getNextTransaction: S = {
     inputTransactions.dequeue()
   }
 }
 
 // Input type I, Storage type S
 abstract class AbstractMonitor[I, S](clock: Clock, interface: I) {
-  val monitoredTransactions = Queue[S]()
-
-  def setConfig(variableName: String, newValue : Int) : Unit = {
-    var found = false
-    for (f <- this.getClass.getDeclaredFields) {
-      f.setAccessible(true)
-      if (f.getName == variableName) {
-        f.set(this, newValue)
-        found = true
-      }
-    }
-    if (!found) {
-      throw new IllegalArgumentException("Config variable not found.")
-    }
-  }
+  val monitoredTransactions: mutable.Queue[S] = mutable.Queue[S]()
 
   def getOldestMonitoredTransaction: Option[S] = {
     // Returns oldest T if non-empty, else None
-    if (!monitoredTransactions.isEmpty) {
+    if (monitoredTransactions.nonEmpty) {
       Some(monitoredTransactions.dequeue())
     } else {
       None
     }
   }
 
-  def getMonitoredTransactions: MutableList[S] = {
+  def getMonitoredTransactions: mutable.MutableList[S] = {
     monitoredTransactions
   }
 
