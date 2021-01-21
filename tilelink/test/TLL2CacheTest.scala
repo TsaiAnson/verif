@@ -1,132 +1,154 @@
 package verif
 
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
 import chiseltest._
-import designs._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verifTLUtils._
+import verif.TLUtils._
+import TLTransaction._
+import freechips.rocketchip.tilelink._
 
-import scala.collection.mutable.HashMap
+import scala.collection.immutable
 
 class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
   it should "Elaborate L2" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLL2.in.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
-      val monitor = new TLMonitor(c.clock, TLL2.in, hasBCE = true)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out, hasBCE = false)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      test(0) = 0x1234
-      test(8) = 0x3333
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.init(Map(0L -> 0x1234, 1L -> 0x3333)))
 
-      L1Placeholder.push(Seq(Get(size = 3.U, source = 0.U, addr = 0.U, mask = 0xff.U)))
-      L1Placeholder.push(Seq(AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x8.U, mask = 0xff.U)))
+      L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)))
 
       c.clock.step(200)
 
-      println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
-        println(t)
-      }
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
+
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
+
+//      println("INNER (CORE)")
+//      for (t <- monitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//      println("OUTER (DRAM)")
+//      for (t <- monitor1.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 
-  it should "Test New Driver Master" in {
+  // Ignoring test as new driver is no longer TLC compliance
+  it should "Driver TLC Compliance Test" in {
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLL2.in.params
 
-      val L1Placeholder = new TLDriverMasterNew(c.clock, TLL2.in)
-      val monitor = new TLMonitor(c.clock, TLL2.in, hasBCE = true)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out, hasBCE = false)
+      val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
+      val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
       val txns = Seq(
         // Two Acquires in a row, must be sequential
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x0.U, mask = 0xff.U),
-        AcquireBlock(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, mask = 0xff.U),
+        AcquireBlock(param = 1, addr = 0x0, size = 3),
+        AcquireBlock(param = 0, addr = 0x20, size = 3),
         // Cannot acquire until release completes
-        ReleaseData(param = 0.U, size = 3.U, source = 0.U, addr = 0x20.U, data = 0.U(64.W)),
-        AcquireBlock(param = 1.U, size = 3.U, source = 0.U, addr = 0x40.U, mask = 0xff.U),
+        ReleaseData(param = 0, addr = 0x20, data = 0x0, size = 3, source = 0),
+        AcquireBlock(param = 1, addr = 0x40, size = 3),
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
-      L1Placeholder.push(txns)
-      c.clock.step(200)
+      val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+        get = false, putPartial = false, putFull = false,
+        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
+      val fuzz = new TLCFuzzer(params, gen, 3, txns, true)
 
-      println("PERM STATE")
-      val perm = L1Placeholder.permState
-      for (x <- perm.keys) {
-        print(s"(${x}, ${perm(x)}), ")
+      for (_<- 0 until 20) {
+        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
+        L1Placeholder.push(txns)
+        c.clock.step(5)
       }
-      println("")
 
-      println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
-        println(t)
-      }
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
+
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
+
+//      println("INNER (CORE)")
+//      for (t <- L1Monitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//      println("OUTER (DRAM)")
+//      for (t <- DRAMMonitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 
   it should "L2 SWTLFuzzer" in {
 
     val TLL2 = LazyModule(new VerifTLL2Cache)
-    test(TLL2.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params = TLL2.in.params
 
-      val L1Placeholder = new TLDriverMasterNew(c.clock, TLL2.in, allowInvalidTxn = false, fixInvalidTxn = true)
-      val monitor = new TLMonitor(c.clock, TLL2.in, hasBCE = true)
-      val monitor1 = new TLMonitor(c.clock, TLL2.out, hasBCE = false)
+      val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
+      val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
+      val L1Monitor = new TLMonitor(c.clock, TLL2.in)
+      val DRAMMonitor = new TLMonitor(c.clock, TLL2.out)
 
-      val test = HashMap[Int,Int]()
-      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, test, testResponse)
+      val slaveFn = new TLMemoryModel(params)
+      val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
-      val fuz = new SWTLFuzzer(standaloneSlaveParams.managers(0), overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(standaloneSlaveParamsC.managers(0), TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
-        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true)
-      val txns = fuz.generateTransactions(30)
+        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 5)
+      val fuzz = new TLCFuzzer(params, gen, 5)
 
-      println("TXNS")
-      for (t <- txns) {
-        println(t)
+      for (i <- 0 until 200) {
+        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
+        L1Placeholder.push(txns)
+        c.clock.step(5)
       }
 
-      L1Placeholder.push(txns)
-      c.clock.step(500)
+      val output1 = L1Monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity1 = new TLSanityChecker(TLL2.in.params, standaloneSlaveParamsC.managers.head, standaloneMasterParamsC.clients.head)
+      sanity1.sanityCheck(output1)
 
-      println("PERM STATE")
-      val perm = L1Placeholder.permState
-      for (x <- perm.keys) {
-        print(s"(${x}, ${perm(x)}), ")
-      }
-      println("")
+      val output2 = DRAMMonitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
+      val sanity2 = new TLSanityChecker(TLBundleParameters(standaloneMasterParams, standaloneSlaveParams),
+        standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
+      sanity2.sanityCheck(output2)
 
-      println("INNER (CORE)")
-      for (t <- monitor.getMonitoredTransactions()) {
-        println(t)
-      }
-      println("OUTER (DRAM)")
-      for (t <- monitor1.getMonitoredTransactions()) {
-        println(t)
-      }
+//      println("INNER (CORE)")
+//      for (t <- L1Monitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
+//      println("OUTER (DRAM)")
+//      for (t <- DRAMMonitor.getMonitoredTransactions()) {
+//        println(t)
+//      }
     }
   }
 }

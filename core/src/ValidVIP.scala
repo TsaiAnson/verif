@@ -16,8 +16,8 @@ class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) extends
     var cycleCount = 0
     var idleCycles = 0
     while (true) {
-      if (hasNextTransaction() && idleCycles == 0) {
-        val t = getNextTransaction()
+      if (hasNextTransaction && idleCycles == 0) {
+        val t = getNextTransaction
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {

@@ -40,19 +40,3 @@ class SWAssocCAM (keyWidth: Int, dataWidth: Int, memSizeWidth: Int) {
       _.dataWr -> input.dataWr, _.found ->found.B, _.dataRe -> dataRe.U)
   }
 }
-
-// object Main {
-//   def main(args: Array[String]): Unit = {
-//     var swcam = new SWAssocCAM(8,8,8)
-//     var out = swcam.process(CAMIOInTr(true, false, 123, 0, 0))
-//     println(out.found)
-//     out = swcam.process(CAMIOInTr(true, false, 0, 0, 0))
-//     println(out.found)
-//     out = swcam.process(CAMIOInTr(true, true, 0, 123, 123))
-//     println(out.found)
-//     out = swcam.process(CAMIOInTr(true, true, 0, 456, 789))
-//     println(out.found)
-//     out = swcam.process(CAMIOInTr(true, true, 0, 0, 7809))
-//     println(out.found)
-//   }
-// }
