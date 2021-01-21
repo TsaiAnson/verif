@@ -507,4 +507,57 @@ package object TLTransaction {
       _.sink -> sink.U
     )
   }
+
+  case class Mismatch(idx: Int, field: String, expected: chisel3.Data, actual:chisel3.Data) {
+    override def toString: String = f"MISMATCH Index: $idx%05d Field: $field Expected: ${expected.litValue()}%#x Got: ${actual.litValue()}%#x"
+  }
+
+  def findMismatch(idx: Int, dut: TLBundleD, gold: TLBundleD): Seq[Mismatch] = {
+    if (dut.opcode.litValue() != gold.opcode.litValue()) {
+      Seq(Mismatch(idx, dut.opcode.name, gold.opcode, dut.opcode))
+    } else {
+      val fieldsToCompare = Seq[TLBundleD => chisel3.UInt](t => t.param, t => t.size, t => t.source, t => t.sink, t => t.denied)
+      dut.opcode.litValue().toInt match {
+        case TLOpcodes.AccessAck =>
+          fieldsToCompare.foldLeft(Seq.empty[Mismatch]) {
+            case (mismatches, fieldFn) =>
+              if (fieldFn(dut).litValue() != fieldFn(gold).litValue()) {
+                mismatches :+ Mismatch(idx, fieldFn(dut).name, fieldFn(gold), fieldFn(dut))
+              } else {
+                mismatches
+              }
+          }
+        case TLOpcodes.AccessAckData => // TODO: duplicated code
+          val dataFields = fieldsToCompare ++ Seq[TLBundleD => chisel3.UInt](t => t.data, t => t.corrupt)
+          dataFields.foldLeft(Seq.empty[Mismatch]) {
+            case (mismatches, fieldFn) =>
+              if (fieldFn(dut).litValue() != fieldFn(gold).litValue()) {
+                mismatches :+ Mismatch(idx, fieldFn(dut).name, fieldFn(gold), fieldFn(dut))
+              } else {
+                mismatches
+              }
+          }
+        case _ => ???
+      }
+    }
+  }
+
+  def equalsTL(dut: Seq[TLBundleD], gold: Seq[TLBundleD]): Seq[Mismatch] = {
+    val directMismatches = dut.zip(gold).zipWithIndex.foldLeft(Seq.empty[Mismatch]) {
+      case (mismatches, ((dutTx, goldTx), idx)) =>
+        mismatches ++ findMismatch(idx, dutTx, goldTx)
+    }
+    val lengthMismatches = if (dut.length > gold.length) {
+      dut.slice(gold.length, dut.length).zipWithIndex.map {
+        case (dutTx, idx) =>
+          Mismatch(idx + gold.length, "Unmatched DUT TX", 0.U, dutTx) // TODO: expected field is meaningless here
+      }
+    } else {
+      gold.slice(dut.length, gold.length).zipWithIndex.map {
+        case (goldTx, idx) =>
+          Mismatch(idx + dut.length, "Unmatched Gold TX", 0.U, goldTx) // TODO: expected field is meaningless here
+      }
+    }
+    directMismatches ++ lengthMismatches
+  }
 }

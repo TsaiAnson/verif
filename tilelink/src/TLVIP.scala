@@ -3,7 +3,6 @@ package verif
 import chisel3._
 import chiseltest._
 import freechips.rocketchip.tilelink._
-import verif.TLMemoryModel.WordAddr
 
 // TLDriver acting as a Master node
 class TLDriverMaster(clock: Clock, interface: TLBundle) {
@@ -73,11 +72,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFuncti
         case _:TLBundleD | _:TLBundleB => None
         case other => Some(other)
       }
-      val (responseTxns, newState) = txFromMaster.foldLeft((Seq.empty[TLChannel], state)) {
-        case ((responses, state), tx) =>
-          val (newTxns, newState) = slaveFn.response(tx, state)
-          (responses ++ newTxns, newState)
-      }
+      val (responseTxns, newState) = slaveFn.respondFromState(txFromMaster, state)
       state = newState
       dDriver.push(responseTxns.collect{ case t: TLBundleD => t }.map {
         t: TLBundleD =>
