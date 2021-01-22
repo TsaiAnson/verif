@@ -413,7 +413,7 @@ package object TLTransaction {
       _.source -> source.U,
       _.sink -> 0.U,
       _.denied -> denied.B,
-      _.corrupt -> 0.B,
+      _.corrupt -> denied.B, // Corrupt MUST be high if Denied
       _.data -> data.U
     )
   }

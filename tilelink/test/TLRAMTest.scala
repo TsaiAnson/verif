@@ -19,10 +19,11 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLRAM = LazyModule(new TLRAMStandalone)
     test(TLRAM.module).withAnnotations(Seq(TreadleBackendAnnotation, StructuralCoverageAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRAM.in)
-      val monitor = new TLMonitor(c.clock, TLRAM.in)
+      val protocolChecker = new TLProtocolChecker(TLRAM.in.params, TLRAM.sPortParams.head.managers.head, TLRAM.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAM.in, Some(protocolChecker))
       val simCycles = 400
 
-      val fuz = new TLTransactionGenerator(standaloneSlaveParams.managers.head, TLRAM.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val fuz = new TLTransactionGenerator(defaultStandaloneSlaveParams.managers.head, TLRAM.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val inputTransactions = fuz.generateTransactions(60)
 
@@ -30,8 +31,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
-      val sanity = new TLSanityChecker(TLRAM.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
 
       // No SW output checking as RAMModel checks for correctness
     }
@@ -43,7 +42,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = TLRAM.in.params
 
       val driver = new TLDriverMaster(c.clock, TLRAM.in)
-      val monitor = new TLMonitor(c.clock, TLRAM.in)
+      val protocolChecker = new TLProtocolChecker(TLRAM.in.params, TLRAM.sPortParams.head.managers.head, TLRAM.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAM.in, Some(protocolChecker))
       val simCycles = 150
 
       val inputTxns: Seq[TLBundleA] = Seq(
@@ -65,8 +65,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{ case t: TLBundleD => t}
-      val sanity = new TLSanityChecker(TLRAM.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
 
       output.zip(expectedOut).foreach {
         case (dutOut, expOut) =>
@@ -83,7 +81,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLRAMSlave = LazyModule(new TLRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
       val simCycles = 150
 
       implicit val params: TLBundleParameters = TLRAMSlave.in.params
@@ -103,8 +102,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
-      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
 
       for (out <- output) {
         println(out)
@@ -117,19 +114,18 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLRAMSlave = LazyModule(new TLRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
       val simCycles = 150
 
       implicit val params: TLBundleParameters = TLRAMSlave.in.params
       // Four Consecutive Writes (burst)
-      val inputTransactions = PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678, 0x8765, 0x4321), source = 0)
+      val inputTransactions = PutBurst(addr = 0x20, data = Seq(0x1234, 0x5678, 0x8765, 0x4321), source = 0)
 
       driver.push(inputTransactions)
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
-      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
 
       for (out <- output) {
         println(out)
@@ -166,8 +162,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
-      val sanity = new TLSanityChecker(TLRAMSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
+      val sanity = new TLProtocolChecker(TLRAMSlave.in.params, defaultStandaloneSlaveParams.managers.head, defaultStandaloneMasterParams.clients.head)
+      sanity.check(output)
 
       for (out <- output) {
         println(out.opcode, out.data, out.size)

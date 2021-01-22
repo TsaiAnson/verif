@@ -18,7 +18,8 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLRegBankSlave = LazyModule(new TLRegBankStandalone)
     test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRegBankSlave.in)
+      val protocolChecker = new TLProtocolChecker(TLRegBankSlave.in.params, TLRegBankSlave.sPortParams.head.managers.head, TLRegBankSlave.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRegBankSlave.in, Some(protocolChecker))
       val simCycles = 100
 
       implicit val params: TLBundleParameters = TLRegBankSlave.in.params
@@ -44,8 +45,6 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect { case t: TLBundleD => t }
-      val sanity = new TLSanityChecker(TLRegBankSlave.in.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity.sanityCheck(output)
 
       // TODO Add software model here
       val swoutput = Array(

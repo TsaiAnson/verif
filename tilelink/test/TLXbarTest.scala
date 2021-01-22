@@ -20,7 +20,8 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Multi Driver/Monitor
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
       val simCycles = 500
 
       implicit val params = TLRAMSlave.in.params
@@ -48,11 +49,13 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // XBar DUT
       val dutDriver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val dutMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val dutProtocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val dutMonitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(dutProtocolChecker))
 
       // HW Reference
       val refDriver = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
-      val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef)
+      val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.inRef.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
+      val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef, Some(refProtocolChecker))
 
       val simCycles = 500
 
@@ -86,11 +89,13 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Master 1
       val driver1 = new TLDriverMaster(c.clock, TLRAMSlave.inOne)
-      val monitor1 = new TLMonitor(c.clock, TLRAMSlave.inOne)
+      val protocolChecker1 = new TLProtocolChecker(TLRAMSlave.inOne.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val monitor1 = new TLMonitor(c.clock, TLRAMSlave.inOne, Some(protocolChecker1))
 
       // Master 2
       val driver2 = new TLDriverMaster(c.clock, TLRAMSlave.inTwo)
-      val monitor2 = new TLMonitor(c.clock, TLRAMSlave.inTwo)
+      val protocolChecker2 = new TLProtocolChecker(TLRAMSlave.inTwo.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
+      val monitor2 = new TLMonitor(c.clock, TLRAMSlave.inTwo, Some(protocolChecker2))
 
       val simCycles = 500
 
@@ -123,11 +128,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
 
       val out1 = monitor1.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
-      val sanity1 = new TLSanityChecker(TLRAMSlave.inOne.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity1.sanityCheck(out1)
       val out2 = monitor2.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
-      val sanity2 = new TLSanityChecker(TLRAMSlave.inTwo.params, standaloneSlaveParams.managers.head, standaloneMasterParams.clients.head)
-      sanity2.sanityCheck(out2)
 
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX

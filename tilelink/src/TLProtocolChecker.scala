@@ -7,21 +7,20 @@ import chisel3.util.log2Ceil
 import freechips.rocketchip.diplomacy.TransferSizes
 import scala.collection.mutable
 
-// Checks the sanity of transactions exchanged on a *single* connection
-class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
+// Checks the protocol compliance of transactions exchanged on a *single* connection
+class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
 
   // Internal state mapping source -> state
   // States: 0 (Idle), 1 (pending AccessAck), 2 (pending HintAck), 3 (pending Grant), 4 (pending GrantAck), 5 (pending ReleaseAck),
   //       : -X (Remaining messages of a burst transaction), 1X (pending ProbeAck - X is previous state as Probes can interrupt existing transaction)
-  // !!NOTE: Currently not keeping track of Acks, as concurrent transactions are possible. TODO convert to list of size = # concurrent transactions
   val sourceState = new mutable.HashMap[Int,Int]()
 
   // Internal state for burst parameter checking (source -> head of burst)
   val sourceBurst = new mutable.HashMap[Int,TLChannel]()
   val beatSize = log2Ceil(params.dataBits / 8)
 
-  // Sanity checker
-  def sanityCheck(txns: Seq[TLChannel]) : Unit = {
+  // Protocol compliance checker
+  def check(txns: Seq[TLChannel]) : Unit = {
     for (txn <- txns) {
       txn match {
         case txna: TLBundleA =>
@@ -79,6 +78,7 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Assertions checking on first TLBundle
             assert(sparam.supportsLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 3, s"(A) Non-valid PARAM (${txna.param}) for LOGIC Data Bundle")
+            println(s"Blah ${txna.param.litValue() >= 0 && txna.param.litValue() <= 3}")
             assert(containsLg(sparam.supportsLogical, txna.size), "(A) LOGIC Size is outside of valid transfer sizes")
             assert(alignedLg(txna.address, txna.size), s"(A) LOGIC Address (${txna.address}) is NOT aligned with size (${txna.size})")
             if (txna.size.litValue() < beatSize) {

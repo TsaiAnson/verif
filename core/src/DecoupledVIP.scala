@@ -57,9 +57,9 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
         timescope { // TODO: why do we need a new timescope, can we force valid to false later explicitly?
           t.data match {
             case bundle: Bundle =>
-              //interface.bits.asInstanceOf[Bundle].pokePartial(bundle)
+              interface.bits.asInstanceOf[Bundle].pokePartial(bundle)
               // TODO: why is this special cased?
-              interface.bits.poke(t.data)
+//              interface.bits.poke(t.data)
             case _ =>
               interface.bits.poke(t.data)
           }
