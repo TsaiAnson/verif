@@ -22,7 +22,6 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
       val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
-      val simCycles = 500
 
       implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
@@ -32,8 +31,13 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(0x8)
       )
 
-      driver.push(inputTransactions)
-      c.clock.step(simCycles)
+      val dispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val dispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      for (_ <- 0 until 30) {
+        val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
+        driver.push(txns)
+        c.clock.step(5)
+      }
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
@@ -57,8 +61,6 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.inRef.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
       val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef, Some(refProtocolChecker))
 
-      val simCycles = 500
-
       implicit val params = TLRAMSlave.in.params
       val inputTransactions = Seq(
         Put(0x0, 0x3333),
@@ -69,16 +71,28 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(0x100)
       )
 
-      dutDriver.push(inputTransactions)
-      refDriver.push(inputTransactions)
-      c.clock.step(simCycles)
+      val dutDispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val dutDispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      for (_ <- 0 until 30) {
+        val txns = dutDispatcher.next(dutDispMonitor.getMonitoredTransactions().map({_.data}))
+        dutDriver.push(txns)
+        c.clock.step(5)
+      }
+
+      val refDispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val refDispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      for (_ <- 0 until 30) {
+        val txns = refDispatcher.next(refDispMonitor.getMonitoredTransactions().map({_.data}))
+        refDriver.push(txns)
+        c.clock.step(5)
+      }
 
       val output = dutMonitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
       val outputRef = refMonitor.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
       output.zip(outputRef).foreach {
         case (dut_out, sw_out) =>
-          assert(dut_out.data == sw_out.data)
+          assert(dut_out.litValue() == sw_out.litValue())
       }
     }
   }
@@ -97,36 +111,41 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       val protocolChecker2 = new TLProtocolChecker(TLRAMSlave.inTwo.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
       val monitor2 = new TLMonitor(c.clock, TLRAMSlave.inTwo, Some(protocolChecker2))
 
-      val simCycles = 500
-
       // Note: What to do in cases where there are multiple params?
       implicit val params = TLRAMSlave.inOne.params
       val tx1 = Seq(
-        Put(0x0, 0x1111),
-        Put(0x8, 0x2222),
-        Put(0x10, 0x3333),
-        Put(0x18, 0x4444),
-        Get(0x20),
-        Get(0x28),
-        Get(0x30),
-        Get(0x38)
+        Put(0x0, 0x1111, 0),
+        Put(0x8, 0x2222, 0),
+        Put(0x10, 0x3333, 0),
+        Put(0x18, 0x4444, 0),
+        Get(0x20, 0),
+        Get(0x28, 0),
+        Get(0x30, 0),
+        Get(0x38, 0)
       )
 
       val tx2 = Seq(
-        Put(0x20, 0x5555),
-        Put(0x28, 0x6666),
-        Put(0x30, 0x7777),
-        Put(0x38, 0x8888),
-        Get(0x0),
-        Get(0x8),
-        Get(0x10),
-        Get(0x18)
+        Put(0x20, 0x5555, 1),
+        Put(0x28, 0x6666, 1),
+        Put(0x30, 0x7777, 1),
+        Put(0x38, 0x8888, 1),
+        Get(0x0, 1),
+        Get(0x8, 1),
+        Get(0x10, 1),
+        Get(0x18, 1)
       )
 
-      driver1.push(tx1)
-      driver2.push(tx2)
-      c.clock.step(simCycles)
-
+      val dispMonitorOne = new TLMonitor(c.clock, TLRAMSlave.inOne)
+      val dispatcherOne = new TLUDispatcher(TLRAMSlave.inOne.params, None, tx1)
+      val dispMonitorTwo = new TLMonitor(c.clock, TLRAMSlave.inTwo)
+      val dispatcherTwo = new TLUDispatcher(TLRAMSlave.inTwo.params, None, tx2)
+      for (_ <- 0 until 30) {
+        val txns1 = dispatcherOne.next(dispMonitorOne.getMonitoredTransactions().map({_.data}))
+        driver1.push(txns1)
+        val txns2 = dispatcherTwo.next(dispMonitorTwo.getMonitoredTransactions().map({_.data}))
+        driver2.push(txns2)
+        c.clock.step(5)
+      }
       val out1 = monitor1.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
       val out2 = monitor2.getMonitoredTransactions().map(_.data).collect{case t:TLBundleD => t}
 
@@ -144,24 +163,24 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val out2Ref = Seq(
-        AccessAck(0),
-        AccessAck(0),
-        AccessAck(0),
-        AccessAck(0),
-        AccessAckData(0x1111, 0),
-        AccessAckData(0x2222, 0),
-        AccessAckData(0x3333, 0),
-        AccessAckData(0x4444, 0)
+        AccessAck(0, 1),
+        AccessAck(0, 1),
+        AccessAck(0, 1),
+        AccessAck(0, 1),
+        AccessAckData(0x1111, 0, 1),
+        AccessAckData(0x2222, 0, 1),
+        AccessAckData(0x3333, 0, 1),
+        AccessAckData(0x4444, 0, 1)
       )
 
       out1.zip(out1Ref).foreach {
         case (dut_out, sw_out) =>
-          assert(dut_out.data == sw_out)
+          assert(dut_out.litValue() == sw_out.litValue())
       }
 
       out2.zip(out2Ref).foreach {
         case (dut_out, sw_out) =>
-          assert(dut_out.data == sw_out)
+          assert(dut_out.litValue() == sw_out.litValue())
       }
     }
   }

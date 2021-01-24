@@ -125,11 +125,11 @@ package object TLTransaction {
   }
 
   // TL-UL
-  def Get(addr: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Get(addr = addr, size = getSize(1), mask = fullMask, source = 0)
+  def Get(addr: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
+    Get(addr = addr, size = getSize(1), mask = fullMask, source = source)
   }
 
-  def Put(addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int, partialHint: Boolean = false)(implicit params: TLBundleParameters): TLBundleA = {
+  def Put(addr: BigInt, data: BigInt, mask: Int, size: Int, source: Int, partialHint: Boolean)(implicit params: TLBundleParameters): TLBundleA = {
     val opcode = if (partialHint || (mask != fullMask)) TLOpcodes.PutPartialData else TLOpcodes.PutFullData
     // TODO: add checks for truncation
     new TLBundleA(params).Lit(
@@ -145,18 +145,18 @@ package object TLTransaction {
   }
 
   // TL-UL
-  def Put(addr: BigInt, data: BigInt, mask: Int)(implicit params: TLBundleParameters): TLBundleA = {
-    Put(addr = addr, data = data, mask = mask, size = getSize(1), source = 0)
+  def Put(addr: BigInt, data: BigInt, mask: Int, source: Int)(implicit params: TLBundleParameters): TLBundleA = {
+    Put(addr = addr, data = data, mask = mask, size = getSize(1), source = source, partialHint = false)
   }
 
-  def Put(addr: BigInt, data: BigInt)(implicit params: TLBundleParameters): TLBundleA = {
-    Put(addr = addr, data = data, mask = fullMask, size = getSize(1), source = 0)
+  def Put(addr: BigInt, data: BigInt, source: Int = 0)(implicit params: TLBundleParameters): TLBundleA = {
+    Put(addr = addr, data = data, mask = fullMask, size = getSize(1), source = source, partialHint = false)
   }
 
   // No masks assume PutFull
   def PutBurst(addr: BigInt, data: Seq[BigInt], source: Int)(implicit params: TLBundleParameters): Seq[TLBundleA] = {
     data.map {
-      (d: BigInt) => Put(addr = addr, data = d, mask = fullMask, size = getSize(data.length), source = source)
+      (d: BigInt) => Put(addr = addr, data = d, mask = fullMask, size = getSize(data.length), source = source, partialHint = false)
     }
   }
 
