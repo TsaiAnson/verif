@@ -18,10 +18,16 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
   val sourceState = new mutable.HashMap[Int,Int]()
   val sinkState = new mutable.HashMap[Int,Int]()
 
-  // Internal state for burst parameter checking (source -> head of burst)
-  val sourceBurstHead = new mutable.HashMap[Int,TLChannel]()
-  // Internal state for burst counting (source -> -X where X is # of remaining beats)
-  val sourceBurstRemain = new mutable.HashMap[Int,Int]()
+  // Internal state for burst request parameter checking (source -> head of burst)
+  val sourceBurstHeadReq = new mutable.HashMap[Int,TLChannel]()
+  // Internal state for burst request counting (source -> -X where X is # of remaining beats)
+  val sourceBurstRemainReq = new mutable.HashMap[Int,Int]()
+  // Internal state for burst response parameter checking (source -> head of burst)
+  // NOTE: Requires 2 copies as responses can begin before requests finish
+  val sourceBurstHeadResp = new mutable.HashMap[Int,TLChannel]()
+  // Internal state for burst response counting (source -> -X where X is # of remaining beats)
+  val sourceBurstRemainResp = new mutable.HashMap[Int,Int]()
+
   val beatSize = log2Ceil(params.dataBits / 8)
 
   // Protocol compliance checker
@@ -331,13 +337,15 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
     // If bundles are in a burst
     val sourceKey = encodeChannel(txna.source.litValue().toInt, 'A')
     if (!isNonBurst(txna) && txna.size.litValue() > beatSize) {
-      if (sourceBurstRemain.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainReq.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurstHead(sourceKey) = txna
-        sourceBurstRemain(sourceKey) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
+        sourceBurstHeadReq(sourceKey) = txna
+        // Immediately change state as responses can arrive before requests finish sending
+        setResponseState(txna, sourceKey)
+        sourceBurstRemainReq(sourceKey) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurstHead(sourceKey)
+        val head = sourceBurstHeadReq(sourceKey)
         head match {
           case heada: TLBundleA =>
             var result = true
@@ -345,16 +353,15 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
             result &= txna.size.litValue() == heada.size.litValue()
             result &= txna.source.litValue() == heada.source.litValue()
             result &= txna.address.litValue() == heada.address.litValue()
-            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txna")
+            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
 
-            sourceBurstRemain(sourceKey) += 1
-            if (sourceBurstRemain(sourceKey) == 0) setResponseState(sourceBurstHead(sourceKey), sourceKey)
+            sourceBurstRemainReq(sourceKey) += 1
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txna")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainReq(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
         }
       }
-    } else if (sourceBurstRemain.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txna")
+    } else if (sourceBurstRemainReq.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainReq(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
     } else {
       setResponseState(txna, sourceKey)
     }
@@ -364,13 +371,13 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
     // If bundles are in a burst
     val sourceKey = encodeChannel(txnc.source.litValue().toInt, 'C')
     if (!isNonBurst(txnc) && txnc.size.litValue() > beatSize) {
-      if (sourceBurstRemain.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainResp.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurstHead(sourceKey) = txnc
-        sourceBurstRemain(sourceKey) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
+        sourceBurstHeadResp(sourceKey) = txnc
+        sourceBurstRemainResp(sourceKey) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurstHead(sourceKey)
+        val head = sourceBurstHeadResp(sourceKey)
         head match {
           case headc: TLBundleC =>
             var result = true
@@ -378,16 +385,16 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
             result &= txnc.size.litValue() == headc.size.litValue()
             result &= txnc.source.litValue() == headc.source.litValue()
             result &= txnc.address.litValue() == headc.address.litValue()
-            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnc")
+            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
 
-            sourceBurstRemain(sourceKey) += 1
-            if (sourceBurstRemain(sourceKey) == 0) setResponseState(sourceBurstHead(sourceKey), sourceKey)
+            sourceBurstRemainResp(sourceKey) += 1
+            if (sourceBurstRemainResp(sourceKey) == 0) setResponseState(sourceBurstHeadResp(sourceKey), sourceKey)
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnc")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
         }
       }
-    } else if (sourceBurstRemain.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnc")
+    } else if (sourceBurstRemainResp.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
     } else {
       setResponseState(txnc, sourceKey)
     }
@@ -397,13 +404,13 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
     // If bundles are in a burst
     val sourceKey = encodeChannel(txnd.source.litValue().toInt, 'D')
     if (!isNonBurst(txnd) && txnd.size.litValue() > beatSize) {
-      if (sourceBurstRemain.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainResp.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurstHead(sourceKey) = txnd
-        sourceBurstRemain(sourceKey) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
+        sourceBurstHeadResp(sourceKey) = txnd
+        sourceBurstRemainResp(sourceKey) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurstHead(sourceKey)
+        val head = sourceBurstHeadResp(sourceKey)
         head match {
           case headd: TLBundleD =>
             var result = true
@@ -412,16 +419,16 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
             result &= txnd.source.litValue() == headd.source.litValue()
             result &= txnd.sink.litValue() == headd.sink.litValue()
             result &= txnd.denied.litValue() == headd.denied.litValue()
-            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnd")
+            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
 
-            sourceBurstRemain(sourceKey) += 1
-            if (sourceBurstRemain(sourceKey) == 0) setResponseState(sourceBurstHead(sourceKey), sourceKey)
+            sourceBurstRemainResp(sourceKey) += 1
+            if (sourceBurstRemainResp(sourceKey) == 0) setResponseState(sourceBurstHeadResp(sourceKey), sourceKey)
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnd")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
         }
       }
-    } else if (sourceBurstRemain.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceBurstRemain(sourceKey)} beats of burst. Burst head: ${sourceBurstHead(sourceKey)}. Given beat: $txnd")
+    } else if (sourceBurstRemainResp.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
     } else {
       setResponseState(txnd, sourceKey)
     }
@@ -432,40 +439,40 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
     assert(sourceState.getOrElse(sourceKey, 0) >= 0)
     txn match {
       case txna: TLBundleA =>
-        assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Either concurrent transactions with same source ID or missed Ack from slave.")
-        val opcode = txna.opcode.litValue()
-        sourceState(sourceKey) = if (opcode <= 4) 1 else if (opcode == 5) 2 else 3
-      case _: TLBundleB =>
-        assert(sourceState.getOrElse(sourceKey, 0) < 10, s"ERROR: Concurrent Probes with the same source ID.")
+        assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Either concurrent transactions with same source ID or missed Ack from slave: $txna")
+        val opcode = txna.opcode.litValue().toInt
+        sourceState(sourceKey) = if (opcode < 5) 1 else if (opcode == 5) 2 else 3
+      case txnb: TLBundleB =>
+        assert(sourceState.getOrElse(sourceKey, 0) < 10, s"ERROR: Concurrent Probes with the same source ID: $txnb")
         sourceState(sourceKey) = sourceState.getOrElse(sourceKey, 0) + 10
       case txnc: TLBundleC =>
         if (txnc.opcode.litValue().toInt == TLOpcodes.ProbeAck || txnc.opcode.litValue().toInt == TLOpcodes.ProbeAckData) {
-          assert(sourceState.getOrElse(sourceKey, 0) >= 10, s"ERROR: Unexpected ProbeAck/Data (no pending Probe with same sourceID)")
+          assert(sourceState.getOrElse(sourceKey, 0) >= 10, s"ERROR: Unexpected ProbeAck/Data (no pending Probe with same sourceID): $txnc")
           sourceState(sourceKey) = sourceState(sourceKey) % 10
         } else if (txnc.opcode.litValue().toInt == TLOpcodes.Release || txnc.opcode.litValue().toInt == TLOpcodes.ReleaseData) {
-          assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Unexpected release operation (another operation with same sourceID is still in progress)")
+          assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Unexpected release operation (another operation with same sourceID is still in progress): $txnc")
           sourceState(sourceKey) = 5
         }
       case txnd: TLBundleD =>
         if (txnd.opcode.litValue().toInt == TLOpcodes.AccessAck || txnd.opcode.litValue().toInt == TLOpcodes.AccessAckData) {
-          assert(sourceState.getOrElse(sourceKey, 0) == 1, s"ERROR: Unexpected AccessAck/Data operation (no pending operation with same sourceID)")
+          assert(sourceState.getOrElse(sourceKey, 0) == 1, s"ERROR: Unexpected AccessAck/Data operation (no pending operation with same sourceID): $txnd")
           sourceState(sourceKey) = 0
         } else if (txnd.opcode.litValue().toInt == TLOpcodes.HintAck) {
-          assert(sourceState.getOrElse(sourceKey, 0) == 2, s"ERROR: Unexpected HintAck operation (no Hint with same sourceID in progress)")
+          assert(sourceState.getOrElse(sourceKey, 0) == 2, s"ERROR: Unexpected HintAck operation (no Hint with same sourceID in progress): $txnd")
           sourceState(sourceKey) = 0
         } else if (txnd.opcode.litValue().toInt == TLOpcodes.Grant || txnd.opcode.litValue().toInt == TLOpcodes.GrantData) {
-          assert(sourceState.getOrElse(sourceKey, 0) == 3, s"ERROR: Unexpected Grant operation (no Acquire with same sourceID in progress)")
+          assert(sourceState.getOrElse(sourceKey, 0) == 3, s"ERROR: Unexpected Grant operation (no Acquire with same sourceID in progress): $txnd")
           sourceState(sourceKey) = 0
           sinkState(encodeChannel(txnd.sink.litValue().toInt, 'D')) = 4
         } else if (txnd.opcode.litValue().toInt == TLOpcodes.ReleaseAck) {
           // Special case: Since Release to ReleaseAck is from channel C -> channel D, we need to encode with C
           val newSourceKey = encodeChannel(sourceKey/10, 'C')
-          assert(sourceState.getOrElse(newSourceKey, 0) == 5, s"ERROR: Unexpected ReleaseAck operation (no Release in progress with same sourceID)")
+          assert(sourceState.getOrElse(newSourceKey, 0) == 5, s"ERROR: Unexpected ReleaseAck operation (no Release in progress with same sourceID): $txnd")
           sourceState(newSourceKey) = 0
         }
-      case tnxe: TLBundleE =>
-        val sinkKey = encodeChannel(tnxe.sink.litValue().toInt, 'D')
-        assert(sinkState.getOrElse(sinkKey, 0) == 4, s"ERROR: Unexpected GrantAck operation (no Acquire in progress or Grant received with same sourceID)")
+      case txne: TLBundleE =>
+        val sinkKey = encodeChannel(txne.sink.litValue().toInt, 'D')
+        assert(sinkState.getOrElse(sinkKey, 0) == 4, s"ERROR: Unexpected GrantAck operation (no Acquire in progress or Grant received with same sourceID): $txne")
         sinkState(sinkKey) = 0
     }
   }

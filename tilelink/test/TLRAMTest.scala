@@ -89,7 +89,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
       val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
       val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
-      val simCycles = 150
 
       implicit val params: TLBundleParameters = TLRAMSlave.in.params
       // Hints fail due to assertion in RAMModel
@@ -154,7 +153,8 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val TLRAMSlave = LazyModule(new TLRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val monitor = new TLMonitor(c.clock, TLRAMSlave.in)
+      val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, defaultStandaloneSlaveParams.managers.head, defaultStandaloneMasterParams.clients.head)
+      val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
 
       implicit val params: TLBundleParameters = TLRAMSlave.in.params
       // Four Consecutive Writes (burst)
@@ -182,8 +182,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
       }
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
-      val sanity = new TLProtocolChecker(TLRAMSlave.in.params, defaultStandaloneSlaveParams.managers.head, defaultStandaloneMasterParams.clients.head)
-      sanity.check(output)
 
       for (out <- output) {
         println(out.opcode, out.data, out.size)

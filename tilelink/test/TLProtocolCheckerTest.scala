@@ -129,8 +129,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
       driver.push(Seq(Put(0x0, 0x123)))
       c.clock.step(simCycles)
-      monitor.getMonitoredTransactions()
-//      assertThrows[AssertionError] {monitor.getMonitoredTransactions()}
+      assertThrows[AssertionError] {monitor.getMonitoredTransactions()}
     }
   }
 }
