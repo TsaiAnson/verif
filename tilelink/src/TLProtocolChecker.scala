@@ -403,6 +403,8 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
   def burstDHelper(txnd: TLBundleD): Unit = {
     // If bundles are in a burst
     val sourceKey = encodeChannel(txnd.source.litValue().toInt, 'D')
+    // Universal check: Source state should be non-zero (pending operation) when receiving any kind of response
+    assert(sourceState(sourceKey) != 0, s"ERROR: Unexpected response (no pending operation with same sourceID): $txnd")
     if (!isNonBurst(txnd) && txnd.size.litValue() > beatSize) {
       if (sourceBurstRemainResp.getOrElse(sourceKey,0) == 0) {
         // Start of burst
@@ -454,6 +456,9 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           sourceState(sourceKey) = 5
         }
       case txnd: TLBundleD =>
+        // Universal response check: Source state should only change back to IDLE (0) when all request and response beats have been observed.
+        assert(sourceBurstRemainReq.getOrElse(sourceKey, 0) == 0, s"ERROR: Incomplete operation. Expected ${sourceBurstRemainReq(sourceKey)} more beats of request: ${sourceBurstHeadReq(sourceKey)}")
+        assert(sourceBurstRemainResp.getOrElse(sourceKey, 0) == 0, s"ERROR: Incomplete operation. Expected ${sourceBurstRemainResp(sourceKey)} more beats of response: ${sourceBurstHeadResp(sourceKey)}")
         if (txnd.opcode.litValue().toInt == TLOpcodes.AccessAck || txnd.opcode.litValue().toInt == TLOpcodes.AccessAckData) {
           assert(sourceState.getOrElse(sourceKey, 0) == 1, s"ERROR: Unexpected AccessAck/Data operation (no pending operation with same sourceID): $txnd")
           sourceState(sourceKey) = 0
