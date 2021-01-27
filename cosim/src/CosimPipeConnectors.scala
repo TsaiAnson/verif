@@ -7,14 +7,15 @@ import chiseltest._
 import verif._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tile.{RoCCCommand, RoCCIO}
+import freechips.rocketchip.tilelink.{TLBundle, TLBundleA, TLBundleD, TLBundleParameters, TLChannel}
 import com.verif.RoCCProtos
 import com.verif.FenceProtos
-import java.io.{FileInputStream, FileOutputStream}
+import java.io.{BufferedOutputStream, FileInputStream, FileOutputStream, IOException}
 import java.nio.file.{Files, Paths}
 
-class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, target: verif.DecoupledDriver[RoCCCommand])(implicit p: Parameters) extends
+class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters) extends
   AbstractCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipe) {
-    val driver = target
+    val driver = new DecoupledDriverMaster(clock, io)
 
     val inputStreamToProto = (input: java.io.InputStream) => {
       com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(input)
@@ -35,28 +36,44 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
         Thread.sleep(250)
       }
 
-      println("All Fence files exist")
+      println("All fence files exist")
 
       val req = new FileInputStream(fenceReqPipe)
-      val resp = new FileOutputStream(fenceRespPipe)
+      println("Fence req connected")
 
-      println("Fence streams opened")
+      var resp_pending = false // Allow for req -> resp thread termination
+      var r: FenceProtos.FenceReq = null
 
       while(!terminate) {
-        val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
-        if (r != null) {
-          println("Non-null fence req seen")
-          println(r.getValid())
+        try {
+          if (resp_pending) {
+            resp_pending = false
+            val resp = new FileOutputStream(fenceRespPipe)
+            println("Fence resp connected")
+
+            println("Sending fence resp")
+            //          while(io.busy.peek().litToBoolean) {
+            //            println("Waiting for busy to go low")
+            //            clock.step()
+            //          } // step clock while busy
+            FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeTo(resp)
+            resp.close()
+          } else {
+            r = FenceProtos.FenceReq.parseDelimitedFrom(req)
+            if (r != null && r.getValid()) {
+              println("Recieved fence request")
+              resp_pending = true
+            }
+          }
         }
-        if (r != null && r.asInstanceOf[FenceProtos.FenceReq].getValid()) {
-//          while(io.busy.peek().litToBoolean) {
-//            println("Waiting for busy to go low")
-//            clock.step()
-//          } // step clock while busy
-          println("Sending response")
-          FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeDelimitedTo(resp)
+        catch {
+          case e: IOException => println("IO Exception thrown in Fence Pipe")
         }
       }
+
+      req.close
+      //resp.close
+
     }
 
     override def exit: Unit = {
@@ -64,7 +81,18 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
     }
 }
 
-class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock) extends AbstractCosimPipe { //TODO: Add driver and monitor
+class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String) extends TLSlaveFunction[Any] {
+  // NOTE: Scala convention is to open inputs before outputs in matching pairs
+  val tld = new FileInputStream(tldPipe)
+  val tla = new FileOutputStream(tlaPipe)
+  println("TL streams opened")
+
+  override def response(tx: TLChannel, state: Any): (Seq[TLChannel], Any) = {
+    return (Seq.empty[TLChannel], null)
+  }
+}
+
+class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock, io: TLBundle) extends AbstractCosimPipe { //TODO: Add driver and monitor
   @volatile private var terminate = false
 
   override def run: Unit = {
@@ -72,17 +100,11 @@ class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock) extends AbstractCos
     while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
       Thread.sleep(250)
     }
-
     println("All TL files exist")
 
-    // NOTE: Scala convention is to open inputs before outputs in matching pairs
-    val tld = new FileInputStream(tldPipe)
-    val tla = new FileOutputStream(tlaPipe)
-
-    println("TL streams opened")
+    val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe), null)
 
     while(!terminate) {
-
     }
   }
 

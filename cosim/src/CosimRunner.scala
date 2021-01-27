@@ -69,7 +69,7 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
 
     /** TEMPORARY REMOVE ONCE FENCE WORKS PROPERLY**/
     // Spin to allow driver to recieve and push
-    Thread.sleep(10*1000)
+    Thread.sleep(5*1000)
     /** END TEMPORARY **/
 
     // Terminate driver and monitor runnables

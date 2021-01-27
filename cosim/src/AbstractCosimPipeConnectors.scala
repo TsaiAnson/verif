@@ -35,13 +35,12 @@ abstract class AbstractCosimPipeDriver[I, S, D](pipe: String) extends AbstractCo
 
     while(!terminate) {
       val message = inputStreamToProto(in)
-
       if (message != null) {
         pushIntoDriver(message)
       }
-
-      // We remove the double monitor driver pair because you cannot instantate a wire in a non-module context
     }
+
+    in.close
   }
 
   override def exit: Unit = {
