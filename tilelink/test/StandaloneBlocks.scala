@@ -11,21 +11,21 @@ import verif.TLUtils._
 
 // Keeping as reference
 trait VerifTLStandaloneBlock extends LazyModule {
-  val masterParams = standaloneMasterParams
-  val slaveParams = standaloneSlaveParams
+  val masterParams = defaultStandaloneMasterParams
+  val slaveParams = defaultStandaloneSlaveParams
 
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(defaultVerifTLBundleParams))
   val ioOutNode = BundleBridgeSink[TLBundle]()
 
   val TLMaster: TLOutwardNode
   val TLSlave: TLInwardNode
 
    ioOutNode :=
-     TLToBundleBridge(standaloneSlaveParams) :=
+     TLToBundleBridge(defaultStandaloneSlaveParams) :=
      TLMaster
 
   TLSlave :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(defaultStandaloneMasterParams) :=
     ioInNode
 
   val in = InModuleBody { ioInNode.makeIO() }
@@ -34,6 +34,9 @@ trait VerifTLStandaloneBlock extends LazyModule {
 
 class TLRegBankStandalone(implicit p: Parameters) extends LazyModule  {
   val device = new SimpleDevice("TLRegBankStandalone", Seq("veriftldriver,veriftlmonitor,testmaster"))
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
 
   val TLSlave = TLRegisterNode(
     address = Seq(AddressSet(0x0, 0xfff)),
@@ -42,11 +45,11 @@ class TLRegBankStandalone(implicit p: Parameters) extends LazyModule  {
     concurrency = 1)
 
   // Standalone Connections
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams.head))
   val in = InModuleBody { ioInNode.makeIO() }
 
   TLSlave :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams.head) :=
     ioInNode
 
   lazy val module = new LazyModuleImp(this) {
@@ -60,6 +63,10 @@ class TLRegBankStandalone(implicit p: Parameters) extends LazyModule  {
 }
 
 class TLRAMStandalone(implicit p: Parameters) extends LazyModule {
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
   val model = LazyModule(new TLRAMModel("TLRAMModel"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   val frag = TLFragmenter(8, 32)
@@ -67,17 +74,21 @@ class TLRAMStandalone(implicit p: Parameters) extends LazyModule {
   ram.node := model.node := frag := buffer
 
   // Standalone Connections
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams.head))
   val in = InModuleBody { ioInNode.makeIO() }
 
   buffer :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams.head) :=
     ioInNode
 
   lazy val module = new LazyModuleImp(this) {}
 }
 
 class XBarToRAMStandalone(implicit p: Parameters) extends LazyModule {
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
   val model = LazyModule(new TLRAMModel("TLRAMModelXbarSimple"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x1ff), cacheable = false, atomics = true, beatBytes = 8))
   val xbar = LazyModule(new TLXbar)
@@ -86,11 +97,11 @@ class XBarToRAMStandalone(implicit p: Parameters) extends LazyModule {
   val TLSlave = xbar.node
 
   // Standalone Connections
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams.head))
   val in = InModuleBody { ioInNode.makeIO() }
 
   TLSlave :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams.head) :=
     ioInNode
 
   lazy val module = new LazyModuleImp(this) {}
@@ -98,6 +109,10 @@ class XBarToRAMStandalone(implicit p: Parameters) extends LazyModule {
 
 // TL Multi-Slave Xbar RAM Slave Node with References Standalone
 class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends LazyModule {
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams, defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams, defaultStandaloneSlaveParamsCache)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
   // Multi RAM
   val model1 = LazyModule(new TLRAMModel("TLRAMModel1"))
   val ram1  = LazyModule(new TLRAM(AddressSet(0x0, 0xff), cacheable = false, atomics = true, beatBytes = 8))
@@ -115,16 +130,16 @@ class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends L
   val TLReference = model.node
 
   // Connections
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
-  val ioInNodeRef = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams(0)))
+  val ioInNodeRef = BundleBridgeSource(() => TLBundle(bParams(1)))
   val in = InModuleBody { ioInNode.makeIO() }
   val inRef = InModuleBody { ioInNodeRef.makeIO() }
 
   TLSlave :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams(0)) :=
     ioInNode
   TLReference :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams(1)) :=
     ioInNodeRef
 
   lazy val module = new LazyModuleImp(this) {}
@@ -132,8 +147,10 @@ class VerifTLMSXbarRAMSlaveReferenceStandalone(implicit p: Parameters) extends L
 
 // TL Multi-Master Xbar RAM Slave Node Standalone
 class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule {
-  def standaloneMasterParamsOne: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "one", sourceId = IdRange(0,1))))
-  def standaloneMasterParamsTwo: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "two", sourceId = IdRange(1,2))))
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "one", sourceId = IdRange(0,1)))),
+    TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "two", sourceId = IdRange(1,2)))))
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams, defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
 
   // TLRAM
   val model = LazyModule(new TLRAMModel("TLRAMModel"))
@@ -143,16 +160,16 @@ class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule
   val TLReference = model.node
 
   // Connections
-  val ioInNodeOne = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsOne, standaloneSlaveParams)))
-  val ioInNodeTwo = BundleBridgeSource(() => TLBundle(TLBundleParameters(standaloneMasterParamsTwo, standaloneSlaveParams)))
+  val ioInNodeOne = BundleBridgeSource(() => TLBundle(bParams(0)))
+  val ioInNodeTwo = BundleBridgeSource(() => TLBundle(bParams(1)))
   val inOne = InModuleBody { ioInNodeOne.makeIO() }
   val inTwo = InModuleBody { ioInNodeTwo.makeIO() }
 
   xbar.node := TLBuffer() :=
-    BundleBridgeToTL(standaloneMasterParamsOne) :=
+    BundleBridgeToTL(mPortParams(0)) :=
     ioInNodeOne
   xbar.node := TLBuffer() :=
-    BundleBridgeToTL(standaloneMasterParamsTwo) :=
+    BundleBridgeToTL(mPortParams(1)) :=
     ioInNodeTwo
 
   lazy val module = new LazyModuleImp(this) {}
@@ -160,6 +177,11 @@ class VerifTLMMXbarRAMSlaveStandalone(implicit p: Parameters) extends LazyModule
 
 // L2 Cache Standalone
 class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
+  // First set of PortParams are L1, second set are DRAM
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParamsCache, defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParamsCache, defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
   // Instantiating L2 Cache (Inclusive Cache)
   val l2 = LazyModule(new InclusiveCache(
     CacheParameters(
@@ -174,7 +196,7 @@ class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
   val cork = LazyModule(new TLCacheCork)
 
   // IO Connections (Master and Slave are directly connected)
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParamsC))
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams(0)))
   val ioOutNode = BundleBridgeSink[TLBundle]()
   val in = InModuleBody { ioInNode.makeIO() }
   val out = InModuleBody { ioOutNode.makeIO() }
@@ -183,10 +205,10 @@ class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
 //  val ctrl = InModuleBody { ioCtrlNode.makeIO() }
 
   ioOutNode :=
-    TLToBundleBridge(standaloneSlaveParams) :=
+    TLToBundleBridge(sPortParams(1)) :=
     cork.node :=
     l2.node :=
-    BundleBridgeToTL(standaloneMasterParamsC) :=
+    BundleBridgeToTL(mPortParams(0)) :=
     ioInNode
 
 //  l2.ctlnode := BundleBridgeToTL(standaloneMasterParamsC) := ioCtrlNode
@@ -195,6 +217,11 @@ class VerifTLL2Cache(implicit p: Parameters) extends LazyModule {
 }
 
 class TLPatternPusherStandalone(txns: Seq[Pattern])(implicit p: Parameters) extends LazyModule  {
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
+
   val patternp = LazyModule(new TLPatternPusher("patternpusher", txns))
   val TLMaster = patternp.node
 
@@ -203,7 +230,7 @@ class TLPatternPusherStandalone(txns: Seq[Pattern])(implicit p: Parameters) exte
   val out = InModuleBody { ioOutNode.makeIO() }
 
   ioOutNode :=
-    TLToBundleBridge(standaloneSlaveParams) :=
+    TLToBundleBridge(sPortParams.head) :=
     TLMaster
 
   lazy val module = new LazyModuleImp(this) {
@@ -213,6 +240,10 @@ class TLPatternPusherStandalone(txns: Seq[Pattern])(implicit p: Parameters) exte
 }
 
 class TLFuzzerStandalone(nOperations: Int)(implicit p: Parameters) extends LazyModule  {
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParams)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParams)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
   val tlfuzzer = LazyModule(new freechips.rocketchip.tilelink.TLFuzzer(nOperations, inFlight=1))
   val TLMaster = tlfuzzer.node
 
@@ -221,22 +252,26 @@ class TLFuzzerStandalone(nOperations: Int)(implicit p: Parameters) extends LazyM
   val out = InModuleBody { ioOutNode.makeIO() }
 
   ioOutNode :=
-    TLToBundleBridge(standaloneSlaveParams) :=
+    TLToBundleBridge(sPortParams.head) :=
     TLMaster
 
   lazy val module = new LazyModuleImp(this) {}
 }
 
 class TLBufferStandalone(implicit p: Parameters) extends LazyModule  {
-  val ioInNode = BundleBridgeSource(() => TLBundle(verifTLBundleParams))
+  val mPortParams: Seq[TLMasterPortParameters] = Seq(defaultStandaloneMasterParamsCache)
+  val sPortParams: Seq[TLSlavePortParameters] = Seq(defaultStandaloneSlaveParamsCache)
+  val bParams= (mPortParams zip sPortParams).map({t => TLBundleParameters(t._1, t._2)})
+
+  val ioInNode = BundleBridgeSource(() => TLBundle(bParams.head))
   val ioOutNode = BundleBridgeSink[TLBundle]()
   val in = InModuleBody { ioInNode.makeIO() }
   val out = InModuleBody { ioOutNode.makeIO() }
 
   ioOutNode :=
-    TLToBundleBridge(standaloneSlaveParams) :=
+    TLToBundleBridge(sPortParams.head) :=
     TLBuffer() :=
-    BundleBridgeToTL(standaloneMasterParams) :=
+    BundleBridgeToTL(mPortParams.head) :=
     ioInNode
 
   lazy val module = new LazyModuleImp(this) {}

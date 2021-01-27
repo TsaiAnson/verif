@@ -102,7 +102,11 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         // Get
         size = randGen.nextInt(5) + 1
         address = getRandomLegalAddress(params.address, size)
-        mask = (1 << (1 << beatSize)) - 1
+        if (size > beatSize) {
+          mask = (1 << (1 << beatSize)) - 1
+        } else {
+          mask = (1 << (1 << size)) - 1
+        }
 
         genTxns += Get(address, size, mask, source)
 
@@ -124,7 +128,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
           genTxns ++= PutBurst(address, data, masks, source)
         } else {
           val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += Put(address, data, mask)
+          genTxns += Put(address, data, mask, size, source, false)
         }
 
       } else if (typeTxn == 2) {
@@ -132,16 +136,21 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         // PutPartial
         size = randGen.nextInt(5) + 1
         address = getRandomLegalAddress(params.address, size)
-        mask = randGen.nextInt((1 << (1 << beatSize)))
+
+        if (size > beatSize) {
+          mask = randGen.nextInt(1 << (1 << beatSize))
+        } else {
+          mask = randGen.nextInt(1 << (1 << size))
+        }
 
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
           val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-          val masks = List.fill(beatCount)((randGen.nextInt(mask) + 1))
+          val masks = List.fill(beatCount)(randGen.nextInt(1 << (1 << beatSize)))
           genTxns ++= PutBurst(address, data, masks, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += Put(address, data, mask, size, source)
+          genTxns += Put(address, data, mask, size, source, true)
         }
 
       } else if (typeTxn == 3) {
@@ -193,7 +202,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
           genTxns ++= LogicBurst(param, address, data, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += Logic(param, address, data, source)
+          genTxns += Logic(param, address, data, mask, size, source)
         }
 
       } else if (typeTxn == 5) {
@@ -218,10 +227,21 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
           if (size > beatSize && burst) {
             val beatCount = 1 << (size - beatSize)
             val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-            genTxns ++= PutBurst(address, data, List.fill(beatCount)(mask), source)
+            if (fullPartial == 0) {
+              genTxns ++= PutBurst(address, data, List.fill(beatCount)(mask), source)
+            } else {
+              genTxns ++= PutBurst(address, data, List.fill(beatCount)(randGen.nextInt(1 << (1 << beatSize))), source)
+            }
+
           } else {
             val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-            genTxns += Put(address, BigInt(data))
+            if (fullPartial == 0) {
+              genTxns += Put(address, BigInt(data), mask, size, source, false)
+            } else {
+              mask = randGen.nextInt(1 << (1 << size))
+              genTxns += Put(address, BigInt(data), mask, size, source, true)
+            }
+
           }
         }
 

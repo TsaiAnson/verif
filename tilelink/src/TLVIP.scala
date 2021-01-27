@@ -90,7 +90,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFuncti
   }
 }
 
-class TLMonitor(clock: Clock, interface: TLBundle) {
+class TLMonitor(clock: Clock, interface: TLBundle, protocolChecker: Option[TLProtocolChecker] = None) {
   val params = interface.params
 
   private val aMonitor = new DecoupledMonitor[TLChannel](clock, interface.a)
@@ -112,6 +112,8 @@ class TLMonitor(clock: Clock, interface: TLBundle) {
       cMonitor.get.clearMonitoredTransactions()
       eMonitor.get.clearMonitoredTransactions()
     }
-    tx.sortBy(_.cycleStamp.litValue())
+    val res = tx.sortBy(_.cycleStamp.litValue())
+    if (protocolChecker.isDefined) {protocolChecker.get.check(res.map {_.data})}
+    res
   }
 }

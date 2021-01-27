@@ -6,26 +6,36 @@ import chisel3._
 import chisel3.util.log2Ceil
 import freechips.rocketchip.diplomacy.TransferSizes
 import scala.collection.mutable
+import scala.collection.immutable
+import TLTransaction._
 
-// Checks the sanity of transactions exchanged on a *single* connection
-class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
+// Checks the protocol compliance of transactions exchanged on a *single* connection
+class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
 
   // Internal state mapping source -> state
   // States: 0 (Idle), 1 (pending AccessAck), 2 (pending HintAck), 3 (pending Grant), 4 (pending GrantAck), 5 (pending ReleaseAck),
-  //       : -X (Remaining messages of a burst transaction), 1X (pending ProbeAck - X is previous state as Probes can interrupt existing transaction)
-  // !!NOTE: Currently not keeping track of Acks, as concurrent transactions are possible. TODO convert to list of size = # concurrent transactions
+  //       : 1X (pending ProbeAck - X is previous state as Probes can interrupt existing transaction)
   val sourceState = new mutable.HashMap[Int,Int]()
+  val sinkState = new mutable.HashMap[Int,Int]()
 
-  // Internal state for burst parameter checking (source -> head of burst)
-  val sourceBurst = new mutable.HashMap[Int,TLChannel]()
+  // Internal state for burst request parameter checking (source -> head of burst)
+  val sourceBurstHeadReq = new mutable.HashMap[Int,TLChannel]()
+  // Internal state for burst request counting (source -> -X where X is # of remaining beats)
+  val sourceBurstRemainReq = new mutable.HashMap[Int,Int]()
+  // Internal state for burst response parameter checking (source -> head of burst)
+  // NOTE: Requires 2 copies as responses can begin before requests finish
+  val sourceBurstHeadResp = new mutable.HashMap[Int,TLChannel]()
+  // Internal state for burst response counting (source -> -X where X is # of remaining beats)
+  val sourceBurstRemainResp = new mutable.HashMap[Int,Int]()
+
   val beatSize = log2Ceil(params.dataBits / 8)
 
-  // Sanity checker
-  def sanityCheck(txns: Seq[TLChannel]) : Unit = {
+  // Protocol compliance checker
+  def check(txns: Seq[TLChannel]) : Unit = {
     for (txn <- txns) {
       txn match {
         case txna: TLBundleA =>
-          if (txna.opcode.litValue() == 0) {
+          if (txna.opcode.litValue() == TLOpcodes.PutFullData) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsPutFull != TransferSizes.none, "(A) Channel does not support PUTFULL requests.")
@@ -43,7 +53,7 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstAHelper(txna)
 
-          } else if (txna.opcode.litValue() == 1) {
+          } else if (txna.opcode.litValue() == TLOpcodes.PutPartialData) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsPutPartial != TransferSizes.none, "(A) Channel does not support PUTPARTIAL requests.")
@@ -56,7 +66,7 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstAHelper(txna)
 
-          } else if (txna.opcode.litValue() == 2) {
+          } else if (txna.opcode.litValue() == TLOpcodes.ArithmeticData) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsArithmetic != TransferSizes.none, "(A) Channel does not support ARITHMETIC requests.")
@@ -74,7 +84,7 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstAHelper(txna)
 
-          } else if (txna.opcode.litValue() == 3) {
+          } else if (txna.opcode.litValue() == TLOpcodes.LogicalData) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
@@ -92,7 +102,7 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstAHelper(txna)
 
-          } else if (txna.opcode.litValue() == 4) {
+          } else if (txna.opcode.litValue() == TLOpcodes.Get) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsGet != TransferSizes.none, "(A) Channel does not support GET requests.")
@@ -106,7 +116,10 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             assert(contiguous(txna.mask), "(A) GET MASK is not contiguous")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt GET TLBundle")
 
-          } else if (txna.opcode.litValue() == 5) {
+            // Update state
+            setResponseState(txna, encodeChannel(txna.source.litValue().toInt, 'A'))
+
+          } else if (txna.opcode.litValue() == TLOpcodes.Hint) {
 
             assert(sparam.supportsHint != TransferSizes.none, "(A) Channel does not support INTENT requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 1, s"(A) Non-valid PARAM (${txna.param}) for INTENT Data Bundle")
@@ -118,7 +131,10 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             }
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt INTENT TLBundle")
 
-          } else if (txna.opcode.litValue() == 6) {
+            // Update state
+            setResponseState(txna, encodeChannel(txna.source.litValue().toInt, 'A'))
+
+          } else if (txna.opcode.litValue() == TLOpcodes.AcquireBlock) {
 
             assert(sparam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
             assert(sparam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
@@ -132,7 +148,10 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             assert(contiguous(txna.mask), "(A) ACQUIREBLOCK MASK is not contiguous")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt ACQUIREBLOCK TLBundle")
 
-          } else if (txna.opcode.litValue() == 7) {
+            // Update state
+            setResponseState(txna, encodeChannel(txna.source.litValue().toInt, 'A'))
+
+          } else if (txna.opcode.litValue() == TLOpcodes.AcquirePerm) {
 
             assert(sparam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
             assert(sparam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
@@ -146,13 +165,16 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             assert(contiguous(txna.mask), "(A) LOGICAL MASK is not contiguous")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
 
+            // Update state
+            setResponseState(txna, encodeChannel(txna.source.litValue().toInt, 'A'))
+
           } else {
             assert(false, "(A) Invalid OPCODE on A Channel")
           }
 
         case txnb: TLBundleB =>
           // NOTE: Ignoring checking TL-UL/UH messages forwarded on B channel
-          if (txnb.opcode.litValue() == 6) {
+          if (txnb.opcode.litValue() == TLOpcodes.ProbeBlock) {
 
             // Assertions checking on first TLBundle
             assert(mparam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
@@ -165,7 +187,10 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             assert(contiguous(txnb.mask), "(B) PROBEBLOCK MASK is not contiguous")
             assert(!txnb.corrupt.litToBoolean, "(B) Corrupt PROBEBLOCK TLBundle")
 
-          } else if (txnb.opcode.litValue() == 7) {
+            // Update state
+            setResponseState(txnb, encodeChannel(txnb.source.litValue().toInt, 'B'))
+
+          } else if (txnb.opcode.litValue() == TLOpcodes.ProbePerm) {
 
             // Assertions checking on first TLBundle
             assert(mparam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
@@ -178,13 +203,26 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             assert(contiguous(txnb.mask), "(B) PROBEPERM MASK is not contiguous")
             assert(!txnb.corrupt.litToBoolean, "(B) Corrupt PROBEPERM TLBundle")
 
+            // Update state
+            setResponseState(txnb, encodeChannel(txnb.source.litValue().toInt, 'B'))
+
           } else {
             assert(false, "(B) Invalid OPCODE on B Channel")
           }
 
         case txnc: TLBundleC =>
           // NOTE: Ignoring checking TL-UL/UH messages forwarded on C channel
-          if (txnc.opcode.litValue() == 5) {
+          if (txnc.opcode.litValue() == TLOpcodes.ProbeAck) {
+
+            // Assertions checking on first TLBundle
+            assert(mparam.supports.probe != TransferSizes.none, "(C) Channel does not support PROBEACK requests.")
+            assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(C) Non-valid PARAM (${txnc.param}) for PROBEACK Bundle")
+            assert(alignedLg(txnc.address, txnc.size), s"(C) PROBEACK Address (${txnc.address}) is NOT aligned with size (${txnc.size})")
+
+            // Update state
+            setResponseState(txnc, encodeChannel(txnc.source.litValue().toInt, 'C'))
+
+          } else if (txnc.opcode.litValue() == TLOpcodes.ProbeAckData) {
 
             // Assertions checking on first TLBundle
             assert(mparam.supports.probe != TransferSizes.none, "(C) Channel does not support PROBEACKDATA requests.")
@@ -194,13 +232,16 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstCHelper(txnc)
 
-          } else if (txnc.opcode.litValue() == 6) {
+          } else if (txnc.opcode.litValue() == TLOpcodes.Release) {
 
             assert(sparam.supportsAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
             assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(B) Non-valid PARAM (${txnc.param}) for RELEASE Bundle")
             assert(!txnc.corrupt.litToBoolean, "(C) Corrupt RELEASE TLBundle")
 
-          } else if (txnc.opcode.litValue() == 7) {
+            // Update state
+            setResponseState(txnc, encodeChannel(txnc.source.litValue().toInt, 'C'))
+
+          } else if (txnc.opcode.litValue() == TLOpcodes.ReleaseData) {
 
             // Assertions checking on first TLBundle
             assert(sparam.supportsAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
@@ -215,12 +256,15 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
           }
 
         case txnd: TLBundleD =>
-          if (txnd.opcode.litValue() == 0) {
+          if (txnd.opcode.litValue() == TLOpcodes.AccessAck) {
 
             assert(txnd.param.litValue() == 0, "(D) Non-zero param field for ACCESSACK TLBundle")
             assert(!txnd.corrupt.litToBoolean, "(D) Non-zero corrupt field for ACCESSACK TLBundle")
 
-          } else if (txnd.opcode.litValue() == 1) {
+            // Update state
+            setResponseState(txnd, encodeChannel(txnd.source.litValue().toInt, 'D'))
+
+          } else if (txnd.opcode.litValue() == TLOpcodes.AccessAckData) {
 
             // Assertions checking on first TLBundle
             assert(txnd.param.litValue() == 0, "(D) Non-zero param field for ACCESSACKDATA TLBundle")
@@ -231,17 +275,23 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstDHelper(txnd)
 
-          } else if (txnd.opcode.litValue() == 2) {
+          } else if (txnd.opcode.litValue() == TLOpcodes.HintAck) {
 
             assert(txnd.param.litValue() == 0, "(D) Non-zero param field for HINTACK TLBundle")
             assert(!txnd.corrupt.litToBoolean, "(D) Non-zero corrupt field for HINTACK TLBundle")
 
-          } else if (txnd.opcode.litValue() == 4) {
+            // Update state
+            setResponseState(txnd, encodeChannel(txnd.source.litValue().toInt, 'D'))
+
+          } else if (txnd.opcode.litValue() == TLOpcodes.Grant) {
 
             assert(txnd.param.litValue() >= 0 && txnd.param.litValue() < 3, "(D) Non-valid param field for GRANT TLBundle")
             assert(!txnd.corrupt.litToBoolean, "(D) Non-zero corrupt field for GRANT TLBundle")
 
-          } else if (txnd.opcode.litValue() == 5) {
+            // Update state
+            setResponseState(txnd, encodeChannel(txnd.source.litValue().toInt, 'D'))
+
+          } else if (txnd.opcode.litValue() == TLOpcodes.GrantData) {
 
             // Assertions checking on first TLBundle
             assert(txnd.param.litValue() >= 0 && txnd.param.litValue() < 3, "(D) Non-valid param field for GRANTDATA TLBundle")
@@ -252,39 +302,50 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             // Burst helper function
             burstDHelper(txnd)
 
-          } else if (txnd.opcode.litValue() == 6) {
+          } else if (txnd.opcode.litValue() == TLOpcodes.ReleaseAck) {
 
             assert(txnd.param.litValue() == 0, "(D) Non-zero param field for RELEASEACK TLBundle")
             assert(!txnd.corrupt.litToBoolean, "(D) Corrupt RELEASEACK TLBundle")
             assert(!txnd.denied.litToBoolean, "(D) RELEASEACK cannot be denied.")
 
+            // Update state
+            setResponseState(txnd, encodeChannel(txnd.source.litValue().toInt, 'D'))
+
           } else {
             assert(false, "(D) Invalid OPCODE on D Channel")
           }
-        case _: TLBundleE =>
+        case txne: TLBundleE =>
           // No asserts to check
+
+          // Update state
+          setResponseState(txne, encodeChannel(txne.sink.litValue().toInt, 'E'))
       }
     }
   }
 
   // Helper Function to Encode Channel and Source (Since source IDs are only unique to a *single* channel)
-  // 1: A, 2: B, 3: C, 4: D, 5: E
-  def encodeChannel(source: Int, channel: Int): Int = {
-    (source * 10) + channel
+  // 1: A, 2: B, 2: C, 1: D, 1: E
+  def encodeChannel(source: Int, channel: Char): Int = {
+    val channelMap = immutable.HashMap[Char, Int]('A' -> 1, 'B' -> 2, 'C' -> 2, 'D' -> 1, 'E' -> 1)
+
+    if (!channelMap.contains(channel)) println(s"WARNING: Given channel ($channel) is not valid (A, B, C, D, or E)")
+    (source * 10) + channelMap.getOrElse(channel, 0)
   }
 
   // Helper Functions for Burst Checking
   def burstAHelper(txna: TLBundleA): Unit = {
     // If bundles are in a burst
-    val sourceKey = encodeChannel(txna.source.litValue().toInt, 1)
+    val sourceKey = encodeChannel(txna.source.litValue().toInt, 'A')
     if (!isNonBurst(txna) && txna.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainReq.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(sourceKey) = txna
-        sourceState(sourceKey) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
+        sourceBurstHeadReq(sourceKey) = txna
+        // Immediately change state as responses can arrive before requests finish sending
+        setResponseState(txna, sourceKey)
+        sourceBurstRemainReq(sourceKey) = 1 - (1 << (txna.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(sourceKey)
+        val head = sourceBurstHeadReq(sourceKey)
         head match {
           case heada: TLBundleA =>
             var result = true
@@ -292,29 +353,31 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txna.size.litValue() == heada.size.litValue()
             result &= txna.source.litValue() == heada.source.litValue()
             result &= txna.address.litValue() == heada.address.litValue()
-            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
+            assert(result, s"(A) A constant field was modified within a beat. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
 
-            sourceState(sourceKey) += 1
+            sourceBurstRemainReq(sourceKey) += 1
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainReq(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
         }
       }
-    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txna")
+    } else if (sourceBurstRemainReq.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainReq(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadReq(sourceKey)}. Given beat: $txna")
+    } else {
+      setResponseState(txna, sourceKey)
     }
   }
 
   def burstCHelper(txnc: TLBundleC): Unit = {
     // If bundles are in a burst
-    val sourceKey = encodeChannel(txnc.source.litValue().toInt, 3)
+    val sourceKey = encodeChannel(txnc.source.litValue().toInt, 'C')
     if (!isNonBurst(txnc) && txnc.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainResp.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(sourceKey) = txnc
-        sourceState(sourceKey) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
+        sourceBurstHeadResp(sourceKey) = txnc
+        sourceBurstRemainResp(sourceKey) = 1 - (1 << (txnc.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(sourceKey)
+        val head = sourceBurstHeadResp(sourceKey)
         head match {
           case headc: TLBundleC =>
             var result = true
@@ -322,29 +385,34 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txnc.size.litValue() == headc.size.litValue()
             result &= txnc.source.litValue() == headc.source.litValue()
             result &= txnc.address.litValue() == headc.address.litValue()
-            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
+            assert(result, s"(C) A constant field was modified within a beat. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
 
-            sourceState(sourceKey) += 1
+            sourceBurstRemainResp(sourceKey) += 1
+            if (sourceBurstRemainResp(sourceKey) == 0) setResponseState(sourceBurstHeadResp(sourceKey), sourceKey)
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
         }
       }
-    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnc")
+    } else if (sourceBurstRemainResp.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnc")
+    } else {
+      setResponseState(txnc, sourceKey)
     }
   }
 
   def burstDHelper(txnd: TLBundleD): Unit = {
     // If bundles are in a burst
-    val sourceKey = encodeChannel(txnd.source.litValue().toInt, 4)
+    val sourceKey = encodeChannel(txnd.source.litValue().toInt, 'D')
+    // Universal check: Source state should be non-zero (pending operation) when receiving any kind of response
+    assert(sourceState(sourceKey) != 0, s"ERROR: Unexpected response (no pending operation with same sourceID): $txnd")
     if (!isNonBurst(txnd) && txnd.size.litValue() > beatSize) {
-      if (sourceState.getOrElse(sourceKey,0) == 0) {
+      if (sourceBurstRemainResp.getOrElse(sourceKey,0) == 0) {
         // Start of burst
-        sourceBurst(sourceKey) = txnd
-        sourceState(sourceKey) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
+        sourceBurstHeadResp(sourceKey) = txnd
+        sourceBurstRemainResp(sourceKey) = 1 - (1 << (txnd.size.litValue().toInt - beatSize))
       } else {
         // Checking constant parameters with head of burst
-        val head = sourceBurst(sourceKey)
+        val head = sourceBurstHeadResp(sourceKey)
         head match {
           case headd: TLBundleD =>
             var result = true
@@ -353,15 +421,64 @@ class TLSanityChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mpa
             result &= txnd.source.litValue() == headd.source.litValue()
             result &= txnd.sink.litValue() == headd.sink.litValue()
             result &= txnd.denied.litValue() == headd.denied.litValue()
-            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
+            assert(result, s"(D) A constant field was modified within a beat. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
 
-            sourceState(sourceKey) += 1
+            sourceBurstRemainResp(sourceKey) += 1
+            if (sourceBurstRemainResp(sourceKey) == 0) setResponseState(sourceBurstHeadResp(sourceKey), sourceKey)
           case _ =>
-            assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
+            assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
         }
       }
-    } else if (sourceState.getOrElse(sourceKey,0) < 0) {
-      assert(false, s"Expected remaining ${0 - sourceState(sourceKey)} beats of burst. Burst head: ${sourceBurst(sourceKey)}. Given beat: $txnd")
+    } else if (sourceBurstRemainResp.getOrElse(sourceKey,0) < 0) {
+      assert(false, s"Expected remaining ${0 - sourceBurstRemainResp(sourceKey)} beats of burst. Burst head: ${sourceBurstHeadResp(sourceKey)}. Given beat: $txnd")
+    } else {
+      setResponseState(txnd, sourceKey)
+    }
+  }
+
+  // Helper Function to check and set response state (non-burst)
+  def setResponseState(txn: TLChannel, sourceKey: Int): Unit = {
+    assert(sourceState.getOrElse(sourceKey, 0) >= 0)
+    txn match {
+      case txna: TLBundleA =>
+        assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Either concurrent transactions with same source ID or missed Ack from slave: $txna")
+        val opcode = txna.opcode.litValue().toInt
+        sourceState(sourceKey) = if (opcode < 5) 1 else if (opcode == 5) 2 else 3
+      case txnb: TLBundleB =>
+        assert(sourceState.getOrElse(sourceKey, 0) < 10, s"ERROR: Concurrent Probes with the same source ID: $txnb")
+        sourceState(sourceKey) = sourceState.getOrElse(sourceKey, 0) + 10
+      case txnc: TLBundleC =>
+        if (txnc.opcode.litValue().toInt == TLOpcodes.ProbeAck || txnc.opcode.litValue().toInt == TLOpcodes.ProbeAckData) {
+          assert(sourceState.getOrElse(sourceKey, 0) >= 10, s"ERROR: Unexpected ProbeAck/Data (no pending Probe with same sourceID): $txnc")
+          sourceState(sourceKey) = sourceState(sourceKey) % 10
+        } else if (txnc.opcode.litValue().toInt == TLOpcodes.Release || txnc.opcode.litValue().toInt == TLOpcodes.ReleaseData) {
+          assert(sourceState.getOrElse(sourceKey, 0) == 0, s"ERROR: Unexpected release operation (another operation with same sourceID is still in progress): $txnc")
+          sourceState(sourceKey) = 5
+        }
+      case txnd: TLBundleD =>
+        // Universal response check: Source state should only change back to IDLE (0) when all request and response beats have been observed.
+        assert(sourceBurstRemainReq.getOrElse(sourceKey, 0) == 0, s"ERROR: Incomplete operation. Expected ${sourceBurstRemainReq(sourceKey)} more beats of request: ${sourceBurstHeadReq(sourceKey)}")
+        assert(sourceBurstRemainResp.getOrElse(sourceKey, 0) == 0, s"ERROR: Incomplete operation. Expected ${sourceBurstRemainResp(sourceKey)} more beats of response: ${sourceBurstHeadResp(sourceKey)}")
+        if (txnd.opcode.litValue().toInt == TLOpcodes.AccessAck || txnd.opcode.litValue().toInt == TLOpcodes.AccessAckData) {
+          assert(sourceState.getOrElse(sourceKey, 0) == 1, s"ERROR: Unexpected AccessAck/Data operation (no pending operation with same sourceID): $txnd")
+          sourceState(sourceKey) = 0
+        } else if (txnd.opcode.litValue().toInt == TLOpcodes.HintAck) {
+          assert(sourceState.getOrElse(sourceKey, 0) == 2, s"ERROR: Unexpected HintAck operation (no Hint with same sourceID in progress): $txnd")
+          sourceState(sourceKey) = 0
+        } else if (txnd.opcode.litValue().toInt == TLOpcodes.Grant || txnd.opcode.litValue().toInt == TLOpcodes.GrantData) {
+          assert(sourceState.getOrElse(sourceKey, 0) == 3, s"ERROR: Unexpected Grant operation (no Acquire with same sourceID in progress): $txnd")
+          sourceState(sourceKey) = 0
+          sinkState(encodeChannel(txnd.sink.litValue().toInt, 'D')) = 4
+        } else if (txnd.opcode.litValue().toInt == TLOpcodes.ReleaseAck) {
+          // Special case: Since Release to ReleaseAck is from channel C -> channel D, we need to encode with C
+          val newSourceKey = encodeChannel(sourceKey/10, 'C')
+          assert(sourceState.getOrElse(newSourceKey, 0) == 5, s"ERROR: Unexpected ReleaseAck operation (no Release in progress with same sourceID): $txnd")
+          sourceState(newSourceKey) = 0
+        }
+      case txne: TLBundleE =>
+        val sinkKey = encodeChannel(txne.sink.litValue().toInt, 'D')
+        assert(sinkState.getOrElse(sinkKey, 0) == 4, s"ERROR: Unexpected GrantAck operation (no Acquire in progress or Grant received with same sourceID): $txne")
+        sinkState(sinkKey) = 0
     }
   }
 }

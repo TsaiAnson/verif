@@ -23,7 +23,8 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val bundleParams: TLBundleParameters = pusher.out.params
       val slaveFn = new TLMemoryModel(bundleParams)
       val slaveModel = new TLDriverSlave(c.clock, pusher.out, slaveFn, TLMemoryModel.State.empty())
-      val monitor = new TLMonitor(c.clock, pusher.out)
+      val protocolChecker = new TLProtocolChecker(pusher.out.params, pusher.sPortParams.head.managers.head, pusher.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, pusher.out, Some(protocolChecker))
 
       c.clock.step(100)
 
@@ -41,7 +42,8 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val bundleParams: TLBundleParameters = fuzzer.out.params
       val slaveFn = new TLMemoryModel(bundleParams)
       val slaveModel = new TLDriverSlave(c.clock, fuzzer.out, slaveFn, TLMemoryModel.State.empty())
-      val monitor = new TLMonitor(c.clock, fuzzer.out)
+      val protocolChecker = new TLProtocolChecker(fuzzer.out.params, fuzzer.sPortParams.head.managers.head, fuzzer.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, fuzzer.out, Some(protocolChecker))
 
       c.clock.step(100)
 
@@ -57,7 +59,8 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       val mDriver = new TLDriverMaster(c.clock, passthrough.in)
       val slaveFn = new TLMemoryModel(bundleParams)
       val sDriver = new TLDriverSlave(c.clock, passthrough.out, slaveFn, TLMemoryModel.State.empty())
-      val monitor = new TLMonitor(c.clock, passthrough.in)
+      val protocolChecker = new TLProtocolChecker(passthrough.in.params, passthrough.sPortParams.head.managers.head, passthrough.mPortParams.head.clients.head)
+      val monitor = new TLMonitor(c.clock, passthrough.in, Some(protocolChecker))
 
       val (stimulus, expected) = (Seq(
         Put(0x8, BigInt("0123456789abcdef", 16)),
@@ -71,8 +74,14 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAck(0),
         AccessAckData(BigInt("ffffffffffffffff", 16), 0)
       ))
-      mDriver.push(stimulus)
-      c.clock.step(100)
+
+      val dispMonitor = new TLMonitor(c.clock, passthrough.in)
+      val dispatcher = new TLUDispatcher(passthrough.in.params, None, stimulus)
+      for (_ <- 0 until 20) {
+        val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
+        mDriver.push(txns)
+        c.clock.step(5)
+      }
 
       val output = monitor.getMonitoredTransactions().map(_.data).collect{case t: TLBundleD => t}
       val comparison = equalsTL(output, expected)

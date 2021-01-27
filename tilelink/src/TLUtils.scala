@@ -12,28 +12,28 @@ import scala.math.ceil
 
 package object TLUtils {
   // Temporary location for parameters
-  def standaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
+  def defaultStandaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
     supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
     regionType = RegionType.UNCACHED)),
     beatBytes = 8)
-  def standaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "bundleBridgetoTL")))
+  def defaultStandaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "bundleBridgetoTL")))
   //    supportsProbe = TransferSizes(1, 32),
   //    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
   //    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))))
-  def verifTLBundleParams: TLBundleParameters = TLBundleParameters(standaloneMasterParams, standaloneSlaveParams)
+  def defaultVerifTLBundleParams: TLBundleParameters = TLBundleParameters(defaultStandaloneMasterParams, defaultStandaloneSlaveParams)
   // Temporary cache parameters
-  def standaloneSlaveParamsC: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
+  def defaultStandaloneSlaveParamsCache: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
     supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
     supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
     supportsAcquireB = TransferSizes(1, 32), supportsAcquireT = TransferSizes(1, 32),
     regionType = RegionType.UNCACHED)),
     endSinkId = 1, beatBytes = 8)
-  def standaloneMasterParamsC: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "TestBundle",
+  def defaultStandaloneMasterParamsCache: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "TestBundle",
     supportsProbe = TransferSizes(1, 32), supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32),
     supportsPutPartial = TransferSizes(1, 32), supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32),
     supportsHint = TransferSizes(1, 32))))
-  def verifTLBundleParamsC: TLBundleParameters = TLBundleParameters(standaloneMasterParamsC, standaloneSlaveParamsC)
+  def defaultVerifTLBundleParamsCache: TLBundleParameters = TLBundleParameters(defaultStandaloneMasterParamsCache, defaultStandaloneSlaveParamsCache)
 
   // Helper functions for message checking
   def aligned(data : UInt, base : UInt) : Boolean = {
