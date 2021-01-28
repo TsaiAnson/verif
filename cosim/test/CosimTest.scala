@@ -174,21 +174,16 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
     val simTarget = "/home/rlund/adept/chipyard/generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/mvin_mvout-baremetal"
 
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      // Drivers
-      val commandDriver = new DecoupledDriver[RoCCCommand](c.clock, c.io.cmd)
 
-      // Monitors
-      val tlMonitor = new TLMonitor(c.clock, c.tlOut(0))
-      //c.tlOut(0).a.ready.poke(true.B) broken!
 
       val commandPipe = new RoCCCommandCosimPipeDriver(
         "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/RoCCCommandPipe",
-        c.clock, commandDriver)
+        c.clock, c.io.cmd)
 
       val fencePipe = new FencePipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceReqPipe",
         "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceRespPipe", c.clock, c.io)
 
-      //val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock);
+      val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock, c.tlOut(0));
 
       //val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
       // TODO: tlClientDriver is broken
@@ -198,7 +193,7 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
       // val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, c.io.ptw(0).req)
       // val tlMonitor = new TLClientMonitorBasic(c.clock, c.tlOut(0))
 
-      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe)); //, tlPipe));
+      val runner = new CosimRunner(simPath, Seq(fencePipe, commandPipe, tlPipe));
 
       runner.run(simArgs, simTarget, x => x == 0)
 

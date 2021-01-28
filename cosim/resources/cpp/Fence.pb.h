@@ -182,6 +182,7 @@ class FenceReq PROTOBUF_FINAL :
 
   enum : int {
     kValidFieldNumber = 1,
+    kNumFieldNumber = 2,
   };
   // bool valid = 1;
   void clear_valid();
@@ -192,6 +193,15 @@ class FenceReq PROTOBUF_FINAL :
   void _internal_set_valid(bool value);
   public:
 
+  // uint32 num = 2;
+  void clear_num();
+  ::PROTOBUF_NAMESPACE_ID::uint32 num() const;
+  void set_num(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_num() const;
+  void _internal_set_num(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  public:
+
   // @@protoc_insertion_point(class_scope:verif.FenceReq)
  private:
   class _Internal;
@@ -200,6 +210,7 @@ class FenceReq PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   bool valid_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 num_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_Fence_2eproto;
 };
@@ -368,6 +379,26 @@ inline void FenceReq::_internal_set_valid(bool value) {
 inline void FenceReq::set_valid(bool value) {
   _internal_set_valid(value);
   // @@protoc_insertion_point(field_set:verif.FenceReq.valid)
+}
+
+// uint32 num = 2;
+inline void FenceReq::clear_num() {
+  num_ = 0u;
+}
+inline ::PROTOBUF_NAMESPACE_ID::uint32 FenceReq::_internal_num() const {
+  return num_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::uint32 FenceReq::num() const {
+  // @@protoc_insertion_point(field_get:verif.FenceReq.num)
+  return _internal_num();
+}
+inline void FenceReq::_internal_set_num(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  
+  num_ = value;
+}
+inline void FenceReq::set_num(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_num(value);
+  // @@protoc_insertion_point(field_set:verif.FenceReq.num)
 }
 
 // -------------------------------------------------------------------

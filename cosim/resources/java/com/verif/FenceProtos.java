@@ -23,6 +23,12 @@ public final class FenceProtos {
      * @return The valid.
      */
     boolean getValid();
+
+    /**
+     * <code>uint32 num = 2;</code>
+     * @return The num.
+     */
+    int getNum();
   }
   /**
    * Protobuf type {@code verif.FenceReq}
@@ -74,6 +80,11 @@ public final class FenceProtos {
               valid_ = input.readBool();
               break;
             }
+            case 16: {
+
+              num_ = input.readUInt32();
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -117,6 +128,17 @@ public final class FenceProtos {
       return valid_;
     }
 
+    public static final int NUM_FIELD_NUMBER = 2;
+    private int num_;
+    /**
+     * <code>uint32 num = 2;</code>
+     * @return The num.
+     */
+    @java.lang.Override
+    public int getNum() {
+      return num_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -134,6 +156,9 @@ public final class FenceProtos {
       if (valid_ != false) {
         output.writeBool(1, valid_);
       }
+      if (num_ != 0) {
+        output.writeUInt32(2, num_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -146,6 +171,10 @@ public final class FenceProtos {
       if (valid_ != false) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(1, valid_);
+      }
+      if (num_ != 0) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt32Size(2, num_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -164,6 +193,8 @@ public final class FenceProtos {
 
       if (getValid()
           != other.getValid()) return false;
+      if (getNum()
+          != other.getNum()) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -178,6 +209,8 @@ public final class FenceProtos {
       hash = (37 * hash) + VALID_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getValid());
+      hash = (37 * hash) + NUM_FIELD_NUMBER;
+      hash = (53 * hash) + getNum();
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -313,6 +346,8 @@ public final class FenceProtos {
         super.clear();
         valid_ = false;
 
+        num_ = 0;
+
         return this;
       }
 
@@ -340,6 +375,7 @@ public final class FenceProtos {
       public com.verif.FenceProtos.FenceReq buildPartial() {
         com.verif.FenceProtos.FenceReq result = new com.verif.FenceProtos.FenceReq(this);
         result.valid_ = valid_;
+        result.num_ = num_;
         onBuilt();
         return result;
       }
@@ -390,6 +426,9 @@ public final class FenceProtos {
         if (other == com.verif.FenceProtos.FenceReq.getDefaultInstance()) return this;
         if (other.getValid() != false) {
           setValid(other.getValid());
+        }
+        if (other.getNum() != 0) {
+          setNum(other.getNum());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -447,6 +486,37 @@ public final class FenceProtos {
       public Builder clearValid() {
         
         valid_ = false;
+        onChanged();
+        return this;
+      }
+
+      private int num_ ;
+      /**
+       * <code>uint32 num = 2;</code>
+       * @return The num.
+       */
+      @java.lang.Override
+      public int getNum() {
+        return num_;
+      }
+      /**
+       * <code>uint32 num = 2;</code>
+       * @param value The num to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNum(int value) {
+        
+        num_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>uint32 num = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearNum() {
+        
+        num_ = 0;
         onChanged();
         return this;
       }
@@ -1011,9 +1081,10 @@ public final class FenceProtos {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\013Fence.proto\022\005verif\"\031\n\010FenceReq\022\r\n\005vali" +
-      "d\030\001 \001(\010\"\035\n\tFenceResp\022\020\n\010complete\030\001 \001(\010B\030" +
-      "\n\tcom.verifB\013FenceProtosb\006proto3"
+      "\n\013Fence.proto\022\005verif\"&\n\010FenceReq\022\r\n\005vali" +
+      "d\030\001 \001(\010\022\013\n\003num\030\002 \001(\r\"\035\n\tFenceResp\022\020\n\010com" +
+      "plete\030\001 \001(\010B\030\n\tcom.verifB\013FenceProtosb\006p" +
+      "roto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1024,7 +1095,7 @@ public final class FenceProtos {
     internal_static_verif_FenceReq_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_verif_FenceReq_descriptor,
-        new java.lang.String[] { "Valid", });
+        new java.lang.String[] { "Valid", "Num", });
     internal_static_verif_FenceResp_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_verif_FenceResp_fieldAccessorTable = new

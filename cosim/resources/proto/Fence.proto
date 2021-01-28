@@ -6,6 +6,7 @@ option java_outer_classname = "FenceProtos";
 
 message FenceReq {
   bool valid = 1;
+  uint32 num = 2;
 }
 
 message FenceResp {

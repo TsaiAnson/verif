@@ -61,6 +61,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_Fence_2eproto::offsets[] PROTO
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::verif::FenceReq, valid_),
+  PROTOBUF_FIELD_OFFSET(::verif::FenceReq, num_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::verif::FenceResp, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -70,7 +71,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_Fence_2eproto::offsets[] PROTO
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, sizeof(::verif::FenceReq)},
-  { 6, -1, sizeof(::verif::FenceResp)},
+  { 7, -1, sizeof(::verif::FenceResp)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -79,9 +80,10 @@ static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] =
 };
 
 const char descriptor_table_protodef_Fence_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\013Fence.proto\022\005verif\"\031\n\010FenceReq\022\r\n\005vali"
-  "d\030\001 \001(\010\"\035\n\tFenceResp\022\020\n\010complete\030\001 \001(\010B\030"
-  "\n\tcom.verifB\013FenceProtosb\006proto3"
+  "\n\013Fence.proto\022\005verif\"&\n\010FenceReq\022\r\n\005vali"
+  "d\030\001 \001(\010\022\013\n\003num\030\002 \001(\r\"\035\n\tFenceResp\022\020\n\010com"
+  "plete\030\001 \001(\010B\030\n\tcom.verifB\013FenceProtosb\006p"
+  "roto3"
   ;
 static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_Fence_2eproto_deps[1] = {
 };
@@ -91,7 +93,7 @@ static ::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase*const descriptor_table_Fen
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_Fence_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_Fence_2eproto = {
-  false, false, descriptor_table_protodef_Fence_2eproto, "Fence.proto", 112,
+  false, false, descriptor_table_protodef_Fence_2eproto, "Fence.proto", 125,
   &descriptor_table_Fence_2eproto_once, descriptor_table_Fence_2eproto_sccs, descriptor_table_Fence_2eproto_deps, 2, 0,
   schemas, file_default_instances, TableStruct_Fence_2eproto::offsets,
   file_level_metadata_Fence_2eproto, 2, file_level_enum_descriptors_Fence_2eproto, file_level_service_descriptors_Fence_2eproto,
@@ -116,12 +118,17 @@ FenceReq::FenceReq(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 FenceReq::FenceReq(const FenceReq& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  valid_ = from.valid_;
+  ::memcpy(&valid_, &from.valid_,
+    static_cast<size_t>(reinterpret_cast<char*>(&num_) -
+    reinterpret_cast<char*>(&valid_)) + sizeof(num_));
   // @@protoc_insertion_point(copy_constructor:verif.FenceReq)
 }
 
 void FenceReq::SharedCtor() {
-  valid_ = false;
+  ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+      reinterpret_cast<char*>(&valid_) - reinterpret_cast<char*>(this)),
+      0, static_cast<size_t>(reinterpret_cast<char*>(&num_) -
+      reinterpret_cast<char*>(&valid_)) + sizeof(num_));
 }
 
 FenceReq::~FenceReq() {
@@ -155,7 +162,9 @@ void FenceReq::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  valid_ = false;
+  ::memset(&valid_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&num_) -
+      reinterpret_cast<char*>(&valid_)) + sizeof(num_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -170,6 +179,13 @@ const char* FenceReq::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
           valid_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // uint32 num = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          num_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -207,6 +223,12 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteBoolToArray(1, this->_internal_valid(), target);
   }
 
+  // uint32 num = 2;
+  if (this->num() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_num(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -226,6 +248,13 @@ size_t FenceReq::ByteSizeLong() const {
   // bool valid = 1;
   if (this->valid() != 0) {
     total_size += 1 + 1;
+  }
+
+  // uint32 num = 2;
+  if (this->num() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_num());
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -262,6 +291,9 @@ void FenceReq::MergeFrom(const FenceReq& from) {
   if (from.valid() != 0) {
     _internal_set_valid(from._internal_valid());
   }
+  if (from.num() != 0) {
+    _internal_set_num(from._internal_num());
+  }
 }
 
 void FenceReq::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -285,7 +317,12 @@ bool FenceReq::IsInitialized() const {
 void FenceReq::InternalSwap(FenceReq* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  swap(valid_, other->valid_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(FenceReq, num_)
+      + sizeof(FenceReq::num_)
+      - PROTOBUF_FIELD_OFFSET(FenceReq, valid_)>(
+          reinterpret_cast<char*>(&valid_),
+          reinterpret_cast<char*>(&other->valid_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata FenceReq::GetMetadata() const {
