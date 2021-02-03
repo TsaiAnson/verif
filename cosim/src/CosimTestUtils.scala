@@ -76,8 +76,8 @@ object VerifProtoBufUtils {
           val subProtoName = subProto.getDescriptorForType.getName
           val subHelper = getHelper(helperType, subProtoName)
           protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, helperType, helperClass, subHelper.returnType))
-        case UINT32 => protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
-        case UINT64 => protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
+        case UINT32 => protoArgs += (fieldName -> fromBigIntToLiteral((BigInt(value.asInstanceOf[Integer] >>> 1) << 1) + (value.asInstanceOf[Integer] & 1)).asUInt)
+        case UINT64 => protoArgs += (fieldName -> fromBigIntToLiteral((BigInt(value.asInstanceOf[Long] >>> 1) << 1) + (value.asInstanceOf[Long] & 1)).asUInt)
         case BOOL => protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
         case STRING => protoArgs += (fieldName -> fromBigIntToLiteral(BigInt(value.asInstanceOf[String], 16)).asUInt)
       }

@@ -160,7 +160,7 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
     println(reader.getMessages)
   }
 
-  it should "Run Mvin-Mvout" in {
+  it should "mvin_mvout-baremetal" in {
     val dut = LazyModule(
       new VerifRoCCStandaloneWrapper(
         () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true,
@@ -185,22 +185,46 @@ class CosimTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock, c.tlOut(0));
 
-      //val ptwRespDriver = new ValidDriver[PTWResp](c.clock, c.io.ptw(0).resp)
-      // TODO: tlClientDriver is broken
-      //val tlDriver = new TLClientDriverBasic(c.clock, dut.module.tlOut)
-
-      // Monitors
-      // val ptwReqMonitor = new DecoupledMonitor[ValidIO[PTWReq]](c.clock, c.io.ptw(0).req)
-      // val tlMonitor = new TLClientMonitorBasic(c.clock, c.tlOut(0))
-
       val runner = new CosimRunner(simPath, Seq(fencePipe, commandPipe, tlPipe));
 
       runner.run(simArgs, simTarget, x => x == 0)
 
       c.clock.step(500)
 
-      // Print has nothing since monitor doesn't poke ready
-      //println(tlMonitor.getMonitoredTransactions(verifTLUtils.filterA).map(tx => verifTLUtils.TLTransactiontoTLBundles(tx)))
+      assert(true)
+    }
+  }
+
+  it should "Run matrix_add-baremetal" in {
+    val dut = LazyModule(
+      new VerifRoCCStandaloneWrapper(
+        () => new Gemmini(OpcodeSet.custom3, GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true,
+          meshRows = 4, meshColumns = 4, rob_entries = 4)),
+        beatBytes = 16,
+        addSinks = 1
+      ))
+
+    val simPath = "/home/rlund/adept/chipyard/esp-tools-install/bin/spike"
+    val simArgs = Seq("--extension=gemmini")
+    val simTarget = "/home/rlund/adept/chipyard/generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/matrix_add-baremetal"
+
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+
+      val commandPipe = new RoCCCommandCosimPipeDriver(
+        "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/RoCCCommandPipe",
+        c.clock, c.io.cmd)
+
+      val fencePipe = new FencePipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceReqPipe",
+        "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/GemminiFenceRespPipe", c.clock, c.io)
+
+      val tlPipe = new TLPipe("/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLAPipe", "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir/TLDPipe", c.clock, c.tlOut(0));
+
+      val runner = new CosimRunner(simPath, Seq(fencePipe, commandPipe, tlPipe));
+
+      runner.run(simArgs, simTarget, x => x == 0)
+
+      c.clock.step(500)
 
       assert(true)
     }

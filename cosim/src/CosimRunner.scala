@@ -75,8 +75,6 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
     // Terminate driver and monitor runnables
     pipes.foreach(cosimPipe => cosimPipe.exit)
 
-    // Check correctness
-    correctnessCheck(exitCode)
 
     println(exitCode)
     println(stdOut)
@@ -84,5 +82,8 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
 
     /** IMPORTANT: Clean **/
     Runtime.getRuntime().exec(s"rm -rf $path")
+
+    // Check correctness
+    assert(correctnessCheck(exitCode))
   }
 }
