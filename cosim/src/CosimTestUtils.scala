@@ -195,7 +195,7 @@ object VerifTestUtils {
 
   def getVerifTLBundleParameters(beatBytes: Int = 16, pAddrBits: Int = 32,
                              transferSize: TransferSizes = TransferSizes(1, 64)): TLBundleParameters = {
-    TLBundleParameters(getVerifTLMasterPortParameters(), getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize))
+    TLBundleParameters(getVerifTLMasterPortParameters(), getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize)).copy(sourceBits = 5) //TOD: This is a hack, need to add some way to specify source bits in the bundle creaion process
   }
 
   def getVerifParameters(

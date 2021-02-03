@@ -8,21 +8,21 @@ import scala.collection.mutable
 abstract class AbstractDriver[I, S](clock: Clock, interface: I) {
   val inputTransactions: mutable.Queue[S] = mutable.Queue[S]()
 
-  def push(t: S): Unit = {
+  def push(t: S): Unit = { // ADD
     inputTransactions += t
   }
 
-  def push(tx:Seq[S]): Unit = {
+  def push(tx:Seq[S]): Unit = { // ADD
     for (t <- tx) {
       inputTransactions += t
     }
   }
 
-  def hasNextTransaction: Boolean = {
+  def hasNextTransaction: Boolean = { // REMOVE
     inputTransactions.nonEmpty
   }
 
-  def getNextTransaction: S = {
+  def getNextTransaction: S = {  // REMOVE
     inputTransactions.dequeue()
   }
 }
@@ -40,7 +40,7 @@ abstract class AbstractMonitor[I, S](clock: Clock, interface: I) {
     }
   }
 
-  def getMonitoredTransactions: mutable.MutableList[S] = {
+  def getMonitoredTransactions: mutable.MutableList[S] = { // DONT NEED THIS? leave monitoredTransactions as a public
     monitoredTransactions
   }
 

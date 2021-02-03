@@ -6,6 +6,7 @@ import chisel3.experimental._
 import chiseltest._
 import verif._
 import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.diplomacy.{TransferSizes}
 import freechips.rocketchip.tile.{RoCCCommand, RoCCIO}
 import freechips.rocketchip.tilelink.{TLBundle, TLBundleA, TLBundleD, TLBundleParameters, TLChannel}
 import com.verif.RoCCProtos
@@ -33,11 +34,11 @@ abstract class DecoupledCosimPipeDriver[I, S, D](pipe: String) extends AbstractC
       Thread.sleep(250)
     }
 
-    println("All Pipe Driver files exist")
+//    println("All Pipe Driver files exist")
 
     val in = new FileInputStream(pipe)
 
-    println("Pipe Driver streams opened")
+//    println("Pipe Driver streams opened")
 
     while(!terminate) {
       val message = inputStreamToProto(in)
@@ -79,10 +80,10 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
         Thread.sleep(250)
       }
 
-      println("All fence files exist")
+//      println("All fence files exist")
 
       val req = new FileInputStream(fenceReqPipe)
-      println("Fence req connected")
+//      println("Fence req connected")
 
       var resp_pending = false // Allow for req -> resp thread termination TODO: need to add this back in in some way
       var r: FenceProtos.FenceReq = null
@@ -91,21 +92,17 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
         try {
           val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
           if (r != null && r.getValid()) {
-            println(s"Recieved fence request: ${r.getNum()}")
+//            println(s"Recieved fence request: ${r.getNum()}")
 
             val resp = new FileOutputStream(fenceRespPipe)
-            println("Fence resp connected")
+//            println("Fence resp connected")
 
-            var i = 0; // 10 cycle timeout for testing
-            while ((io.busy.peek.litToBoolean || monitor.getMonitoredTransactions.size <= r.getNum()) && i < 50) {
-              println(s"Busy is ${io.busy.peek.litToBoolean} and ${monitor.getMonitoredTransactions.size} seen")
-              if (io.busy.peek.litToBoolean) {
-                i = i + 1
-              }
+            while (io.busy.peek.litToBoolean || monitor.getMonitoredTransactions.size < r.getNum()) {
+//              println(s"Busy is ${io.busy.peek.litToBoolean} and ${monitor.getMonitoredTransactions.size} seen")
               clock.step()
             } // step clock while busy
 
-            println("Sending fence resp")
+//            println("Sending fence resp")
             FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeTo(resp)
             resp.close()
           }
@@ -116,8 +113,7 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
         clock.step()
       }
 
-      req.close
-      //resp.close
+      req.close()
 
     }
 
@@ -126,42 +122,60 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
     }
 }
 
-class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String) extends TLSlaveFunction[Any] {
-  // NOTE: Scala convention is to open inputs before outputs in matching pairs
-  val tld = new FileInputStream(tldPipe)
-  println("TLD connected")
-  var tla = new FileOutputStream(tlaPipe)
-  println("TLA connected") // We leave TLA open to start and close + reopen after each sent message
+case class TLCosimMemoryBufferState(txnBuffer: Seq[TLChannel])
 
-  override def response(tx: TLChannel, state: Any): (Seq[TLChannel], Any) = {
+class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLBundleParameters)(implicit p: Parameters) extends TLSlaveFunction[TLCosimMemoryBufferState] {
+  // NOTE: Scala convention is to open inputs before outputs in matching pairs
+  val tld_pipe = new FileInputStream(tldPipe)
+//  println("TLD connected")
+
+  override def response(tx: TLChannel, state: TLCosimMemoryBufferState): (Seq[TLChannel], TLCosimMemoryBufferState) = {
     tx match {
       case txA: TLBundleA =>
-        //val tla_bundle = VerifProtoBufUtils.ProtoToBundle(tla, VerifBundleUtils, new TLBundleA(VerifTestUtils.getVerifTLBundleParameters(16, 32, TransferSizes(1,64))))
-        val tla_proto = VerifProtoBufUtils.BundleToProto(txA, TLProtos.TLA.newBuilder())
-        println(tla_proto)
+        val tla_buffer = state.txnBuffer :+ txA
+        if (TLUtils.isCompleteTLTxn(tla_buffer, 16)) {
+          tla_buffer.foreach(tla => {
+            val tla_proto = VerifProtoBufUtils.BundleToProto(tla, TLProtos.TLA.newBuilder())
+//            println("Monitored new TLA")
+//            println(tla_proto)
 
-        println("Writing TLA to pipe")
-        tla_proto.writeTo(tla)
-        tla.close()
+            val tla_pipe = new FileOutputStream(tlaPipe)
+//            println("TLA connected")
 
-        tla = new FileOutputStream(tlaPipe)
-        println("TLA connected")
+//            println("Writing TLA to pipe")
+            tla_proto.writeTo(tla_pipe)
+            tla_pipe.close()
+          })
 
-        (Seq[TLBundleD](), null)
+          var tld_buffer = Seq[TLChannel]()
+          do {
+            var tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
+            while(tld_proto == null) {
+               tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
+            }
+//            println("Recieved new TLD")
+//            println(tld_proto)
+            tld_buffer = tld_buffer :+ VerifProtoBufUtils.ProtoToBundle(tld_proto, VerifBundleUtils, new TLBundleD(bundleParams))
+          } while (!TLUtils.isCompleteTLTxn(tld_buffer, 16))
+
+          (tld_buffer, TLCosimMemoryBufferState(Seq()))
+        } else {
+          (Seq(), TLCosimMemoryBufferState(tla_buffer))
+        }
       case _ => ???
     }
   }
 }
 
-class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock, io: TLBundle) extends AbstractCosimPipe { //TODO: Add driver and monitor
+class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock, io: TLBundle)(implicit p: Parameters) extends AbstractCosimPipe { //TODO: Add driver and monitor
   override def run: Unit = {
     // Spin until all needed FIFOs are created
     while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
       Thread.sleep(250)
     }
-    println("All TL files exist")
+//    println("All TL files exist")
 
-    val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe), null)
+    val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe, io.params), TLCosimMemoryBufferState(Seq()))
   }
 
   override def exit: Unit = {}

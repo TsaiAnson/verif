@@ -120,12 +120,10 @@ package object TLUtils {
   }
 
   // Helper method to test if given TLBundles (TLChannels) make up a complete TLTransaction
-  def isCompleteTLTxn (txns: Seq[TLChannel]) : Boolean = {
+  def isCompleteTLTxn (txns: Seq[TLChannel], beatBytes: Int = 8) : Boolean = {
     // Edge case
     if (txns.isEmpty) return false
 
-    // TODO Hardcoded, update when configurability is added
-    val beatBytes = 8
     val expectedTxnCount = if (isNonBurst(txns.head)) 1 else
       ceil(getTLBundleDataSizeBytes(txns.head) / beatBytes.toDouble).toInt
 
