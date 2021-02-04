@@ -100,17 +100,17 @@ class TLMonitor(clock: Clock, interface: TLBundle, protocolChecker: Option[TLPro
   private val eMonitor = if (interface.params.hasBCE) Option(new DecoupledMonitor[TLChannel](clock, interface.e)) else None
 
   def getMonitoredTransactions(): Seq[DecoupledTX[TLChannel]] = {
-    val tx = aMonitor.getMonitoredTransactions ++
-      dMonitor.getMonitoredTransactions ++
-      bMonitor.map(_.getMonitoredTransactions).getOrElse(Seq()) ++
-      cMonitor.map(_.getMonitoredTransactions).getOrElse(Seq()) ++
-      eMonitor.map(_.getMonitoredTransactions).getOrElse(Seq())
-    aMonitor.clearMonitoredTransactions()
-    dMonitor.clearMonitoredTransactions()
+    val tx = aMonitor.monitoredTransactions ++
+      dMonitor.monitoredTransactions ++
+      bMonitor.map(_.monitoredTransactions).getOrElse(Seq()) ++
+      cMonitor.map(_.monitoredTransactions).getOrElse(Seq()) ++
+      eMonitor.map(_.monitoredTransactions).getOrElse(Seq())
+    aMonitor.monitoredTransactions.clear()
+    dMonitor.monitoredTransactions.clear()
     if (interface.params.hasBCE) {
-      bMonitor.get.clearMonitoredTransactions()
-      cMonitor.get.clearMonitoredTransactions()
-      eMonitor.get.clearMonitoredTransactions()
+      bMonitor.get.monitoredTransactions.clear()
+      cMonitor.get.monitoredTransactions.clear()
+      eMonitor.get.monitoredTransactions.clear()
     }
     val res = tx.sortBy(_.cycleStamp.litValue())
     if (protocolChecker.isDefined) {protocolChecker.get.check(res.map {_.data})}

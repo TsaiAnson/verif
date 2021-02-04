@@ -20,10 +20,10 @@ abstract class AbstractCosimPipe extends Runnable {
   def exit: Unit
 }
 
-abstract class DecoupledCosimPipeDriver[I, S, D](pipe: String) extends AbstractCosimPipe {
+abstract class DecoupledCosimPipeDriver[T <: Data, D](pipe: String) extends AbstractCosimPipe {
   @volatile private var terminate = false
 
-  val driver: AbstractDriver[I, S]
+  val driver: DecoupledDriverMaster[T]
   val inputStreamToProto: (java.io.InputStream) => D
 
   def pushIntoDriver(message: D): Unit
@@ -56,7 +56,7 @@ abstract class DecoupledCosimPipeDriver[I, S, D](pipe: String) extends AbstractC
 }
 
 class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters) extends
-  DecoupledCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipe) {
+  DecoupledCosimPipeDriver[RoCCCommand, RoCCProtos.RoCCCommand](pipe) {
     val driver = new DecoupledDriverMaster(clock, io)
 
     val inputStreamToProto = (input: java.io.InputStream) => {
@@ -97,7 +97,7 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
             val resp = new FileOutputStream(fenceRespPipe)
 //            println("Fence resp connected")
 
-            while (io.busy.peek.litToBoolean || monitor.getMonitoredTransactions.size < r.getNum()) {
+            while (io.busy.peek.litToBoolean || monitor.monitoredTransactions.size < r.getNum()) {
 //              println(s"Busy is ${io.busy.peek.litToBoolean} and ${monitor.getMonitoredTransactions.size} seen")
               clock.step()
             } // step clock while busy
