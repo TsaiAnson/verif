@@ -2,15 +2,14 @@ package verif
 
 import chisel3._
 import chiseltest._
-import scala.collection.mutable.{MutableList, Queue}
+import scala.collection.mutable
 
-class GenericDriver[T <: Data] (clock: Clock, interface: T) extends
-  AbstractDriver[T, T](clock, interface) {
-
+class GenericDriver[T <: Data] (clock: Clock, interface: T) {
+  val inputTransactions: mutable.Queue[T] = mutable.Queue[T]()
   fork {
     while (true) {
-      if (hasNextTransaction) {
-        val t = getNextTransaction
+      if (inputTransactions.nonEmpty) {
+        val t = inputTransactions.dequeue()
         interface.asInstanceOf[Bundle].pokePartial(t.asInstanceOf[Bundle])
       }
       clock.step()
@@ -18,11 +17,11 @@ class GenericDriver[T <: Data] (clock: Clock, interface: T) extends
   }
 }
 
-class GenericMonitor[T <: Data] (clock: Clock, interface: T) extends
-  AbstractMonitor[T, T](clock, interface) {
+class GenericMonitor[T <: Data] (clock: Clock, interface: T) {
+  val monitoredTransactions: mutable.Queue[T] = mutable.Queue[T]()
   fork.withRegion(Monitor) {
     while(true) {
-      addMonitoredTransaction(interface.peek())
+      monitoredTransactions += interface.peek()
       clock.step()
     }
   }

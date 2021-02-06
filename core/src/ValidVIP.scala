@@ -3,21 +3,20 @@ package verif
 import chisel3._
 import chisel3.util._
 import chiseltest._
-import scala.collection.mutable.{MutableList, Queue}
+import scala.collection.mutable
 
 case class ValidTX[T <: Data](data: T, waitCycles: UInt = 0.U, postSendCycles: UInt = 0.U, cycleStamp: Int = 0) extends Bundle {
   override def cloneType = ValidTX(data, waitCycles, postSendCycles).asInstanceOf[this.type]
 }
 
-class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) extends
-  AbstractDriver[ValidIO[T], ValidTX[T]](clock, interface) {
-
+class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) {
+  val inputTransactions: mutable.Queue[ValidTX[T]] = mutable.Queue[ValidTX[T]]()
   fork {
     var cycleCount = 0
     var idleCycles = 0
     while (true) {
-      if (hasNextTransaction && idleCycles == 0) {
-        val t = getNextTransaction
+      if (inputTransactions.nonEmpty && idleCycles == 0) {
+        val t = inputTransactions.dequeue()
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
@@ -50,19 +49,33 @@ class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) extends
       }
     }
   }
+
+  def push(txn: ValidTX[T]): Unit = {
+    inputTransactions += txn
+  }
+
+  def push(txns: Seq[ValidTX[T]]): Unit = {
+    for (t <- txns) {
+      inputTransactions += t
+    }
+  }
 }
 
-class ValidMonitor[T <: Data](clock: Clock, interface: ValidIO[T]) extends
-  AbstractMonitor[ValidIO[T], ValidTX[T]](clock, interface) {
+class ValidMonitor[T <: Data](clock: Clock, interface: ValidIO[T]) {
+  val monitoredTransactions: mutable.Queue[ValidTX[T]] = mutable.Queue[ValidTX[T]]()
   fork {
     var cycleCount = 0
     while (true) {
       if (interface.valid.peek().litToBoolean) {
         val t = ValidTX[T](interface.bits.peek(), cycleStamp = cycleCount)
-        addMonitoredTransaction(t)
+        monitoredTransactions += t
       }
       cycleCount += 1
       clock.step()
     }
+  }
+
+  def clearMonitoredTransactions(): Unit = {
+    monitoredTransactions.clear()
   }
 }
