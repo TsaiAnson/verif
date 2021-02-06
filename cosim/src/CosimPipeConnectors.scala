@@ -20,13 +20,15 @@ abstract class AbstractCosimPipe extends Runnable {
   def exit: Unit
 }
 
-abstract class DecoupledCosimPipeDriver[I, S, D](pipe: String) extends AbstractCosimPipe {
+abstract class DecoupledCosimPipeDriver[I, S, D](pipeName: String)(implicit cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
   @volatile private var terminate = false
 
   val driver: AbstractDriver[I, S]
   val inputStreamToProto: (java.io.InputStream) => D
 
   def pushIntoDriver(message: D): Unit
+
+  val pipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${pipeName}"
 
   override def run: Unit = {
     // Spin until all needed FIFOs are created
@@ -55,8 +57,8 @@ abstract class DecoupledCosimPipeDriver[I, S, D](pipe: String) extends AbstractC
   }
 }
 
-class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters) extends
-  DecoupledCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipe) {
+class RoCCCommandCosimPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends
+  DecoupledCosimPipeDriver[DecoupledIO[RoCCCommand], DecoupledTX[RoCCCommand], RoCCProtos.RoCCCommand](pipeName) {
     val driver = new DecoupledDriverMaster(clock, io)
 
     val inputStreamToProto = (input: java.io.InputStream) => {
@@ -68,9 +70,12 @@ class RoCCCommandCosimPipeDriver(pipe: String, clock: Clock, io: DecoupledIO[RoC
     }
 }
 
-class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: RoCCIO)(implicit p: Parameters) extends
-  AbstractCosimPipe {
+class FencePipe(fenceReqName: String, fenceRespName: String, clock: Clock, io: RoCCIO)
+               (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
     @volatile private var terminate = false
+
+    val fenceReqPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceReqName}"
+    val fenceRespPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceRespName}"
 
     val monitor = new DecoupledMonitor(clock, io.cmd)
 
@@ -124,7 +129,8 @@ class FencePipe(fenceReqPipe: String, fenceRespPipe: String, clock: Clock, io: R
 
 case class TLCosimMemoryBufferState(txnBuffer: Seq[TLChannel])
 
-class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLBundleParameters)(implicit p: Parameters) extends TLSlaveFunction[TLCosimMemoryBufferState] {
+class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLBundleParameters)
+                            (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends TLSlaveFunction[TLCosimMemoryBufferState] {
   // NOTE: Scala convention is to open inputs before outputs in matching pairs
   val tld_pipe = new FileInputStream(tldPipe)
 //  println("TLD connected")
@@ -167,7 +173,12 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
   }
 }
 
-class TLPipe(tlaPipe: String, tldPipe: String, clock: Clock, io: TLBundle)(implicit p: Parameters) extends AbstractCosimPipe { //TODO: Add driver and monitor
+class TLPipe(tlaName: String, tldName: String, clock: Clock, io: TLBundle)
+            (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
+
+  val tlaPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tlaName}"
+  val tldPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tldName}"
+
   override def run: Unit = {
     // Spin until all needed FIFOs are created
     while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {

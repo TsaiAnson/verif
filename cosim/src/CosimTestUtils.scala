@@ -2,14 +2,12 @@
 // Copyright (c) 2018 - 2019, The Regents of the University of California (Regents).
 // All Rights Reserved. See LICENSE and LICENSE.SiFive for license details.
 //------------------------------------------------------------------------------
-
 package verif
 
 import chisel3._
 import chisel3.experimental.BundleLiterals._
-
+import chiseltest.experimental.{sanitizeFileName}
 import chipyard.RocketConfig
-
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.prci.ClockSinkParameters
@@ -18,12 +16,32 @@ import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import java.io.{ByteArrayOutputStream, PrintWriter}
+import org.scalatest._
+import org.scalatest.TestSuite
 import reflect.runtime._
 import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
+import scala.reflect.io.File
 import scala.sys.process._
 import universe._
+
 import com.google.protobuf.Descriptors.FieldDescriptor.Type._
+
+class CosimTestDetails {
+  var sbtRoot: Option[String] = None
+  var testName: Option[String] = None
+  def testPath: Option[String] = if (sbtRoot.nonEmpty && testName.nonEmpty) Some(sbtRoot.get + "/test_run_dir/" + sanitizeFileName(testName.get)) else None
+}
+
+trait CosimTester extends TestSuiteMixin { this: TestSuite =>
+  implicit val cosimTestDetails = new CosimTestDetails
+
+  abstract override def withFixture(test: NoArgTest): Outcome = {
+    cosimTestDetails.sbtRoot = Some(s"${File(".").toAbsolute}")
+    cosimTestDetails.testName = Some(test.name)
+    super.withFixture(test)
+  }
+}
 
 object VerifProtoBufUtils {
   def getHelper[T: TypeTag](obj: T, target: String) = typeOf[T]

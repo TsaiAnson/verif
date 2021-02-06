@@ -2,17 +2,16 @@ package cosim
 
 import java.io.File
 import java.nio.file.{Files, Paths}
-import verif.VerifCosimTestUtils
+import verif.{VerifCosimTestUtils, CosimTestDetails}
 
 
 class CosimSimulator(simPath: String, simArgs: Seq[String], simTarget: String) extends Runnable {
-
   @volatile var exitCode = 0
   @volatile var stdOut = ""
   @volatile var stdErr = ""
 
   override def run: Unit = {
-    val out = VerifCosimTestUtils.runCommand(Seq(simPath, simArgs.mkString(" "), simTarget))
+    val out = VerifCosimTestUtils.runCommand(simPath +: simArgs :+ simTarget)
     exitCode = out._1
     stdOut = out._2
     stdErr = out._3
@@ -31,10 +30,9 @@ class CosimSimulator(simPath: String, simArgs: Seq[String], simTarget: String) e
   }
 }
 
-class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
-
+class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe])(implicit cosimTestDetails: CosimTestDetails) {
   def run(simArgs: Seq[String], simTarget: String, correctnessCheck: Any => Boolean): Unit = {
-    val path = "/home/rlund/adept/chipyard/tools/verif/cosim/cosim_run_dir" //TODO: get this automatically
+    val path = s"${cosimTestDetails.testPath.get}/cosim_run_dir"
 
     /** IMPORTANT: Clean and re-create test directory **/
     Runtime.getRuntime().exec(s"rm -rf $path")
@@ -50,7 +48,7 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
 
 
     // Create and start sim thread (sim creates fifos)
-    val sim = new CosimSimulator(simPath, simArgs, simTarget)
+    val sim = new CosimSimulator(simPath, simArgs :+ s"--cosim-path=${path}", s"${cosimTestDetails.sbtRoot.get}/${simTarget}")
     val simThread = new Thread(sim)
 
     simThread.start
@@ -66,11 +64,6 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe]) {
     val exitCode = sim.getExitCode
     val stdOut = sim.getStdOut
     val stdErr = sim.getStdErr
-
-    /** TEMPORARY REMOVE ONCE FENCE WORKS PROPERLY**/
-    // Spin to allow driver to recieve and push
-    Thread.sleep(5*1000)
-    /** END TEMPORARY **/
 
     // Terminate driver and monitor runnables
     pipes.foreach(cosimPipe => cosimPipe.exit)
