@@ -47,15 +47,13 @@ class QueueTest extends AnyFlatSpec with ChiselScalatestTester {
     enqDriver.push(inputTransactions)
     c.step(simCycles.toInt)
 
-    val output = monitor.getMonitoredTransactions
+    val output = monitor.monitoredTransactions
 
     val model = new SWQueue(8, gen)
     val swoutput = model.process(inputTransactions, simCycles.toInt, waitCycles)
 
     // Cycle offset between software and DUT
     val cycleOffset = 2
-    //output.foreach(tx => println(tx.data, tx.cycleStamp))
-    //swoutput.foreach(tx => println(tx.data, tx.cycleStamp))
 
     output.zip(swoutput).foreach {
       case (dut_out, sw_out) =>

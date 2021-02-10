@@ -4,37 +4,11 @@ import chisel3._
 import chisel3.util.isPow2
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import verif.TLTransaction._
 
-import scala.collection.immutable
 import scala.collection.mutable
 import scala.math.ceil
 
 package object TLUtils {
-  // Temporary location for parameters
-  def defaultStandaloneSlaveParams: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
-    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
-    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
-    regionType = RegionType.UNCACHED)),
-    beatBytes = 8)
-  def defaultStandaloneMasterParams: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "bundleBridgetoTL")))
-  //    supportsProbe = TransferSizes(1, 32),
-  //    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
-  //    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32))))
-  def defaultVerifTLBundleParams: TLBundleParameters = TLBundleParameters(defaultStandaloneMasterParams, defaultStandaloneSlaveParams)
-  // Temporary cache parameters
-  def defaultStandaloneSlaveParamsCache: TLSlavePortParameters = TLSlavePortParameters.v1(Seq(TLSlaveParameters.v1(address = Seq(AddressSet(0x0, 0xfff)),
-    supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32), supportsPutPartial = TransferSizes(1, 32),
-    supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32), supportsHint = TransferSizes(1, 32),
-    supportsAcquireB = TransferSizes(1, 32), supportsAcquireT = TransferSizes(1, 32),
-    regionType = RegionType.UNCACHED)),
-    endSinkId = 1, beatBytes = 8)
-  def defaultStandaloneMasterParamsCache: TLMasterPortParameters = TLMasterPortParameters.v1(Seq(TLMasterParameters.v1(name = "TestBundle",
-    supportsProbe = TransferSizes(1, 32), supportsGet = TransferSizes(1, 32), supportsPutFull = TransferSizes(1, 32),
-    supportsPutPartial = TransferSizes(1, 32), supportsLogical = TransferSizes(1, 32), supportsArithmetic = TransferSizes(1, 32),
-    supportsHint = TransferSizes(1, 32))))
-  def defaultVerifTLBundleParamsCache: TLBundleParameters = TLBundleParameters(defaultStandaloneMasterParamsCache, defaultStandaloneSlaveParamsCache)
-
   // Helper functions for message checking
   def aligned(data : UInt, base : UInt) : Boolean = {
     val dataI = data.litValue()
@@ -63,7 +37,6 @@ package object TLUtils {
     contains(sizes, (1 << lg.litValue().toInt).U)
   }
 
-
   // Helper method to get size of TLChannel
   def getTLBundleDataSizeBytes (bnd : TLChannel): Int = {
     bnd match {
@@ -85,28 +58,16 @@ package object TLUtils {
     bnd match {
       case bndc: TLBundleA =>
         // Get, AcquireBlock, AcquirePerm
-        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
-          return true
-        }
-        false
+        (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7)
       case bndc: TLBundleB =>
         // Get, ProbeBlock, ProbePerm
-        if (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7) {
-          return true
-        }
-        false
+        (bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 5 || bndc.opcode.litValue() == 6 || bndc.opcode.litValue() == 7)
       case bndc: TLBundleC =>
         // AccessAck, ProbeAck, Release
-        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6) {
-          return true
-        }
-        false
+        (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6)
       case bndc: TLBundleD =>
         // AccessAck, Grant, ReleaseAck
-        if (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6) {
-          return true
-        }
-        false
+        (bndc.opcode.litValue() == 0 || bndc.opcode.litValue() == 4 || bndc.opcode.litValue() == 6)
       case _: TLBundleE =>
         // Always single message
         true
@@ -150,7 +111,6 @@ package object TLUtils {
     }
   }
 
-
   // Helper method to group together burst TLBundles
   def groupTLBundles (txns: List[TLChannel]) : List[List[TLChannel]] = {
     // TODO Hardcoded for now, update when configurability is added
@@ -180,48 +140,6 @@ package object TLUtils {
     }
 
     result.toList
-  }
-
-  // Arithmetic Helper Functions
-  def max(a : UInt, b : UInt) : UInt = {
-    if (a.litValue() < b.litValue()) b else a
-  }
-
-  def min(a : UInt, b : UInt) : UInt = {
-    if (a.litValue() < b.litValue()) a else b
-  }
-
-  def maxu(a : UInt, b : UInt) : UInt = {
-    // TODO Fix for unsigned
-    if (a.litValue() < b.litValue()) b else a
-  }
-
-  def minu(a : UInt, b : UInt) : UInt = {
-    // TODO Fix for unsigned
-    if (a.litValue() < b.litValue()) a else b
-  }
-
-  def add(a : UInt, b : UInt) : UInt = {
-    // Will overflow
-    (a.litValue() + b.litValue()).U(64.W)
-  }
-
-  // Logistic Helper Functions
-  def xor(a : UInt, b : UInt) : UInt = {
-    (a.litValue() ^ b.litValue()).U(64.W)
-  }
-
-  def or(a : UInt, b : UInt) : UInt = {
-    (a.litValue() | b.litValue()).U(64.W)
-  }
-
-  def and(a : UInt, b : UInt) : UInt = {
-    (a.litValue() & b.litValue()).U(64.W)
-  }
-
-  // a must be the old value
-  def swap(a : UInt, b : UInt) : UInt = {
-    a
   }
 
   def toByteMask(mask : UInt) : BigInt = {
@@ -326,132 +244,6 @@ package object TLUtils {
       allData  = allData >> 8
       allMask = allMask >> 8
     }
-  }
-
-  // TODO: refactor into one function
-  case class SlaveMemoryState(txnBuffer: Seq[TLChannel], mem: immutable.Map[Int,Int])
-  object SlaveMemoryState {
-    def init(): SlaveMemoryState = { SlaveMemoryState(Seq(), immutable.HashMap[Int,Int]()) }
-  }
-  def testResponseWrapper(input: TLChannel, state: SlaveMemoryState, params: TLBundleParameters): (Seq[TLChannel], SlaveMemoryState) = {
-    implicit val p = params
-
-    // Collect transactions with the same opcode
-    val newBuffer = state.txnBuffer :+ input
-    if (isCompleteTLTxn(newBuffer)) {
-      val (resp, newState) = testResponse(newBuffer, state.mem)
-      (resp, SlaveMemoryState(Seq(), newState))
-    } else {
-      (Seq(), SlaveMemoryState(newBuffer, state.mem))
-    }
-  }
-
-  def testResponse(input: Seq[TLChannel], state: immutable.Map[Int,Int])(implicit p: TLBundleParameters) : (Seq[TLChannel], immutable.Map[Int,Int]) = {
-    val beatBytesSize = 3
-    // Default response is corrupt transaction
-    var responseTLTxn = Seq(AccessAck(denied=0, size=0, source=0))
-    // Making internal copy of state (non-destructive)
-    val state_int: mutable.HashMap[Int,Int] = mutable.HashMap[Int,Int]() ++ state
-
-    // Assert
-    assert(input.nonEmpty, "ERROR: List of TLBundles is EMPTY for testResponse slaving function.")
-
-
-    val inputhead = input.head
-    // Transaction response
-    inputhead match {
-      case txnc: TLBundleA =>
-        txnc.opcode.litValue().toInt match {
-          case TLOpcodes.Get =>
-            // Assert
-            assert(input.size == 1, "ERROR: Get request has too many beats.")
-
-            // Read Data
-            val readOut = readData(state = state_int, size = txnc.size, address  = txnc.address, mask = txnc.mask)
-
-            if (txnc.size.litValue() > beatBytesSize)
-              responseTLTxn = AccessAckDataBurst(source = txnc.source.litValue().toInt, denied = 0, data = readOut.map(_.litValue()))
-            else
-              responseTLTxn = Seq(AccessAckData(readOut.head.litValue(), 0, txnc.source.litValue().toInt))
-
-          case TLOpcodes.PutFullData | TLOpcodes.PutPartialData =>
-            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
-            val source = txnc.source
-            val address = txnc.address
-            val datas = input.map(_.asInstanceOf[TLBundleA].data)
-            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
-
-
-            // Write Data
-            writeData(state = state_int, size = size, address = address, datas = datas, masks = masks)
-
-            // Response
-            responseTLTxn = Seq(AccessAck(size = size.litValue().toInt, source = source.litValue().toInt, denied = 0))
-
-          case TLOpcodes.ArithmeticData =>
-            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
-            val param = txnc.param
-            val source = txnc.source
-            val address = txnc.address
-            val datas = input.map(_.asInstanceOf[TLBundleA].data)
-            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
-
-            var function : (UInt, UInt) => UInt = min
-            param.litValue().toInt match {
-              case 0 => function = min
-              case 1 => function = max
-              case 2 => function = minu
-              case 3 => function = maxu
-              case 4 => function = add
-            }
-
-            // Reading Old Data (to return)
-            val oldData = readData(state = state_int, size = size, address = address, mask = 0xff.U)
-
-            // Creating newData (to write)
-            var newData = mutable.ListBuffer[UInt]()
-            for (((n, m), o) <- (datas zip masks) zip oldData) {
-              newData += function(o, (n.litValue() & toByteMask(m)).U)
-            }
-
-            writeData(state = state_int, size = txnc.size, address = txnc.address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
-            responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
-
-          case TLOpcodes.LogicalData =>
-            val size = if (txnc.size.litValue().toInt > beatBytesSize) beatBytesSize.U else txnc.size
-            val param = txnc.param
-            val source = txnc.source
-            val address = txnc.address
-            val datas = input.map(_.asInstanceOf[TLBundleA].data)
-            val masks = input.map(_.asInstanceOf[TLBundleA].mask)
-
-            var function : (UInt, UInt) => UInt = min
-            param.litValue().toInt match {
-              case 0 => function = xor
-              case 1 => function = or
-              case 2 => function = and
-              case 3 => function = swap
-            }
-
-            // Reading Old Data (to return)
-            val oldData = readData(state = state_int, size = txnc.size, address = txnc.address, mask = 0xff.U)
-
-            // Creating newData (to write)
-            var newData = mutable.ListBuffer[UInt]()
-            for (((n, m), o) <- (datas zip masks) zip oldData) {
-              newData += function(o, (n.litValue() & toByteMask(m)).U)
-            }
-
-            writeData(state = state_int, size = size, address = address, datas = newData.toList, masks = List.fill(newData.length)(0xff.U))
-            responseTLTxn = AccessAckDataBurst(source = source.litValue().toInt, denied = 0, data = oldData.map(_.litValue()))
-
-          case TLOpcodes.Hint =>
-            // Currently don't accept hints
-            responseTLTxn = Seq(HintAck(size = txnc.size.litValue().toInt, source = txnc.source.litValue().toInt, denied = 1))
-        }
-      case _ => ???
-    }
-    (responseTLTxn, state_int.toMap)
   }
 
   // Wrapper class that stores mapping of Address --> Permissions (Note: is block aligned)

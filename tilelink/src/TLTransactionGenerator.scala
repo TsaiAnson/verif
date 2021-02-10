@@ -173,10 +173,10 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         if (size > beatSize && burst) {
           val beatCount = 1 << (size - beatSize)
           val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-          genTxns ++= ArithBurst(param, address, data, source)
+          genTxns ++= ArithBurst(TLArithParam.fromInt(param), address, data, source)
         } else {
           val data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += Arith(param, address, BigInt(data), mask, size, source)
+          genTxns += Arith(TLArithParam.fromInt(param), address, BigInt(data), mask, size, source)
         }
 
       } else if (typeTxn == 4) {
@@ -199,10 +199,10 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         if (size > beatSize) {
           val beatCount = 1 << (size - beatSize)
           val data = List.fill(beatCount)(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-          genTxns ++= LogicBurst(param, address, data, source)
+          genTxns ++= LogicBurst(TLLogicParam.fromInt(param), address, data, source)
         } else {
           data = randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt) // Will account for transfer sizes
-          genTxns += Logic(param, address, data, mask, size, source)
+          genTxns += Logic(TLLogicParam.fromInt(param), address, data, mask, size, source)
         }
 
       } else if (typeTxn == 5) {
@@ -218,7 +218,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         }
 
         // Unsure how to indicate burst mask...
-        genTxns += Intent(param, address, size, source)
+        genTxns += Intent(TLIntentParam.PrefetchRead, address, size, source)
 
         if (param == 0) {
           genTxns += Get(address, size, mask, source)
@@ -273,9 +273,9 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
 
         if (repeats != 10) {
           if (randGen.nextInt() % 2 == 1) {
-            genTxns += AcquireBlock(param, address, mask, size, source)
+            genTxns += AcquireBlock(TLPermission.Grow.NtoB, address, mask, size, source)
           } else {
-            genTxns += AcquirePerm(param, address, mask, size, source)
+            genTxns += AcquirePerm(TLPermission.Grow.NtoB, address, mask, size, source)
           }
         } else {
           // Converting to releaseData (since old permissions must be 2 for redo)
@@ -286,7 +286,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
             address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
           }
           val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-          genTxns ++= ReleaseDataBurst(param, address, data, source)
+          genTxns ++= ReleaseDataBurst(TLPermission.PruneOrReport.TtoB, address, data, source)
         }
 
       } else if (typeTxn == 7) {
@@ -327,9 +327,9 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         if (repeats != 10) {
           if (param < 2) {
             val data = List.fill(1 << (cacheBlockSize - beatSize))(randGen.nextInt(pow(2, (1 << beatSize) * 8).toInt)).map(BigInt(_))
-            genTxns ++= ReleaseDataBurst(param, address, data, source)
+            genTxns ++= ReleaseDataBurst(TLPermission.PruneOrReport.TtoB, address, data, source)
           } else {
-            genTxns += Release(param, address, size, source)
+            genTxns += Release(TLPermission.PruneOrReport.NtoN, address, size, source)
           }
 
           releasedAddr += address
@@ -337,9 +337,9 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
           // Converting to Acquire
           param = randGen.nextInt(2) // NtoB or NtoT
           if (randGen.nextInt() % 2 == 1) {
-            genTxns += AcquireBlock(param, address, mask, size, source)
+            genTxns += AcquireBlock(TLPermission.Grow.NtoB, address, mask, size, source)
           } else {
-            genTxns += AcquirePerm(param, address, mask, size, source)
+            genTxns += AcquirePerm(TLPermission.Grow.NtoT, address, mask, size, source)
           }
         }
 

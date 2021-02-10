@@ -7,15 +7,12 @@ import chiseltest.internal._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule}
 import freechips.rocketchip.subsystem.WithoutTLMonitors
-import verif.TLUtils._
 import TLTransaction._
 import freechips.rocketchip.tilelink._
 
 class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
-  implicit val p: Parameters = new WithoutTLMonitors
-
   it should "Elaborate L2" in {
-    val TLL2 = LazyModule(new VerifTLL2Cache)
+    val TLL2 = LazyModule(new L2Standalone)
     test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       val L1PortParams = TLL2.in.params
       val DRAMPortParams = TLL2.out.params
@@ -29,7 +26,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val slaveFn = new TLMemoryModel(TLL2.out.params)
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.init(Map(0L -> 0x1234, 1L -> 0x3333), TLL2.out.params.dataBits/8))
 
-      L1Placeholder.push(Seq(AcquireBlock(param = 1, addr = 0x8, size = 5)(TLL2.in.params)))
+      L1Placeholder.push(Seq(AcquireBlock(TLPermission.Grow.NtoT, 0x8, 5)(TLL2.in.params)))
 
       c.clock.step(200)
 
@@ -49,7 +46,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
   // Ignoring test as new driver is no longer TLC compliance
   it should "Driver TLC Compliance Test" in {
-    val TLL2 = LazyModule(new VerifTLL2Cache)
+    val TLL2 = LazyModule(new L2Standalone)
     test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       val L1PortParams = TLL2.in.params
       val DRAMPortParams = TLL2.out.params
@@ -66,15 +63,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val txns = Seq(
         // Two Acquires in a row, must be sequential
-        AcquireBlock(param = 1, addr = 0x0, size = 3)(L1PortParams),
-        AcquireBlock(param = 0, addr = 0x20, size = 3)(L1PortParams),
+        AcquireBlock(TLPermission.Grow.NtoT, 0x0, 3)(L1PortParams),
+        AcquireBlock(TLPermission.Grow.NtoB, 0x20, 3)(L1PortParams),
         // Cannot acquire until release completes
-        ReleaseData(param = 0, addr = 0x20, data = 0x0, size = 3, source = 0)(L1PortParams),
-        AcquireBlock(param = 1, addr = 0x40, size = 3)(L1PortParams),
+        ReleaseData(TLPermission.PruneOrReport.TtoB, 0x20, 0x0, 3, 0)(L1PortParams),
+        AcquireBlock(TLPermission.Grow.NtoT, 0x40, 3)(L1PortParams),
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
-      val gen = new TLTransactionGenerator(defaultStandaloneSlaveParamsCache.managers.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(TLL2.sPortParams.head.slaves.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
       val fuzz = new TLCFuzzer(L1PortParams, gen, 3, txns, true)
@@ -101,7 +98,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "L2 SWTLFuzzer" in {
 
-    val TLL2 = LazyModule(new VerifTLL2Cache)
+    val TLL2 = LazyModule(new L2Standalone)
     test(TLL2.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params = TLL2.in.params
 
@@ -115,7 +112,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val slaveFn = new TLMemoryModel(TLL2.out.params)
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
-      val gen = new TLTransactionGenerator(defaultStandaloneSlaveParamsCache.managers.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(TLL2.sPortParams.head.slaves.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 5)
       val fuzz = new TLCFuzzer(params, gen, 5)

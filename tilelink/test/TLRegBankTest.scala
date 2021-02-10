@@ -1,24 +1,20 @@
 package verif
 
-import chipsalliance.rocketchip.config.Parameters
 import chiseltest._
-import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{TreadleBackendAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.diplomacy.LazyModule
-import freechips.rocketchip.subsystem.WithoutTLMonitors
 import freechips.rocketchip.tilelink.{TLBundleD, TLBundleParameters}
 import org.scalatest.flatspec.AnyFlatSpec
 import verif.TLTransaction.{AccessAck, AccessAckData, Get, Put}
-import verif.TLUtils._
 
 class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
-  implicit val p: Parameters = new WithoutTLMonitors
-
   it should "Test the standalone TL reg bank via directed stimulus" in {
     val TLRegBankSlave = LazyModule(new TLRegBankStandalone)
-    test(TLRegBankSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+
+    test(TLRegBankSlave.module) { c =>
       val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val protocolChecker = new TLProtocolChecker(TLRegBankSlave.in.params, TLRegBankSlave.sPortParams.head.managers.head, TLRegBankSlave.mPortParams.head.clients.head)
+      val slaveParams = TLRegBankSlave.regNode.edges.in.head.slave.slaves.head
+      val masterParams = TLRegBankSlave.regNode.edges.in.head.master.masters.head
+      val protocolChecker = new TLProtocolChecker(TLRegBankSlave.in.params, slaveParams, masterParams)
       val monitor = new TLMonitor(c.clock, TLRegBankSlave.in, Some(protocolChecker))
 
       implicit val params: TLBundleParameters = TLRegBankSlave.in.params
@@ -52,18 +48,18 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // TODO Add software model here
       val swoutput = Array(
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAck(denied = 0),
-        AccessAckData(data = 0x0, denied = 0),
-        AccessAckData(data = 0x1, denied = 0),
-        AccessAckData(data = 0x2, denied = 0),
-        AccessAckData(data = 0x3, denied = 0)
+        AccessAckData(0x0),
+        AccessAckData(0x0),
+        AccessAckData(0x0),
+        AccessAckData(0x0),
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
+        AccessAckData(0x0),
+        AccessAckData(0x1),
+        AccessAckData(0x2),
+        AccessAckData(0x3)
       )
 
       output.zip(swoutput).foreach {

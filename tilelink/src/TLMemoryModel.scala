@@ -22,7 +22,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
             val responseTxs = (0 until wordsToProcess).map {
               wordIdx => TLMemoryModel.read(state.mem, wordAddr + wordIdx, txA.mask.litValue().toInt, bytesPerWord)
             }.map {
-              word => AccessAckData(word, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)
+              word => AccessAckData(word, txA.size.litValue().toInt, txA.source.litValue().toInt, denied=false)
             }
             (responseTxs, state)
           case TLOpcodes.PutPartialData | TLOpcodes.PutFullData =>
@@ -41,10 +41,10 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
             } else {
               val newMem = TLMemoryModel.write(state.mem, wordAddr, writeData, writeMask, bytesPerWord)
               if (wordsToProcess == 1) { // Single beat write
-                (Seq(AccessAck(0, txA.source.litValue().toInt)), state.copy(mem = newMem))
+                (Seq(AccessAck(txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem))
               } else { // Starting a burst
                 val burstStatus = TLMemoryModel.BurstStatus(wordAddr, 1, wordsToProcess)
-                (Seq(AccessAck(0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
+                (Seq(AccessAck(txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
               }
             }
           case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData => // TODO: support logic/arith bursts
@@ -60,7 +60,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
               } else {
                 Some(burstStatus.copy(currentBeat = burstStatus.currentBeat + 1))
               }
-              (Seq(AccessAckData(readData, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = newBurstStatus))
+              (Seq(AccessAckData(readData, txA.size.litValue().toInt, txA.source.litValue().toInt, denied = false)), state.copy(mem = newMem, burstStatus = newBurstStatus))
             } else {
               val readData = TLMemoryModel.read(state.mem, wordAddr, txA.mask.litValue().toInt, bytesPerWord)
               val writeData = TLMemoryModel.dataToWrite(readData, txA.data.litValue(), txA.opcode.litValue().toInt, txA.param.litValue().toInt)
@@ -69,7 +69,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
                 (Seq(AccessAckData(readData, txA.source.litValue().toInt)), state.copy(mem = newMem))
               } else { // Starting a burst
                 val burstStatus = TLMemoryModel.BurstStatus(wordAddr, 1, wordsToProcess)
-                (Seq(AccessAckData(readData, 0, txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
+                (Seq(AccessAckData(readData, txA.size.litValue().toInt, txA.source.litValue().toInt, denied = false)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
               }
             }
           case _ => ???
