@@ -13,127 +13,91 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
   implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
 
-  it should "test self property" in {
-    def zeroParamGet(t: TLBundleA): Boolean = {
-      if (t.opcode.litValue() == TLOpcodes.Get) {
-        t.param.litValue() == 0
-      } else {
-        true
-      }
-    }
-    val getProperty = TLSelfPropertyA(zeroParamGet)
+  it should "test AtmProp and Seq and same cycle checking" in {
+    val getAP = new AtmProp[TLBundleA]({t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get}, "If is Get request")
+    val sameCycle = new TimeOp(0)
+    val paramZero = new AtmProp[TLBundleA]({t: TLBundleA => t.param.litValue() == 0}, "Parameter must be zero")
+    val getParamSeq = new Sequence[TLBundleA](getAP, sameCycle, paramZero)
+    val getParamProp = new Property[TLBundleA](getParamSeq)
 
+    // Good Get Transactions
     val inputTransactions = Seq(
-      // Read back the values in registers 0x00, 0x08, 0x10, 0x18
       Get(0x0),
       Get(0x08),
-      Get(0x10),
-      Get(0x18),
-      // Write values into registers 0x00, 0x08, 0x10, 0x18
       Put(0x0, 0),
-      Put(0x8, 1),
-      Put(0x10, 2),
-      Put(0x18, 3),
-      // Read back the values in registers 0x00, 0x08, 0x10, 0x18
+      Put(0x08, 1),
       Get(0x0),
-      Get(0x08),
-      Get(0x10),
-      Get(0x18)
+      Get(0x08)
     )
-    assert(getProperty.check(inputTransactions).foldLeft(true)(_ & _))
+    assert(getParamProp.check(inputTransactions))
 
+    // One Faulty Get Transaction
+    val badGet = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.Get.U, _.param -> 1.U, _.size -> 3.U,
+      _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
     val inputTransactionsBad = Seq(
-      // Read back the values in registers 0x00, 0x08, 0x10, 0x18
       Get(0x0),
-      Get(0x08),
-      Get(0x10),
-      new TLBundleA(params).Lit(_.opcode -> TLOpcodes.Get.U, _.param -> 1.U, _.size -> 3.U,
-        _.source -> 0.U, _.address -> 0x0.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U),
-      // Write values into registers 0x00, 0x08, 0x10, 0x18
-      Put(0x0, 0),
-      Put(0x8, 1),
-      Put(0x10, 2),
-      Put(0x18, 3),
-      // Read back the values in registers 0x00, 0x08, 0x10, 0x18
-      Get(0x0),
-      Get(0x08),
+      badGet,
       Get(0x10),
       Get(0x18)
     )
-    assert(!getProperty.check(inputTransactionsBad).foldLeft(true)(_ & _))
+    assert(!getParamProp.check(inputTransactionsBad))
   }
 
-  it should "test future property in bursts" in {
-    def twoBeatBurst(t: TLBundleA): Boolean = {
-      t.size.litValue() == 4
-    }
-    val twoBeatBurstProperty = TLFuturePropertyA(twoBeatBurst, twoBeatBurst, 1)
+  it should "test beat checking in bursts" in {
+    // Currently hardcoded for different source IDs
+    val twoBeatSourceZero = new AtmProp[TLBundleA]({t: TLBundleA => t.size.litValue().toInt == 4 && t.source.litValue().toInt == 0},
+      "If 2 beat burst and source 0")
+    val twoBeatSourceOne = new AtmProp[TLBundleA]({t: TLBundleA => t.size.litValue().toInt == 4 && t.source.litValue().toInt == 1},
+      "If 2 beat burst and source 1")
+    val atLeastOneCycle = new TimeOp(1, modifier = 1)
+    val seqZero = new Sequence[TLBundleA](twoBeatSourceZero, atLeastOneCycle, twoBeatSourceZero)
+    val seqOne = new Sequence[TLBundleA](twoBeatSourceOne, atLeastOneCycle, twoBeatSourceOne)
+    val seqZeroProp = new Property[TLBundleA](seqZero)
+    val seqOneProp = new Property[TLBundleA](seqOne)
 
-    val input = PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
-      Seq(Get(0x0),
-        Get(0x08),
-        Put(0x0, 0)) ++
-      PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
-      PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
-      Seq(Get(0x0),
-        Get(0x08),
-        Put(0x0, 0)) ++
-      PutBurst(0x0, Seq(0x1234, 0x5678), 0)
-    assert(twoBeatBurstProperty.check(input))
+    val putZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
+      _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
+    val putOne = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
+      _.source -> 1.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
 
-    val inputBad = PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
-      Seq(Get(0x0),
-        Get(0x08),
-        Put(0x0, 0)) ++
-      PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
-      Seq(new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
-        _.source -> 0.U, _.address -> 0x0.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)) ++
-      Seq(Get(0x0),
-        Get(0x08),
-        Put(0x0, 0)) ++
-      PutBurst(0x0, Seq(0x1234, 0x5678), 0)
-    assert(!twoBeatBurstProperty.check(inputBad))
+
+    // Sequence with well-formed, consecutive burst transactions
+    val inputGoodOne = Seq(putZero, putZero, putOne, putOne)
+    assert(seqZeroProp.check(inputGoodOne))
+    assert(seqOneProp.check(inputGoodOne))
+
+    // Sequence with well-formed, non-consecutive burst transactions
+    val inputGoodTwo = Seq(putZero, putOne, putZero, putOne)
+    assert(seqZeroProp.check(inputGoodTwo))
+    assert(seqOneProp.check(inputGoodTwo))
+
+    // Sequence with mal-formed burst transactions (missing beat)
+    val inputBad = Seq(putZero, putOne, putOne)
+    assert(!seqZeroProp.check(inputBad))
+    assert(seqOneProp.check(inputBad))
   }
 
-  it should "test future property in Get -> AccessAckData transaction (single beat, no concurrent txns)" in {
-    def getReq(t: TLChannel): Boolean = {
-      t match {
-        case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get
-        case _ => false
-      }
-    }
-    def accessAckDataResp(t: TLChannel): Boolean = {
-      t match {
-        case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData
-        case _ => false
-      }
-    }
-    val getTxnProperty = TLFuturePropertyAD(getReq, accessAckDataResp)
+  it should "test Get -> AccessData handshake" in {
+    val getTxn = new AtmProp[TLChannel]({case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false},
+      "If Get transaction")
+    val aADTxn = new AtmProp[TLChannel]({case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false},
+      "If Access Ack Data transaction")
+    val atLeastOneCycle = new TimeOp(1, modifier = 1)
+    val seqGetAAD = new Sequence[TLChannel](getTxn, atLeastOneCycle, aADTxn)
+    val getAADProp = new Property[TLChannel](seqGetAAD)
 
-    val input = Seq(
-      Get(0x0),
-      AccessAckData(0x1234, 0),
-      Get(0x1),
-      AccessAckData(0x5678, 0)
-    )
-    assert(getTxnProperty.check(input))
+    val inputGood = Seq(Get(0x0), AccessAckData(0x0, 0),
+      Get(0x0), AccessAckData(0x0, 0),
+      Get(0x0), AccessAckData(0x0, 0))
+    assert(getAADProp.check(inputGood))
 
-    val inputBadOne = Seq(
-      Get(0x0),
-      AccessAckData(0x1234, 0),
-      Get(0x1)
-    )
-    assert(!getTxnProperty.check(inputBadOne))
+    val inputBadOne = Seq(Get(0x0))
+    assert(!getAADProp.check(inputBadOne))
 
-    val inputBadTwo = Seq(
+    // Fails, but missing AccessAckData for third Get (instead of second)
+    val inputBadTwo = Seq(Get(0x0), AccessAckData(0x0, 0),
       Get(0x0),
-      AccessAckData(0x1234, 0),
-      Get(0x1),
-      Get(0x2),
-      AccessAckData(0x1234, 0)
-    )
-    // TODO This one "passes" the check since the third Get gets skipped over
-    // Ways to get around this: Add checks for matching source ID (as sourceID is unique across unique transactions)
-    assert(!getTxnProperty.check(inputBadTwo))
+      Get(0x0), AccessAckData(0x0, 0))
+    assert(!getAADProp.check(inputBadTwo))
   }
 }
