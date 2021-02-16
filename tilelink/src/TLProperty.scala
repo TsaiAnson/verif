@@ -1,26 +1,31 @@
 package verif
 
-import freechips.rocketchip.tilelink._
-import verif.TLUtils._
 import chisel3._
-import chisel3.util.log2Ceil
-import freechips.rocketchip.diplomacy.TransferSizes
-
-import scala.collection.mutable
-import scala.collection.immutable
-import TLTransaction._
-
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ListBuffer, HashMap}
 
 trait SequenceElement
 
-class AtmProp[T](proposition: T => Boolean, desc: String) extends SequenceElement {
-  def check(input: T): Boolean = proposition(input)
+// Non-data implementation
+//class AtmProp[T,  H](proposition: T => Boolean, desc: String) extends SequenceElement {
+//  def check(input: T): Boolean = proposition(input)
+//
+//  def getProp: T=> Boolean = proposition
+//
+//  def &(that: AtmProp[T,  H]): AtmProp[T,  H] = new AtmProp[T,  H]({t: T => proposition(t) & that.getProp(t)}, s"$desc and $that")
+//  def |(that: AtmProp[T,  H]): AtmProp[T,  H] = new AtmProp[T,  H]({t: T => proposition(t) | that.getProp(t)}, s"$desc or $that")
+//
+//  override def toString: String = desc
+//}
 
-  def getProp: T=> Boolean = proposition
+class AtmProp[T,H](proposition: (T, HashMap[String,H]) => Boolean, desc: String) extends SequenceElement {
+  def check(input: T, hash: HashMap[String, H]): Boolean = proposition(input, hash)
 
-  def &(that: AtmProp[T]): AtmProp[T] = new AtmProp[T]({t: T => proposition(t) & that.getProp(t)}, s"$desc and $that")
-  def |(that: AtmProp[T]): AtmProp[T] = new AtmProp[T]({t: T => proposition(t) | that.getProp(t)}, s"$desc or $that")
+  def getProp: (T, HashMap[String,H]) => Boolean = proposition
+
+  def &(that: AtmProp[T,H]): AtmProp[T,H] = new AtmProp[T,H]({(t: T, h: HashMap[String, H]) => proposition(t, h) & that.getProp(t, h)},
+    s"$desc and $that")
+  def |(that: AtmProp[T,H]): AtmProp[T,H] = new AtmProp[T,H]({(t: T, h: HashMap[String, H]) => proposition(t, h) | that.getProp(t, h)},
+    s"$desc or $that")
 
   override def toString: String = desc
 }
@@ -71,10 +76,10 @@ class TimeOp(cycles: Int, cycles1: Int = -1, modifier: Int = 0) extends Sequence
 // Need a better way to group these classes
 class Implies extends SequenceElement
 
-class PropSet[T](ap: AtmProp[T], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
-  def check(input: T, startCycle: Int, currCycle: Int): Boolean = {
+class PropSet[T,H](ap: AtmProp[T,H], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
+  def check(input: T, hash: HashMap[String, H], startCycle: Int, currCycle: Int): Boolean = {
     if (implication) return implication
-    ap.check(input) & to.check(currCycle - startCycle)
+    ap.check(input, hash) & to.check(currCycle - startCycle)
   }
 
   def invalid (startCycle: Int, currCycle: Int, lastPassedIdx: Int, implicationMet: Boolean): Boolean = {
@@ -87,7 +92,7 @@ class PropSet[T](ap: AtmProp[T], to: TimeOp, implication: Boolean = false, incom
     invalid
   }
 
-  def getAP: AtmProp[T] = ap
+  def getAP: AtmProp[T,H] = ap
   def getTO: TimeOp = to
   def isImplication: Boolean = implication
   def isIncomplete: Boolean = incomplete
@@ -96,8 +101,8 @@ class PropSet[T](ap: AtmProp[T], to: TimeOp, implication: Boolean = false, incom
 }
 
 // Currently cannot have sequential TimeOps
-class Sequence[T](input: SequenceElement*) {
-  val groupedSeq = new ListBuffer[PropSet[T]]()
+class Sequence[T,H](input: SequenceElement*) {
+  val groupedSeq = new ListBuffer[PropSet[T,H]]()
   // Index of first implication
   var firstImplication: Int = -1
 
@@ -106,9 +111,9 @@ class Sequence[T](input: SequenceElement*) {
   for (i <- 0 until input.size) {
     // Note: Can only condense AtmProp
     input(i) match {
-      case a: AtmProp[T] =>
-        if (condensed.nonEmpty && condensed.last.isInstanceOf[AtmProp[T]])
-          condensed.update(condensed.size-1, condensed.last.asInstanceOf[AtmProp[T]] & a)
+      case a: AtmProp[T,H] =>
+        if (condensed.nonEmpty && condensed.last.isInstanceOf[AtmProp[T,H]])
+          condensed.update(condensed.size-1, condensed.last.asInstanceOf[AtmProp[T,H]] & a)
         else condensed += a
       case t: TimeOp =>
         if (input(i-1).isInstanceOf[TimeOp]) println(s"WARNING: Detected 2 TimeOps in a row. Ignoring second one: $t")
@@ -121,16 +126,17 @@ class Sequence[T](input: SequenceElement*) {
   // Converting to PropSet
   for (i <- condensed.indices) {
     condensed(i) match {
-      case a: AtmProp[T] =>
-        if (i == 0) groupedSeq += new PropSet[T](a, new TimeOp(cycles = 0, modifier = 1))
-        else if (condensed(i-1).isInstanceOf[Implies]) groupedSeq += new PropSet[T](a, new TimeOp(cycles = 0, modifier = 0))
-        else groupedSeq += new PropSet[T](a, condensed(i-1).asInstanceOf[TimeOp])
+      case a: AtmProp[T,H] =>
+        if (i == 0) groupedSeq += new PropSet[T,H](a, new TimeOp(cycles = 0, modifier = 1))
+        else if (condensed(i-1).isInstanceOf[Implies]) groupedSeq += new PropSet[T,H](a, new TimeOp(cycles = 0, modifier = 0))
+        else groupedSeq += new PropSet[T,H](a, condensed(i-1).asInstanceOf[TimeOp])
       case t: TimeOp =>
         if (i == 0) assert(false, s"ERROR: First element of sequence must be a AtmProp. Given TimeOp: $t.")
       case _: Implies =>
         firstImplication = groupedSeq.size
         if (i == 0) assert(false, s"ERROR: First element of sequence must be a AtmProp. Given Implies.")
-        groupedSeq += new PropSet[T](new AtmProp[T]({_:T => true}, "Implication"), new TimeOp(0), true)
+        groupedSeq += new PropSet[T,H](new AtmProp[T,H]({(_:T, _: HashMap[String, H]) => true}, "Implication"),
+          new TimeOp(0), true)
     }
   }
   // Warnings
@@ -139,9 +145,9 @@ class Sequence[T](input: SequenceElement*) {
   if (input.nonEmpty && input(input.size - 1).isInstanceOf[TimeOp])
     println(s"WARNING: Last element of sequence is TimeOp: ${input(input.size - 1)} and is not matched with an AtmProp.")
 
-  def get(index: Int): PropSet[T] = groupedSeq(index)
+  def get(index: Int): PropSet[T,H] = groupedSeq(index)
   def len: Int = groupedSeq.size
-  def set(list: ListBuffer[PropSet[T]]): Unit = {
+  def set(list: ListBuffer[PropSet[T,H]]): Unit = {
     groupedSeq.clear()
     firstImplication = -1
     groupedSeq ++= list
@@ -152,34 +158,34 @@ class Sequence[T](input: SequenceElement*) {
   def isEmpty: Boolean = groupedSeq.isEmpty
 
   // Concatenating Sequence
-  def +(that: Sequence[T]): Sequence[T] = {
-    val copyPropSets = new ListBuffer[PropSet[T]]()
+  def +(that: Sequence[T,H]): Sequence[T,H] = {
+    val copyPropSets = new ListBuffer[PropSet[T,H]]()
     groupedSeq.copyToBuffer(copyPropSets)
-    val newSeq = new Sequence[T]()
+    val newSeq = new Sequence[T,H]()
     // TODO Unsure of exact behavior, but currently just adding sequences together
     newSeq.set(copyPropSets ++ that.groupedSeq)
     newSeq
   }
 
   // Adding SequenceElements
-  def +(that: SequenceElement): Sequence[T] = {
-    val copyPropSets = new ListBuffer[PropSet[T]]()
+  def +(that: SequenceElement): Sequence[T,H] = {
+    val copyPropSets = new ListBuffer[PropSet[T,H]]()
     groupedSeq.copyToBuffer(copyPropSets)
-    val newSeq = new Sequence[T]()
+    val newSeq = new Sequence[T,H]()
     that match {
-      case a: AtmProp[T] =>
-        if (copyPropSets.isEmpty) copyPropSets += new PropSet[T](a, new TimeOp(cycles = 0, modifier = 1))
-        else if (copyPropSets.last.isIncomplete) copyPropSets.update(copyPropSets.size - 1, new PropSet[T](a, copyPropSets.last.getTO))
-        else copyPropSets.update(copyPropSets.size - 1, new PropSet[T](copyPropSets.last.getAP & a, copyPropSets.last.getTO))
+      case a: AtmProp[T,H] =>
+        if (copyPropSets.isEmpty) copyPropSets += new PropSet[T,H](a, new TimeOp(cycles = 0, modifier = 1))
+        else if (copyPropSets.last.isIncomplete) copyPropSets.update(copyPropSets.size - 1, new PropSet[T,H](a, copyPropSets.last.getTO))
+        else copyPropSets.update(copyPropSets.size - 1, new PropSet[T,  H](copyPropSets.last.getAP & a, copyPropSets.last.getTO))
         newSeq.set(copyPropSets)
       case t: TimeOp =>
         if (copyPropSets.isEmpty) println(s"ERROR: Unable to add TimeOp ($t) to sequence (Initial SequenceElement must be Atomic Proposition).")
         else if (copyPropSets.last.isIncomplete) println(s"ERROR: Unable to add TimeOp ($t) to sequence (sequential TimeOps).")
-        else copyPropSets += new PropSet[T](new AtmProp({_:T => true}, "temp-incomplete propset"), t, incomplete = true)
+        else copyPropSets += new PropSet[T,  H](new AtmProp({(_:T, _: HashMap[String, H]) => true}, "temp-incomplete propset"), t, incomplete = true)
         newSeq.set(copyPropSets)
       case _: Implies =>
         if (copyPropSets.isEmpty) println(s"ERROR: Unable to add Implication to sequence (Initial SequenceElement must be Atomic Proposition).")
-        else copyPropSets += new PropSet[T](new AtmProp[T]({_:T => true}, "Implication"), new TimeOp(0), true)
+        else copyPropSets += new PropSet[T,  H](new AtmProp[T,  H]({(_:T, _: HashMap[String, H]) => true}, "Implication"), new TimeOp(0), true)
         newSeq.set(copyPropSets)
     }
     newSeq
@@ -188,7 +194,7 @@ class Sequence[T](input: SequenceElement*) {
   def printAll(): Unit = groupedSeq.foreach(println)
 }
 
-class Property[T](seq: Sequence[T], assertion: Int = 0) {
+class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
   // Assertions: 0 - assert, 1 - assume, 2 - cover, 3 - restrict
   // Currently, only assert is implemented
 
@@ -198,8 +204,10 @@ class Property[T](seq: Sequence[T], assertion: Int = 0) {
 
     // Keeps track of concurrent instances of properties (SeqIndex, StartCycle, lastPassed)
     // Note: currently does not keep track of intermittent variables
-    val concProp = new mutable.ListBuffer[(Int, Int, Int)]()
+    val concProp = new ListBuffer[(Int, Int, Int)]()
     var failed_prop = false
+    // Local Data per concurrent instance
+    val concHash = new ListBuffer[HashMap[String, H]]()
 
     for ((txn, currCycle) <- input.zipWithIndex) {
       // Checking incomplete properties first
@@ -209,9 +217,10 @@ class Property[T](seq: Sequence[T], assertion: Int = 0) {
         var qIdx = 0
         while (!propMatched && (qIdx < concProp.size)) {
           var (seqIdx, startCycle, lastPassed) = concProp(qIdx)
+          var hash = concHash(qIdx)
           var continue = true
           while (continue && (seqIdx < seq.len)) {
-            continue = seq.get(seqIdx).check(txn, startCycle, currCycle)
+            continue = seq.get(seqIdx).check(txn, hash, startCycle, currCycle)
             if (continue) lastPassed = currCycle
             invalid = seq.get(seqIdx).invalid(startCycle, currCycle, lastPassed, (seqIdx >= seq.firstImplication && seq.firstImplication != -1))
             if (continue) {
@@ -231,15 +240,19 @@ class Property[T](seq: Sequence[T], assertion: Int = 0) {
       if (!propMatched) {
         // If matches first proposition
         val startCycle = currCycle
-        if (seq.get(0).check(txn, startCycle, startCycle)) {
+        val hash = new HashMap[String, H]()
+        if (seq.get(0).check(txn, hash, startCycle, startCycle)) {
           var seqIdx = 1
           var continue = true
           while (continue && (seqIdx < seq.len)) {
-            continue = seq.get(seqIdx).check(txn, startCycle, startCycle)
+            continue = seq.get(seqIdx).check(txn, hash, startCycle, startCycle)
             if (continue) seqIdx += 1
           }
           // Unfinished, add to queue
-          if (seqIdx < seq.len) concProp += {(seqIdx, startCycle, startCycle)}
+          if (seqIdx < seq.len) {
+            concProp += {(seqIdx, startCycle, startCycle)}
+            concHash += hash
+          }
         }
       }
     }
@@ -272,8 +285,8 @@ package object PSL {
   def Implies: Implies = new Implies
 
   // Quick Atomic Property
-  def qAP[T](proposition: T => Boolean, desc: String): AtmProp[T] = new AtmProp[T](proposition, desc)
+  def qAP[T,  H](proposition: (T, HashMap[String, H]) => Boolean, desc: String): AtmProp[T,  H] = new AtmProp[T,  H](proposition, desc)
 
   // Quick Property
-  def qProp[T](input: SequenceElement*): Property[T] = new Property[T](new Sequence[T](input:_*))
+  def qProp[T,  H](input: SequenceElement*): Property[T,  H] = new Property[T,  H](new Sequence[T,  H](input:_*))
 }
