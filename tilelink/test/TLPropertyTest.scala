@@ -14,10 +14,10 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
   implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
 
-  it should "test AtmProp and Seq and same cycle checking" in {
-    val getAP = qAP[TLBundleA]({t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get}, "If is Get request")
-    val paramZero = qAP[TLBundleA]({t: TLBundleA => t.param.litValue() == 0}, "Parameter must be zero")
-    val getParamProp = qProp[TLBundleA](getAP, ###(0), paramZero)
+  it should "sanity test AtmProp and Seq and same cycle checking" in {
+    val getAP = qAP({t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get}, "If is Get request")
+    val paramZero = qAP({t: TLBundleA => t.param.litValue() == 0}, "Parameter must be zero")
+    val getParamProp = qProp[TLBundleA](getAP, Implies, ###(0), paramZero)
 
     // Good Get Transactions
     val inputTransactions = Seq(
@@ -42,13 +42,13 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     assert(!getParamProp.check(inputTransactionsBad))
   }
 
-  it should "test beat checking in bursts" in {
+  it should "sanity test beat checking in bursts" in {
     // Currently hardcoded for different source IDs
-    val twoBeat = qAP[TLBundleA]({t: TLBundleA => t.size.litValue().toInt == 4}, "If 2 beat burst")
-    val sourceZero = qAP[TLBundleA]({ t: TLBundleA => t.source.litValue() == 0}, "If source 0")
-    val sourceOne = qAP[TLBundleA]({ t: TLBundleA => t.source.litValue() == 1}, "If source 1")
-    val seqZeroProp = qProp[TLBundleA](twoBeat & sourceZero, ###(1,-1), twoBeat & sourceZero)
-    val seqOneProp = qProp[TLBundleA](twoBeat & sourceOne, ###(1,-1), twoBeat & sourceOne)
+    val twoBeat = qAP({t: TLBundleA => t.size.litValue() == 4}, "If 2 beat burst")
+    val sourceZero = qAP({ t: TLBundleA => t.source.litValue() == 0}, "If source 0")
+    val sourceOne = qAP({ t: TLBundleA => t.source.litValue() == 1}, "If source 1")
+    val seqZeroProp = qProp[TLBundleA](twoBeat & sourceZero, Implies, ###(1,-1), twoBeat & sourceZero)
+    val seqOneProp = qProp[TLBundleA](twoBeat & sourceOne, Implies, ###(1,-1), twoBeat & sourceOne)
 
     val putZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
       _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
@@ -72,12 +72,12 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     assert(seqOneProp.check(inputBad))
   }
 
-  it should "test Get -> AccessData handshake" in {
-    val getTxn = qAP[TLChannel]({case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false},
+  it should "sanity test Get -> AccessAckData handshake" in {
+    val getTxn = qAP({t: TLChannel => t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}},
       "If Get transaction")
-    val aADTxn = qAP[TLChannel]({case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false},
+    val aADTxn = qAP({t: TLChannel => t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}},
       "If Access Ack Data transaction")
-    val getAADProp = qProp[TLChannel](getTxn, ###(1,-1), aADTxn)
+    val getAADProp = qProp[TLChannel](getTxn, Implies, ###(1,-1), aADTxn)
 
     val inputGood = Seq(Get(0x0), AccessAckData(0x0, 0),
       Get(0x0), AccessAckData(0x0, 0),
@@ -92,5 +92,74 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
       Get(0x0),
       Get(0x0), AccessAckData(0x0, 0))
     assert(!getAADProp.check(inputBadTwo))
+  }
+
+  it should "sanity test Implications" in {
+    val getTxn = qAP({t: TLChannel => t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}},
+      "If Get transaction")
+    val aADTxn = qAP({t: TLChannel => t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}},
+      "If Access Ack Data transaction")
+    val getAADNoImpProp= qProp[TLChannel](getTxn, ###(1,-1), aADTxn)
+    // Random sequence just to test non-triggered property
+    val testImplicationProp = qProp[TLChannel](getTxn, ###(1,-1), aADTxn, Implies, aADTxn)
+
+    val inputBad = Seq(Get(0x0))
+    // Should pass since no implication
+    assert(getAADNoImpProp.check(inputBad))
+    // Should pass since implication is never met
+    assert(testImplicationProp.check(inputBad))
+  }
+
+  it should "test Sequence Operations" in {
+    val getTxn = qAP({t: TLChannel => t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}},
+      "If Get transaction")
+    val aADTxn = qAP({t: TLChannel => t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}},
+      "If Access Ack Data transaction")
+    val sourceZero = qAP({ t: TLChannel => t match {case t: TLBundleA => t.source.litValue() == 0; case t: TLBundleD => t.source.litValue() == 0}},
+      "If source 0")
+    val sourceOne = qAP({ t: TLChannel => t match {case t: TLBundleA => t.source.litValue() == 1; case t: TLBundleD => t.source.litValue() == 1}},
+      "If source 1")
+
+    // Source 1 is incomplete
+    val input = Seq(Get(0x0), AccessAckData(0x0, 0),
+      Get(0x0, source = 1))
+
+    var testSeqZero = new Sequence[TLChannel]()
+    println("Following should have an error:")
+    testSeqZero += ###(0)
+    println("Done")
+    println("Following should have an error:")
+    testSeqZero += Implies
+    println("Done")
+    println("Following should not have an error but exactly 2 warnings:")
+    testSeqZero += getTxn
+    testSeqZero += sourceZero
+    testSeqZero += Implies
+    testSeqZero += ###(1,-1)
+    testSeqZero += aADTxn
+    testSeqZero += sourceZero
+    println("Done")
+    val zeroProp = new Property[TLChannel](testSeqZero)
+
+    var testSeqOne = new Sequence[TLChannel]()
+    println("Following should not have an error but exactly 2 warnings:")
+    testSeqOne += getTxn
+    testSeqOne += sourceOne
+    testSeqOne += Implies
+    testSeqOne += ###(1,-1)
+    testSeqOne += aADTxn
+    testSeqOne += sourceOne
+    println("Done")
+    val oneProp = new Property[TLChannel](testSeqOne)
+
+    val testSeqCombined = testSeqZero + testSeqOne
+    val combProp = new Property[TLChannel](testSeqCombined)
+
+    // Should pass as source 0 has complete req-resp
+    assert(zeroProp.check(input))
+    // Should fail as source 1 has missing response
+    assert(!oneProp.check(input))
+    // Should fail as source 1 has missing response
+    assert(!combProp.check(input))
   }
 }
