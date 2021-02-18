@@ -170,22 +170,22 @@ class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     val twoBeatLast = qAP({(t: TLBundleA, h: HashMap[String, Int]) => t.source.litValue() == h("source"); t.size.litValue() == 4}, "If 2 beat burst end")
     val twoBeatProp = qProp[TLBundleA, Int](twoBeatFirst, Implies, ###(1,-1), twoBeatLast)
 
-    val putZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
+    val putSrcZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
       _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
-    val putOne = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
+    val putSrcOne = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
       _.source -> 1.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
 
 
     // Sequence with well-formed, consecutive burst transactions
-    val inputGoodOne = Seq(putZero, putZero, putOne, putOne)
-    assert(twoBeatProp.check(inputGoodOne))
+    val goodInput = Seq(putSrcZero, putSrcZero, putSrcOne, putSrcOne)
+    assert(twoBeatProp.check(goodInput))
 
     // Sequence with well-formed, non-consecutive burst transactions
-    val inputGoodTwo = Seq(putZero, putOne, putZero, putOne)
-    assert(twoBeatProp.check(inputGoodTwo))
+    val anotherGoodInput = Seq(putSrcZero, putSrcOne, putSrcZero, putSrcOne)
+    assert(twoBeatProp.check(anotherGoodInput))
 
     // Sequence with mal-formed burst transactions (missing beat)
-    val inputBad = Seq(putZero, putOne, putOne)
-    assert(!twoBeatProp.check(inputBad))
+    val badInput = Seq(putSrcZero, putSrcOne, putSrcOne)
+    assert(!twoBeatProp.check(badInput))
   }
 }

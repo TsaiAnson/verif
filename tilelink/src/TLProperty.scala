@@ -217,7 +217,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
         var qIdx = 0
         while (!propMatched && (qIdx < concProp.size)) {
           var (seqIdx, startCycle, lastPassed) = concProp(qIdx)
-          var hash = concHash(qIdx)
+          val hash = concHash(qIdx)
           var continue = true
           while (continue && (seqIdx < seq.len)) {
             continue = seq.get(seqIdx).check(txn, hash, startCycle, currCycle)
@@ -232,6 +232,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
             // Property was completed or invalid
             if (invalid) failed_prop = true
             concProp.remove(qIdx)
+            concHash.remove(qIdx)
           } else if (propMatched) concProp.update(qIdx, (seqIdx, startCycle, lastPassed))
           else qIdx += 1
         }
@@ -256,6 +257,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
         }
       }
     }
+//    println(s"Debug: End of trace, # of incomplete: ${concProp.size}")
     // Currently does not support dangling txns
     val firstImplication = seq.firstImplication
     var incompleteSeq = false
@@ -266,6 +268,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
         incompleteSeq = true
       }
     }
+//    println(s"Debug: incomplete: $incompleteSeq, failed: $failed_prop")
     !incompleteSeq && !failed_prop
   }
 }
