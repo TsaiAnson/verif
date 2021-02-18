@@ -13,7 +13,7 @@ class Playground extends AnyFlatSpec with ChiselScalatestTester {
     val dut = () => new Queue(UInt(8.W), 8, false, false)
 
     trait TestComponent[I, T, S] {
-      def getPokes(txns: Seq[T], state: S): (I, S)
+      def getPokes(txns: Seq[T], io: I, state: S): I
       def update(io: I, state: S): S
       def busy(io: I, state: S): Boolean
     }
@@ -23,17 +23,23 @@ class Playground extends AnyFlatSpec with ChiselScalatestTester {
       def apply[T]: MasterState[T] = MasterState(Seq.empty[DecoupledTX[T]], 0)
     }
     class DecoupledMaster[T](gen: T) extends TestComponent[DecoupledIO[T], DecoupledTX[T], MasterState[T]] {
-      override def getPokes(txns: Seq[DecoupledTX[T]], state: MasterState[T]): (DecoupledIO[T], MasterState[T]) = {
+      override def getPokes(txns: Seq[DecoupledTX[T]], state: MasterState[T]): DecoupledIO[T] = {
         val txnsToSend = state.txnsPending ++ txns
         if (txnsToSend.isEmpty) {
-          (DecoupledIO[T](gen).Lit(_.valid -> false.B), state.copy(cycleCount = 0))
+          DecoupledIO[T](gen).Lit(_.valid -> false.B)
         } else {
           val newState = state.copy(state.txnsPending ++ txns)
 
         }
       }
 
-      override def update(io: DecoupledIO[T], state: MasterState[T]): MasterState[T] = ???
+      override def update(io: DecoupledIO[T], state: MasterState[T]): MasterState[T] = {
+        if (io.valid.litToBoolean && io.ready.litToBoolean) {
+          state.copy(cycleCount = 0)
+        } else {
+          state
+        }
+      }
 
       override def busy(io: DecoupledIO[T], state: MasterState[T]): Boolean = ???
     }
@@ -55,7 +61,8 @@ class Playground extends AnyFlatSpec with ChiselScalatestTester {
 
     test(dut()).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       while (!finished(c.io.peek())) {
-        val pokes = getPokes()
+        val peeks = c.io.peek()
+        val pokes = getPokes(peeks)
         c.io.pokePartial(pokes)
         update(c.io.peek())
         c.clock.step()
