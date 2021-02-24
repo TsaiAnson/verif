@@ -3,7 +3,9 @@ package verif
 import chisel3._
 import chisel3.util.DecoupledIO
 import chisel3.experimental.BundleLiterals._
+import chiseltest._
 
+import scala.annotation.tailrec
 import scala.util.Random
 
 // I: interface type
@@ -16,6 +18,32 @@ trait TestComponent[I, T, S, E] {
   def update(io: I, state: S): S // internal state update after combinational nets resolve (before clock step)
   def emit(io: I, state: S): Seq[E] // equivalent to UVM monitor
   def busy(io: I, state: S): Boolean // equivalent to UVM objection
+}
+
+object TestComponent {
+  def runCycle[I <: Record, T, S, E](io: I, vip: TestComponent[I,T,S,E], state: S): (S, Seq[E]) = {
+    val toPoke = vip.getPokes(io.peek(), state)
+    io.pokePartial(toPoke)
+    val peek = io.peek()
+    val newState = vip.update(peek, state)
+    val emission = vip.emit(peek, newState)
+    (newState, emission)
+  }
+
+  def runSim[I <: Record, T, S, E](clock: Clock, io: I, vip: TestComponent[I,T,S,E], initState: S): Seq[E] = {
+    runSimRec(clock, io, vip, initState, Seq.empty[E])
+  }
+
+  @tailrec
+  final def runSimRec[I <: Record, T, S, E](clock: Clock, io: I, vip: TestComponent[I,T,S,E], state: S, emitted: Seq[E]): Seq[E] = {
+    if (!vip.busy(io.peek(), state)) {
+      emitted
+    } else {
+      val (newState, emission) = runCycle(io, vip, state)
+      clock.step()
+      runSimRec(clock, io, vip, newState, emitted ++ emission)
+    }
+  }
 }
 
 case class MasterState[T <: Data](txnsPending: Seq[DecoupledTX[T]], cycleCount: Int, totalCycles: Int)
