@@ -11,7 +11,7 @@ import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters, 
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.HashMap
 
-class TLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
+class PSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
   implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
 
