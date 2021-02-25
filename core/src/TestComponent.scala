@@ -12,11 +12,13 @@ import scala.util.Random
 // T: transaction type
 // S: state type
 // E: emission type
+// TODO: break up this type into subsets for driver, monitor, and stim generator
 trait TestComponent[I, T, S, E] {
-  def newTxns(txns: Seq[T], state: S): S // equivalent to UVM sequencer
-  def getPokes(io: I, state: S): I // equivalent to UVM driver
+  def getPokes(io: I, state: S): I // equivalent to UVM sequencer
   def update(io: I, state: S): S // internal state update after combinational nets resolve (before clock step)
   def emit(io: I, state: S): Seq[E] // equivalent to UVM monitor
+  def genTxns(emit: Seq[E], state: S): Seq[T] // stimulus generator
+  def newTxns(txns: Seq[T], state: S): S // equivalent to UVM sequencer
   def busy(io: I, state: S): Boolean // equivalent to UVM objection
 }
 
@@ -27,7 +29,9 @@ object TestComponent {
     val peek = io.peek()
     val newState = vip.update(peek, state)
     val emission = vip.emit(peek, newState)
-    (newState, emission)
+    val genTxns = vip.genTxns(emission, newState)
+    val newStateAfterTx = vip.newTxns(genTxns, newState)
+    (newStateAfterTx, emission)
   }
 
   def runSim[I <: Record, T, S, E](clock: Clock, io: I, vip: TestComponent[I,T,S,E], initState: S): Seq[E] = {
@@ -49,14 +53,15 @@ object TestComponent {
 case class MasterState[T <: Data](txnsPending: Seq[DecoupledTX[T]], cycleCount: Int, totalCycles: Int)
 object MasterState {
   def empty[T <: Data]: MasterState[T] = MasterState(Seq.empty[DecoupledTX[T]], 0, 0)
-  def stim[T <: Data](stim: Seq[DecoupledTX[T]]): MasterState[T] = MasterState(stim, 0, 0)
 }
 
 class DecoupledMaster[T <: Data](gen: T) extends TestComponent[DecoupledIO[T], DecoupledTX[T], MasterState[T], DecoupledTX[T]] {
   val protoIO = new DecoupledIO[T](gen)
   val protoTX = new DecoupledTX[T](gen)
 
-  def newTxns(txns: Seq[DecoupledTX[T]], state: MasterState[T]): MasterState[T] = {
+  override def genTxns(emit: Seq[DecoupledTX[T]], state: MasterState[T]): Seq[DecoupledTX[T]] = Seq.empty
+
+  override def newTxns(txns: Seq[DecoupledTX[T]], state: MasterState[T]): MasterState[T] = {
     state.copy(state.txnsPending ++ txns)
   }
 
@@ -115,6 +120,8 @@ class RandomBackpressure(maxBackpressure: Int = 10, seed: Int = 1) extends Backp
 }
 
 class DecoupledSlave[T <: Data](gen: T, backpressure: Backpressure) extends TestComponent[DecoupledIO[T], Nothing, SlaveState, DecoupledTX[T]] {
+  override def genTxns(emit: Seq[DecoupledTX[T]], state: SlaveState): Seq[Nothing] = Seq.empty
+
   override def newTxns(txns: Seq[Nothing], state: SlaveState): SlaveState = state
 
   override def getPokes(io: DecoupledIO[T], state: SlaveState): DecoupledIO[T] = {

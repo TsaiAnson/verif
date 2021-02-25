@@ -4,23 +4,32 @@ import chisel3._
 import chisel3.util.QueueIO
 import chisel3.experimental.BundleLiterals._
 
-case class QueueTesterState[T <: Data](mState: MasterState[T], sState: SlaveState, outputsSeen: Int)
+case class QueueTesterState[T <: Data](mState: MasterState[T], sState: SlaveState, outputsSeen: Int, stimSent: Boolean)
 object QueueTesterState {
-  def withStim[T <: Data](gen: T, stim: Int => T): QueueTesterState[T] = {
-    val s = Seq.tabulate(8)(i => new DecoupledTX[T](gen).tx(stim(i), 1 + i*2, 0))
-    QueueTesterState(MasterState.stim[T](s), SlaveState.empty(), 0)
-  }
+  def empty[T <: Data]: QueueTesterState[T] = QueueTesterState(MasterState.empty, SlaveState.empty(), 0, stimSent = false)
 }
 case class QueueTesterEmission[T <: Data](masterPort: Option[DecoupledTX[T]], slavePort: Option[DecoupledTX[T]])
 
 // One idea: compose 2 test components into a larger one that encompasses both interfaces!
 // TODO: make stimulus a special test component type (takes things it needs and produces a new stim each cycle and can tell when it is finished)
-class QueueTester[T <: UInt](gen: T) extends TestComponent[QueueIO[T], Nothing, QueueTesterState[T], QueueTesterEmission[T]] {
+class QueueTester[T <: UInt](gen: T, numTxns: Int = 16, stim: Int => T) extends TestComponent[QueueIO[T], DecoupledTX[T], QueueTesterState[T], QueueTesterEmission[T]] {
   val master = new DecoupledMaster(gen)
   val slave = new DecoupledSlave(gen, new FixedBackpressure(2))
 
-  override def newTxns(txns: Seq[Nothing], state: QueueTesterState[T]): QueueTesterState[T] = {
-    state // TODO: implement runtime stimulus
+  override def genTxns(emit: Seq[QueueTesterEmission[T]], state: QueueTesterState[T]): Seq[DecoupledTX[T]] = {
+    // TODO: hack
+    if (state.stimSent) {
+      Seq.empty
+    } else {
+      Seq.tabulate(numTxns)(i => new DecoupledTX[T](gen).tx(stim(i), 1 + i*2, 0))
+    }
+  }
+
+  override def newTxns(txns: Seq[DecoupledTX[T]], state: QueueTesterState[T]): QueueTesterState[T] = {
+    state.copy(
+      stimSent = if (!state.stimSent) true else true, // TODO: hack
+      mState = master.newTxns(txns, state.mState)
+    )
   }
 
   override def getPokes(io: QueueIO[T], state: QueueTesterState[T]): QueueIO[T] = {
@@ -46,6 +55,6 @@ class QueueTester[T <: UInt](gen: T) extends TestComponent[QueueIO[T], Nothing, 
   }
 
   override def busy(io: QueueIO[T], state: QueueTesterState[T]): Boolean = {
-    master.busy(io.enq, state.mState) || slave.busy(io.deq, state.sState) || state.outputsSeen < 8
+    master.busy(io.enq, state.mState) || slave.busy(io.deq, state.sState) || state.outputsSeen < numTxns
   }
 }
