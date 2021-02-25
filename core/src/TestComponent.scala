@@ -114,7 +114,6 @@ class RandomBackpressure(maxBackpressure: Int = 10, seed: Int = 1) extends Backp
   val rand = new Random(seed)
   override def get: Int = {
     val x = rand.nextInt(maxBackpressure)
-    println(x)
     x
   }
 }

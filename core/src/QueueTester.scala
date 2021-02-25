@@ -14,14 +14,14 @@ case class QueueTesterEmission[T <: Data](masterPort: Option[DecoupledTX[T]], sl
 // TODO: make stimulus a special test component type (takes things it needs and produces a new stim each cycle and can tell when it is finished)
 class QueueTester[T <: UInt](gen: T, numTxns: Int = 16, stim: Int => T) extends TestComponent[QueueIO[T], DecoupledTX[T], QueueTesterState[T], QueueTesterEmission[T]] {
   val master = new DecoupledMaster(gen)
-  val slave = new DecoupledSlave(gen, new FixedBackpressure(2))
+  val slave = new DecoupledSlave(gen, new RandomBackpressure(5))
 
   override def genTxns(emit: Seq[QueueTesterEmission[T]], state: QueueTesterState[T]): Seq[DecoupledTX[T]] = {
     // TODO: hack
     if (state.stimSent) {
       Seq.empty
     } else {
-      Seq.tabulate(numTxns)(i => new DecoupledTX[T](gen).tx(stim(i), 1 + i*2, 0))
+      Seq.tabulate(numTxns)(i => new DecoupledTX[T](gen).tx(stim(i), 1 + i, 0))
     }
   }
 
