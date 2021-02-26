@@ -17,8 +17,10 @@ package object PSL {
   def Implies: Implies = new Implies
 
   // Quick Atomic Property
-  def qAP[T,  H](proposition: (T, HashMap[String, H]) => Boolean, desc: String): AtmProp[T,  H] = new AtmProp[T,  H](proposition, desc)
+  def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[PSLMemoryState[M]]) => Boolean, desc: String): AtmProp[T,H,M]
+    = new AtmProp[T,H,M](proposition, desc)
 
   // Quick Property
-  def qProp[T,  H](input: SequenceElement*): Property[T,  H] = new Property[T,  H](new Sequence[T,  H](input:_*))
+  def qProp[T,H,M](input: SequenceElement*): Property[T,H,M] = new Property[T,H,M](new Sequence[T,H,M](input:_*))
+  def qProp[T,H,M](input: Sequence[T,H,M]): Property[T,H,M] = new Property[T,H,M](input)
 }

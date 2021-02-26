@@ -17,15 +17,15 @@ trait SequenceElement
 //  override def toString: String = desc
 //}
 
-class AtmProp[T,H](proposition: (T, HashMap[String,H]) => Boolean, desc: String) extends SequenceElement {
-  def check(input: T, hash: HashMap[String, H]): Boolean = proposition(input, hash)
+class AtmProp[T,H,M](proposition: (T, HashMap[String,H], Option[PSLMemoryState[M]]) => Boolean, desc: String) extends SequenceElement {
+  def check(input: T, hash: HashMap[String, H], ms: Option[PSLMemoryState[M]]): Boolean = proposition(input, hash, ms)
 
-  def getProp: (T, HashMap[String,H]) => Boolean = proposition
+  def getProp: (T, HashMap[String,H], Option[PSLMemoryState[M]]) => Boolean = proposition
 
-  def &(that: AtmProp[T,H]): AtmProp[T,H] = new AtmProp[T,H]({(t: T, h: HashMap[String, H]) => proposition(t, h) & that.getProp(t, h)},
-    s"$desc and $that")
-  def |(that: AtmProp[T,H]): AtmProp[T,H] = new AtmProp[T,H]({(t: T, h: HashMap[String, H]) => proposition(t, h) | that.getProp(t, h)},
-    s"$desc or $that")
+  def &(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[PSLMemoryState[M]])
+    => proposition(t, h, m) & that.getProp(t, h, m)}, s"$desc and $that")
+  def |(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[PSLMemoryState[M]])
+    => proposition(t, h, m) | that.getProp(t, h, m)}, s"$desc or $that")
 
   override def toString: String = desc
 }
@@ -76,10 +76,10 @@ class TimeOp(cycles: Int, cycles1: Int = -1, modifier: Int = 0) extends Sequence
 // Need a better way to group these classes
 class Implies extends SequenceElement
 
-class PropSet[T,H](ap: AtmProp[T,H], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
-  def check(input: T, hash: HashMap[String, H], startCycle: Int, currCycle: Int): Boolean = {
+class PropSet[T,H,M](ap: AtmProp[T,H,M], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
+  def check(input: T, hash: HashMap[String, H], ms: Option[PSLMemoryState[M]], lastPassed: Int, currCycle: Int): Boolean = {
     if (implication) return implication
-    ap.check(input, hash) & to.check(currCycle - startCycle)
+    ap.check(input, hash, ms) & to.check(currCycle - lastPassed)
   }
 
   def invalid (startCycle: Int, currCycle: Int, lastPassedIdx: Int, implicationMet: Boolean): Boolean = {
@@ -92,7 +92,7 @@ class PropSet[T,H](ap: AtmProp[T,H], to: TimeOp, implication: Boolean = false, i
     invalid
   }
 
-  def getAP: AtmProp[T,H] = ap
+  def getAP: AtmProp[T,H,M] = ap
   def getTO: TimeOp = to
   def isImplication: Boolean = implication
   def isIncomplete: Boolean = incomplete

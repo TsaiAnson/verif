@@ -3,11 +3,11 @@ package verif
 import chisel3._
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
+class Property[T,H,M](seq: Sequence[T,H,M], assertion: Int = 0) {
   // Assertions: 0 - assert, 1 - assume, 2 - cover, 3 - restrict
   // Currently, only assert is implemented
 
-  def check(input: Seq[T]): Boolean = {
+  def check(input: Seq[T], mems: Seq[Option[PSLMemoryState[M]]] = Seq()): Boolean = {
     // Short circuit if seq is empty
     if (seq.isEmpty) return true
 
@@ -18,7 +18,16 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
     // Local Data per concurrent instance
     val concHash = new ListBuffer[HashMap[String, H]]()
 
-    for ((txn, currCycle) <- input.zipWithIndex) {
+    // If no memory states are given, assign all none
+    var int_mems = Seq[Option[PSLMemoryState[M]]]()
+    if (mems.isEmpty) {
+      int_mems = Seq.fill(input.length)(None)
+    } else {
+      int_mems = mems
+    }
+    assert(int_mems.length == input.length, "Must have a memory state for each transaction")
+
+    for (((txn, ms), currCycle) <- (input zip int_mems).zipWithIndex) {
       // Checking incomplete properties first
       var propMatched = false
       var invalid = false
@@ -29,7 +38,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
           val hash = concHash(qIdx)
           var continue = true
           while (continue && (seqIdx < seq.len)) {
-            continue = seq.get(seqIdx).check(txn, hash, startCycle, currCycle)
+            continue = seq.get(seqIdx).check(txn, hash, ms, lastPassed, currCycle)
             if (continue) lastPassed = currCycle
             invalid = seq.get(seqIdx).invalid(startCycle, currCycle, lastPassed, (seqIdx >= seq.firstImplication && seq.firstImplication != -1))
             if (continue) {
@@ -51,11 +60,11 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
         // If matches first proposition
         val startCycle = currCycle
         val hash = new HashMap[String, H]()
-        if (seq.get(0).check(txn, hash, startCycle, startCycle)) {
+        if (seq.get(0).check(txn, hash, ms, startCycle, startCycle)) {
           var seqIdx = 1
           var continue = true
           while (continue && (seqIdx < seq.len)) {
-            continue = seq.get(seqIdx).check(txn, hash, startCycle, startCycle)
+            continue = seq.get(seqIdx).check(txn, hash, ms, startCycle, startCycle)
             if (continue) seqIdx += 1
           }
           // Unfinished, add to queue
@@ -65,6 +74,7 @@ class Property[T,  H](seq: Sequence[T,  H], assertion: Int = 0) {
           }
         }
       }
+//      println(s"Debug: Curr Cycle $currCycle")
     }
 //    println(s"Debug: End of trace, # of incomplete: ${concProp.size}")
     // Currently does not support dangling txns

@@ -4,15 +4,15 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 trait PSLMemoryState[T] {
-  def get(addr: UInt): T
+  def get(addr: Int): T
 }
 
 // Example of a generic UInt memory state
-class PSLUIntMemoryState(init: HashMap[UInt, UInt] = new HashMap[UInt, UInt]()) extends PSLMemoryState[UInt] {
+class PSLUIntMemoryState(init: HashMap[Int, UInt] = new HashMap[Int, UInt]()) extends PSLMemoryState[UInt] {
   // Non-destructive
   val int_state = init.clone()
 
-  def get(addr: UInt): UInt = {
+  def get(addr: Int): UInt = {
     int_state(addr)
   }
 }
@@ -22,7 +22,7 @@ class PSLOptTLMemoryState(init: UInt = 0.U) extends PSLMemoryState[UInt] {
   var int_state = init
 
   // Addr unused
-  def get(addr: UInt): UInt = {
+  def get(addr: Int): UInt = {
     int_state
   }
 
