@@ -1,6 +1,5 @@
 package verif
 
-import chisel3._
 import scala.collection.mutable.{HashMap, ListBuffer}
 
 // Currently cannot have sequential TimeOps
@@ -38,7 +37,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
       case _: Implies =>
         firstImplication = groupedSeq.size
         if (i == 0) assert(false, s"ERROR: First element of sequence must be a AtmProp. Given Implies.")
-        groupedSeq += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[PSLMemoryState[M]]) => true}, "Implication"),
+        groupedSeq += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"),
           new TimeOp(0), true)
     }
   }
@@ -84,11 +83,11 @@ class Sequence[T,H,M](input: SequenceElement*) {
       case t: TimeOp =>
         if (copyPropSets.isEmpty) println(s"ERROR: Unable to add TimeOp ($t) to sequence (Initial SequenceElement must be Atomic Proposition).")
         else if (copyPropSets.last.isIncomplete) println(s"ERROR: Unable to add TimeOp ($t) to sequence (sequential TimeOps).")
-        else copyPropSets += new PropSet[T,H,M](new AtmProp({(_:T, _: HashMap[String, H], _: Option[PSLMemoryState[M]]) => true}, "temp-incomplete propset"), t, incomplete = true)
+        else copyPropSets += new PropSet[T,H,M](new AtmProp({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "temp-incomplete propset"), t, incomplete = true)
         newSeq.set(copyPropSets)
       case _: Implies =>
         if (copyPropSets.isEmpty) println(s"ERROR: Unable to add Implication to sequence (Initial SequenceElement must be Atomic Proposition).")
-        else copyPropSets += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[PSLMemoryState[M]]) => true}, "Implication"), new TimeOp(0), true)
+        else copyPropSets += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"), new TimeOp(0), true)
         newSeq.set(copyPropSets)
     }
     newSeq

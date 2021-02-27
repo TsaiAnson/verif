@@ -1,13 +1,12 @@
 package verif
 
-import chisel3._
 import scala.collection.mutable.{ListBuffer, HashMap}
 
 class Property[T,H,M](seq: Sequence[T,H,M], assertion: Int = 0) {
   // Assertions: 0 - assert, 1 - assume, 2 - cover, 3 - restrict
   // Currently, only assert is implemented
 
-  def check(input: Seq[T], mems: Seq[Option[PSLMemoryState[M]]] = Seq()): Boolean = {
+  def check(input: Seq[T], mems: Seq[Option[SLMemoryState[M]]] = Seq()): Boolean = {
     // Short circuit if seq is empty
     if (seq.isEmpty) return true
 
@@ -19,7 +18,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], assertion: Int = 0) {
     val concHash = new ListBuffer[HashMap[String, H]]()
 
     // If no memory states are given, assign all none
-    var int_mems = Seq[Option[PSLMemoryState[M]]]()
+    var int_mems = Seq[Option[SLMemoryState[M]]]()
     if (mems.isEmpty) {
       int_mems = Seq.fill(input.length)(None)
     } else {

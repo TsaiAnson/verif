@@ -4,14 +4,14 @@ import chiseltest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import TLTransaction._
-import PSL._
+import SL._
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.subsystem.WithoutTLMonitors
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters, TLChannel}
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.HashMap
 
-class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
+class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
 
   it should "single source memory request (no burst)" in {
@@ -21,10 +21,10 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       AccessAckData(0x1234, 0)
     )
 
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
 
-    val expected = Seq(None, None, Some(new PSLOptTLMemoryState(0x1234.U)))
+    val expected = Seq(None, None, Some(new SLOptTLMemoryState(0x1234.U)))
     assert(result == expected)
   }
 
@@ -36,10 +36,10 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x5678, 0)
       )
 
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
 
-    val expected = Seq(None, None, None, Some(new PSLOptTLMemoryState(0x1234.U)), Some(new PSLOptTLMemoryState(0x5678.U)))
+    val expected = Seq(None, None, None, Some(new SLOptTLMemoryState(0x1234.U)), Some(new SLOptTLMemoryState(0x5678.U)))
     assert(result == expected)
   }
 
@@ -53,11 +53,11 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       AccessAckData(0x1234, 0)
     )
 
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, None,
-      Some(new PSLOptTLMemoryState(0x8888.U)), Some(new PSLOptTLMemoryState(0x1234.U)))
+      Some(new SLOptTLMemoryState(0x8888.U)), Some(new SLOptTLMemoryState(0x1234.U)))
     assert(result == expected)
   }
 
@@ -69,11 +69,11 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(Get(0x10, 4, 0xff, 1)) ++
       AccessAckDataBurst(Seq(0x2222, 0x6666), 0, 1)
 
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
 
-    val expected = Seq(None, None, None, None, None, Some(new PSLOptTLMemoryState(0x1234.U)), Some(new PSLOptTLMemoryState(0x5678.U)),
-      None, Some(new PSLOptTLMemoryState(0x2222.U)), Some(new PSLOptTLMemoryState(0x6666.U)))
+    val expected = Seq(None, None, None, None, None, Some(new SLOptTLMemoryState(0x1234.U)), Some(new SLOptTLMemoryState(0x5678.U)),
+      None, Some(new SLOptTLMemoryState(0x2222.U)), Some(new SLOptTLMemoryState(0x6666.U)))
     assert(result == expected)
   }
 
@@ -89,24 +89,24 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x5678, 0, 4, 0)
     )
 
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, None, None, None,
-      Some(new PSLOptTLMemoryState(0x1234.U)), Some(new PSLOptTLMemoryState(0x2222.U)),
-      Some(new PSLOptTLMemoryState(0x6666.U)), Some(new PSLOptTLMemoryState(0x5678.U)))
+      Some(new SLOptTLMemoryState(0x1234.U)), Some(new SLOptTLMemoryState(0x2222.U)),
+      Some(new SLOptTLMemoryState(0x6666.U)), Some(new SLOptTLMemoryState(0x5678.U)))
     assert(result == expected)
   }
 
   it should "test expected data in get->ackdata transactions" in {
-    val getTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[PSLMemoryState[UInt]]) =>
+    val getTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
       t match {
         case t: TLBundleA =>
           h("src") = t.source.litValue().toInt
           t.size.litValue() == 4 && t.opcode.litValue() == TLOpcodes.Get
         case _ => false
       }}, "If Get transaction")
-    val aADTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[PSLMemoryState[UInt]]) =>
+    val aADTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
       t match {
         case t: TLBundleD =>
           t.size.litValue() == 4 && t.source.litValue().toInt == h("src") && t.opcode.litValue() == TLOpcodes.AccessAckData &&
@@ -125,7 +125,7 @@ class PSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x6666, 0, 4, 1),
         AccessAckData(0x5678, 0, 4, 0)
       )
-    val mm = new PSLTLMemoryModel(params)
+    val mm = new SLTLMemoryModel(params)
     val result = mm.model(inputGood)
     assert(dataTwoBeatProp.check(inputGood, result))
 

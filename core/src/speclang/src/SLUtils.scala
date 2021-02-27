@@ -2,7 +2,7 @@ package verif
 
 import scala.collection.mutable.HashMap
 
-package object PSL {
+package object SL {
   // Quick TimeOperation
   def ###(cycles: Int): TimeOp = ###(cycles, cycles)
 
@@ -17,7 +17,7 @@ package object PSL {
   def Implies: Implies = new Implies
 
   // Quick Atomic Property
-  def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[PSLMemoryState[M]]) => Boolean, desc: String): AtmProp[T,H,M]
+  def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[SLMemoryState[M]]) => Boolean, desc: String): AtmProp[T,H,M]
     = new AtmProp[T,H,M](proposition, desc)
 
   // Quick Property

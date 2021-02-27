@@ -101,13 +101,6 @@ lazy val verifGemmini = (project in file("./tools/verif/cosim"))
   .settings(verifSettings)
   .settings(libraryDependencies += "com.google.protobuf")
   .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0") % "protobuf-java" % "3.11.0")
-
-lazy val verifPSL = (project in file("./tools/verif/psl"))
-  .settings(directoryLayout)
-  .sourceDependency(chiselRef, chiselLib)
-  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, verifCore, verifTL)
-  .settings(commonSettings)
-  .settings(verifSettings)
 ```
 
 Run tests from Chipyard:

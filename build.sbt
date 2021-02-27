@@ -36,11 +36,6 @@ lazy val cosim = (project in file ("./cosim"))
   .settings(buildSettings)
   .settings(directoryLayout)
 
-lazy val psl = (project in file ("./psl"))
-  .dependsOn(core, tilelink)
-  .settings(buildSettings)
-  .settings(directoryLayout)
-
 fork in test := true
 cancelable in Global := true
 exportJars := true

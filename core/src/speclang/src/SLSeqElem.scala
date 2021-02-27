@@ -1,6 +1,5 @@
 package verif
 
-import chisel3._
 import scala.collection.mutable.HashMap
 
 trait SequenceElement
@@ -17,14 +16,14 @@ trait SequenceElement
 //  override def toString: String = desc
 //}
 
-class AtmProp[T,H,M](proposition: (T, HashMap[String,H], Option[PSLMemoryState[M]]) => Boolean, desc: String) extends SequenceElement {
-  def check(input: T, hash: HashMap[String, H], ms: Option[PSLMemoryState[M]]): Boolean = proposition(input, hash, ms)
+class AtmProp[T,H,M](proposition: (T, HashMap[String,H], Option[SLMemoryState[M]]) => Boolean, desc: String) extends SequenceElement {
+  def check(input: T, hash: HashMap[String, H], ms: Option[SLMemoryState[M]]): Boolean = proposition(input, hash, ms)
 
-  def getProp: (T, HashMap[String,H], Option[PSLMemoryState[M]]) => Boolean = proposition
+  def getProp: (T, HashMap[String,H], Option[SLMemoryState[M]]) => Boolean = proposition
 
-  def &(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[PSLMemoryState[M]])
+  def &(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[SLMemoryState[M]])
     => proposition(t, h, m) & that.getProp(t, h, m)}, s"$desc and $that")
-  def |(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[PSLMemoryState[M]])
+  def |(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[SLMemoryState[M]])
     => proposition(t, h, m) | that.getProp(t, h, m)}, s"$desc or $that")
 
   override def toString: String = desc
@@ -77,7 +76,7 @@ class TimeOp(cycles: Int, cycles1: Int = -1, modifier: Int = 0) extends Sequence
 class Implies extends SequenceElement
 
 class PropSet[T,H,M](ap: AtmProp[T,H,M], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
-  def check(input: T, hash: HashMap[String, H], ms: Option[PSLMemoryState[M]], lastPassed: Int, currCycle: Int): Boolean = {
+  def check(input: T, hash: HashMap[String, H], ms: Option[SLMemoryState[M]], lastPassed: Int, currCycle: Int): Boolean = {
     if (implication) return implication
     ap.check(input, hash, ms) & to.check(currCycle - lastPassed)
   }
