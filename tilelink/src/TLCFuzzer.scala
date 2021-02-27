@@ -100,16 +100,16 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
             tlProcess.remove(processIndex)
             if (txnc.opcode.litValue() == TLOpcodes.ProbePerm) {
               // For ProbePerm, no ProbeAcKData needed
-              return Seq(ProbeAck(newParam, txnc.address.litValue(), txnc.size.litValue().toInt,
+              return Seq(ProbeAck(TLPermission.PruneOrReport.fromInt(newParam), txnc.address.litValue(), txnc.size.litValue().toInt,
                 source = txnc.source.litValue().toInt))
             } else if (txnc.opcode.litValue() == TLOpcodes.ProbeBlock) {
               // If old permission included write access, need to send back dirty data
               if (oldPerm == 2 && newPerm != oldPerm) {
-                return ProbeAckDataBurst(newParam, txnc.address.litValue(),
+                return ProbeAckDataBurst(TLPermission.PruneOrReport.fromInt(newParam), txnc.address.litValue(),
                   readData(dataState, size = txnc.size, address = txnc.address, mask = 0xff.U).map(_.litValue()),
                   source = txnc.source.litValue().toInt)
               } else {
-                return Seq(ProbeAck(newParam, txnc.address.litValue(), txnc.size.litValue().toInt,
+                return Seq(ProbeAck(TLPermission.PruneOrReport.fromInt(newParam), txnc.address.litValue(), txnc.size.litValue().toInt,
                   source = txnc.source.litValue().toInt))
               }
             }

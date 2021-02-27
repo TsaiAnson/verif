@@ -15,17 +15,20 @@ class VerifRoCCStandaloneWrapper(dut: () => LazyRoCC, beatBytes: Int = 8, pAddrB
     lazy val ioOutNodes = new MutableList[BundleBridgeSink[TLBundle]]
     lazy val ioInNodes = new MutableList[BundleBridgeSource[TLBundle]]
     val dutInside = LazyModule(dut())
+    val buffer = TLBuffer(BufferParams.default)
 
     for (i <- 0 until addSinks) {
       ioOutNodes += BundleBridgeSink[TLBundle]()
       ioOutNodes(i) :=
         TLToBundleBridge(VerifTestUtils.getVerifTLSlavePortParameters(beatBytes, pAddrBits, TransferSizes(1,64))) :=
+        buffer :=
         dutInside.tlNode
     }
 
     for (i <- 0 until addSources) {
       ioInNodes += BundleBridgeSource(() => TLBundle(VerifTestUtils.getVerifTLBundleParameters(beatBytes, pAddrBits, TransferSizes(1,64))))
       dutInside.tlNode :=
+        buffer :=
         BundleBridgeToTL(VerifTestUtils.getVerifTLMasterPortParameters()) :=
         ioInNodes(i)
     }

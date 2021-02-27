@@ -5,6 +5,7 @@ import chisel3.util._
 import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.{DataMirror, Direction}
 import chiseltest._
+import scala.collection.mutable
 
 class DecoupledTX[T <: Data](gen: T) extends Bundle {
   val data: T = gen.cloneType
@@ -30,16 +31,16 @@ class DecoupledTX[T <: Data](gen: T) extends Bundle {
 
 // TODO: combine driver and monitor into VIP/Agent to keep API clean
 // TODO: VIP/Agent should have master and slave modes (monitor should never peek)
-class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
-  AbstractDriver[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
+class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   assert(DataMirror.directionOf(interface.valid) == Direction.Input, "DecoupledDriverMaster is connected to a master port, not a slave")
+  val inputTransactions: mutable.Queue[DecoupledTX[T]] = mutable.Queue[DecoupledTX[T]]()
   fork.withRegion(TestdriverMain) {
     var cycleCount = 0
     var idleCycles = 0
     interface.valid.poke(false.B)
     while (true) {
-      if (hasNextTransaction && idleCycles == 0) {
-        val t = getNextTransaction
+      if (inputTransactions.nonEmpty && idleCycles == 0) {
+        val t = inputTransactions.dequeue()
         if (t.waitCycles.litValue().toInt > 0) {
           idleCycles = t.waitCycles.litValue().toInt
           while (idleCycles > 0) {
@@ -75,6 +76,16 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
       }
     }
   }
+
+  def push(txn: DecoupledTX[T]): Unit = {
+    inputTransactions += txn
+  }
+
+  def push(txns: Seq[DecoupledTX[T]]): Unit = {
+    for (t <- txns) {
+      inputTransactions += t
+    }
+  }
 }
 
 // TODO: have this return a stream of seen transactions
@@ -100,18 +111,22 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
   }
 }
 
-class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) extends
-  AbstractMonitor[DecoupledIO[T], DecoupledTX[T]](clock, interface) {
+class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
+  val monitoredTransactions: mutable.Queue[DecoupledTX[T]] = mutable.Queue[DecoupledTX[T]]()
   fork.withRegion(Monitor) {
     var cycleCount = 0
     while (true) {
       if (interface.valid.peek().litToBoolean && interface.ready.peek().litToBoolean) {
         val t = new DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
         val tLit = t.Lit(_.data -> interface.bits.peek(), _.cycleStamp -> cycleCount.U)
-        addMonitoredTransaction(tLit)
+        monitoredTransactions += tLit
       }
       cycleCount += 1
       clock.step()
     }
+  }
+
+  def clearMonitoredTransactions(): Unit = {
+    monitoredTransactions.clear()
   }
 }

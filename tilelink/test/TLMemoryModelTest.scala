@@ -13,14 +13,14 @@ object TLMemoryModelSequences {
       Seq(
         Put(0x8, 0x12345678L),
         Get(0x8),
-        Put(0x8, 0xffffffffL, Integer.parseInt("1111", 2)),
+        Put(0x8, 0xffffffffL),
         Get(0x8),
       ),
       Seq(
-        AccessAck(0),
-        AccessAckData(0x12345678L, 0),
-        AccessAck(0),
-        AccessAckData(0xffffffffL, 0)
+        AccessAck(),
+        AccessAckData(0x12345678L),
+        AccessAck(),
+        AccessAckData(0xffffffffL)
       )
     )
   }
@@ -29,20 +29,20 @@ object TLMemoryModelSequences {
     require(p.dataBits == 32) // TODO loosen
     (
       Seq(
-        Put(0x8, 0x12345678L, Integer.parseInt("0110", 2)),
+        Put(0x8, 0x12345678L, Integer.parseInt("0110", 2), 0),
         Get(0x8),
-        Put(0x8, 0xffffffffL, Integer.parseInt("1001", 2)),
+        Put(0x8, 0xffffffffL, Integer.parseInt("1001", 2), 0),
         Get(0x8),
-        Put(0x8, 0x11118888L, Integer.parseInt("0011", 2)),
+        Put(0x8, 0x11118888L, Integer.parseInt("0011", 2), 0),
         Get(0x8)
       ),
       Seq(
-        AccessAck(0),
-        AccessAckData(0x00345600L, 0),
-        AccessAck(0),
-        AccessAckData(0xff3456ffL, 0),
-        AccessAck(0),
-        AccessAckData(0xff348888L, 0)
+        AccessAck(),
+        AccessAckData(0x00345600L),
+        AccessAck(),
+        AccessAckData(0xff3456ffL),
+        AccessAck(),
+        AccessAckData(0xff348888L)
       )
     )
   }
@@ -62,14 +62,14 @@ object TLMemoryModelSequences {
         Get(0x10), Get(0x14)
       ),
       Seq(
-        AccessAck(0, 4, 0),
-        AccessAckData(0x01234567L, 0),
-        AccessAckData(0x89abcdefL, 0),
-        AccessAckData(0xffffffffL, 0),
-        AccessAckData(0x11111111L, 0),
-        AccessAck(0, 3, 0),
-        AccessAckData(0xffffbbbbL, 0, 0),
-        AccessAckData(0xcc111111L, 0, 0)
+        AccessAck(4, 0),
+        AccessAckData(0x01234567L),
+        AccessAckData(0x89abcdefL),
+        AccessAckData(0xffffffffL),
+        AccessAckData(0x11111111L),
+        AccessAck(3, 0),
+        AccessAckData(0xffffbbbbL),
+        AccessAckData(0xcc111111L)
       )
     )
   }
@@ -79,17 +79,17 @@ object TLMemoryModelSequences {
     (
       Seq(
         Put(0x8, 0x12345678L),
-        Get(0x8, 2, Integer.parseInt("1111", 2), source = 0),
+        Get(0x8, 2, Integer.parseInt("1111", 2), 0),
         Get(0x8, 2, Integer.parseInt("1000", 2), 0),
         Get(0x8, 2, Integer.parseInt("0011", 2), 0),
         Get(0x8, 2, Integer.parseInt("0100", 2), 0),
       ),
       Seq(
-        AccessAck(0),
-        AccessAckData(0x12345678L, 0),
-        AccessAckData(0x12000000L, 0),
-        AccessAckData(0x00005678L, 0),
-        AccessAckData(0x00340000L, 0),
+        AccessAck(),
+        AccessAckData(0x12345678L),
+        AccessAckData(0x12000000L),
+        AccessAckData(0x00005678L),
+        AccessAckData(0x00340000L)
       )
     )
   }
@@ -101,11 +101,11 @@ object TLMemoryModelSequences {
       Seq(Get(0x8, 4, Integer.parseInt("1111", 2), 0))
     ,
       Seq(
-        AccessAck(0, 4, 0),
-        AccessAckData(0x01234567L, 0, 4, 0),
-        AccessAckData(0x89abcdefL, 0, 4, 0),
-        AccessAckData(0xffffffffL, 0, 4, 0),
-        AccessAckData(0x11111111L, 0, 4, 0),
+        AccessAck(4, 0),
+        AccessAckData(0x01234567L, 4, 0, denied = false),
+        AccessAckData(0x89abcdefL, 4, 0, denied = false),
+        AccessAckData(0xffffffffL, 4, 0, denied = false),
+        AccessAckData(0x11111111L, 4, 0, denied = false),
       )
     )
   }
@@ -121,25 +121,25 @@ object TLMemoryModelSequences {
     (
       PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
       Seq(
-        Logic(0, 0x0, newData),
-        Logic(1, 0x4, newData),
-        Logic(2, 0x8, newData),
-        Logic(3, 0xc, newData),
+        Logic(TLLogicParam.XOR, 0x0, newData),
+        Logic(TLLogicParam.OR, 0x4, newData),
+        Logic(TLLogicParam.AND, 0x8, newData),
+        Logic(TLLogicParam.SWAP, 0xc, newData),
         Get(0x0),
         Get(0x4),
         Get(0x8),
         Get(0xc)
       ),
       Seq(
-        AccessAck(0, 4, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(xored, 0),
-        AccessAckData(ored, 0),
-        AccessAckData(anded, 0),
-        AccessAckData(swapped, 0)
+        AccessAck(4, 0),
+        AccessAckData(initialData),
+        AccessAckData(initialData),
+        AccessAckData(initialData),
+        AccessAckData(initialData),
+        AccessAckData(xored),
+        AccessAckData(ored),
+        AccessAckData(anded),
+        AccessAckData(swapped)
       )
     )
   }
@@ -151,53 +151,37 @@ object TLMemoryModelSequences {
     val xored = initialData ^ newData
     (
       PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
-      LogicBurst(0, 0x0, Seq.fill(4)(newData), 0) :+
+      LogicBurst(TLLogicParam.XOR, 0x0, Seq.fill(4)(newData), 0) :+
       Get(0x0, 4, Integer.parseInt("1111", 2), 0)
       ,
       Seq(
-        AccessAck(0, 4, 0),
-        AccessAckData(initialData, 0, 4, 0),
-        AccessAckData(initialData, 0, 4, 0),
-        AccessAckData(initialData, 0, 4, 0),
-        AccessAckData(initialData, 0, 4, 0),
-        AccessAckData(xored, 0, 4, 0),
-        AccessAckData(xored, 0, 4, 0),
-        AccessAckData(xored, 0, 4, 0),
-        AccessAckData(xored, 0, 4, 0)
+        AccessAck(4, 0),
+        AccessAckData(initialData, 4, 0, denied = false),
+        AccessAckData(initialData, 4, 0, denied = false),
+        AccessAckData(initialData, 4, 0, denied = false),
+        AccessAckData(initialData, 4, 0, denied = false),
+        AccessAckData(xored, 4, 0, denied = false),
+        AccessAckData(xored, 4, 0, denied = false),
+        AccessAckData(xored, 4, 0, denied = false),
+        AccessAckData(xored, 4, 0, denied = false)
       )
     )
   }
 
   def arith(implicit p: TLBundleParameters): (Seq[TLBundleA], Seq[TLBundleD]) = {
     require(p.dataBits == 32) // TODO loosen
-    val initialData = 0x12345678L
-    val newData = 0xabfd2343L
-    val xored = initialData ^ newData
-    val ored = initialData | newData
-    val anded = initialData & newData
-    val swapped = newData
+    val initialData = 100
+    val newData = 99
     (
-      PutBurst(0x0, Seq.fill(4)(initialData), 0) ++
-        Seq(
-          Logic(0, 0x0, newData),
-          Logic(1, 0x4, newData),
-          Logic(2, 0x8, newData),
-          Logic(3, 0xc, newData),
-          Get(0x0),
-          Get(0x4),
-          Get(0x8),
-          Get(0xc)
-        ),
       Seq(
-        AccessAck(0, 4, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(initialData, 0),
-        AccessAckData(xored, 0),
-        AccessAckData(ored, 0),
-        AccessAckData(anded, 0),
-        AccessAckData(swapped, 0)
+        Put(0x0, initialData), // TODO: test all the arithmetic ops
+        Arith(TLArithParam.MIN, 0x0, newData),
+        Get(0x0)
+      ),
+      Seq(
+        AccessAck(),
+        AccessAckData(100),
+        AccessAckData(99)
       )
     )
   }
@@ -216,7 +200,7 @@ object TLMemoryModelSequences {
 }
 
 class TLMemoryModelTest extends AnyFlatSpec {
-  implicit val bundleParams: TLBundleParameters = TLBundleParameters(32, 32, 2, 1, 4, Seq(), Seq(), Seq(), hasBCE = false)
+  val bundleParams: TLBundleParameters = TLBundleParameters(32, 32, 2, 1, 4, Seq(), Seq(), Seq(), hasBCE = false)
 
   def test(fn: () => (Seq[TLBundleA], Seq[TLBundleD])): Unit= {
     val memoryModel = new TLMemoryModel(bundleParams)
@@ -236,7 +220,7 @@ class TLMemoryModelTest extends AnyFlatSpec {
     }
   }
 
-  behavior of "TLSlaveDriver"
+  behavior of "TLMemoryModel"
   it should "put basic" in {
     test(() => TLMemoryModelSequences.put(bundleParams))
   }

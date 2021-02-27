@@ -12,18 +12,16 @@ import freechips.rocketchip.tilelink.TLBundleD
 import verif.TLUtils._
 
 class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
-  implicit val p: Parameters = new WithoutTLMonitors
-
   it should "VerifTL Test TLXbarRAM with directed transactions basic" in {
-    val TLRAMSlave = LazyModule(new XBarToRAMStandalone)
-    test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+    val xbar = LazyModule(new XBarToRAMStandalone)
+    test(xbar.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Multi Driver/Monitor
-      val driver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val protocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
-      val monitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(protocolChecker))
+      val driver = new TLDriverMaster(c.clock, xbar.in)
+      val protocolChecker = new TLProtocolChecker(xbar.in.params, xbar.sPortParams.slaves.head, xbar.mPortParams.masters.head)
+      val monitor = new TLMonitor(c.clock, xbar.in, Some(protocolChecker))
 
-      implicit val params = TLRAMSlave.in.params
+      implicit val params = xbar.in.params
       val inputTransactions = Seq(
         Put(0x0, 0x3333),
         Get(0x8),
@@ -31,8 +29,8 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(0x8)
       )
 
-      val dispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
-      val dispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      val dispMonitor = new TLMonitor(c.clock, xbar.in)
+      val dispatcher = new TLUDispatcher(xbar.in.params, None, inputTransactions)
       for (_ <- 0 until 30) {
         val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
         driver.push(txns)
@@ -48,17 +46,17 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "VerifTL Test TLRAM XBar Multi-RAM with HW reference" in {
-    val TLRAMSlave = LazyModule(new VerifTLMSXbarRAMSlaveReferenceStandalone)
+    val TLRAMSlave = LazyModule(new XBarToMultiRAMStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // XBar DUT
       val dutDriver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val dutProtocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val dutProtocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.managers.head, TLRAMSlave.mPortParams.clients.head)
       val dutMonitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(dutProtocolChecker))
 
       // HW Reference
       val refDriver = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
-      val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.inRef.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
+      val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.inRef.params, TLRAMSlave.sPortParams.managers.head, TLRAMSlave.mPortParams.clients.head)
       val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef, Some(refProtocolChecker))
 
       implicit val params = TLRAMSlave.in.params
@@ -98,7 +96,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "VerifTL Test TLRAM XBar Multi-Master - Basic Directed Test" in {
-    val TLRAMSlave = LazyModule(new VerifTLMMXbarRAMSlaveStandalone)
+    val TLRAMSlave = LazyModule(new XbarToRAMMultiMasterStandalone)
     test(TLRAMSlave.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
 
       // Master 1
@@ -152,14 +150,14 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       // Hardcoded Reference Outputs
       // Note incorrect size, TODO FIX
       val out1Ref = Seq(
-        AccessAck(0),
-        AccessAck(0),
-        AccessAck(0),
-        AccessAck(0),
-        AccessAckData(0x5555, 0),
-        AccessAckData(0x6666, 0),
-        AccessAckData(0x7777, 0),
-        AccessAckData(0x8888, 0)
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
+        AccessAck(),
+        AccessAckData(0x5555),
+        AccessAckData(0x6666),
+        AccessAckData(0x7777),
+        AccessAckData(0x8888)
       )
 
       val out2Ref = Seq(
@@ -167,10 +165,10 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAck(0, 1),
         AccessAck(0, 1),
         AccessAck(0, 1),
-        AccessAckData(0x1111, 0, 1),
-        AccessAckData(0x2222, 0, 1),
-        AccessAckData(0x3333, 0, 1),
-        AccessAckData(0x4444, 0, 1)
+        AccessAckData(0x1111, 1),
+        AccessAckData(0x2222, 1),
+        AccessAckData(0x3333, 1),
+        AccessAckData(0x4444, 1)
       )
 
       out1.zip(out1Ref).foreach {

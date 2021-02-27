@@ -2,14 +2,12 @@
 // Copyright (c) 2018 - 2019, The Regents of the University of California (Regents).
 // All Rights Reserved. See LICENSE and LICENSE.SiFive for license details.
 //------------------------------------------------------------------------------
-
 package verif
 
 import chisel3._
 import chisel3.experimental.BundleLiterals._
-
+import chiseltest.experimental.{sanitizeFileName}
 import chipyard.RocketConfig
-
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.prci.ClockSinkParameters
@@ -18,12 +16,32 @@ import freechips.rocketchip.subsystem._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import java.io.{ByteArrayOutputStream, PrintWriter}
+import org.scalatest._
+import org.scalatest.TestSuite
 import reflect.runtime._
 import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
+import scala.reflect.io.File
 import scala.sys.process._
 import universe._
+
 import com.google.protobuf.Descriptors.FieldDescriptor.Type._
+
+class CosimTestDetails {
+  var sbtRoot: Option[String] = None
+  var testName: Option[String] = None
+  def testPath: Option[String] = if (sbtRoot.nonEmpty && testName.nonEmpty) Some(sbtRoot.get + "/test_run_dir/" + sanitizeFileName(testName.get)) else None
+}
+
+trait CosimTester extends TestSuiteMixin { this: TestSuite =>
+  implicit val cosimTestDetails = new CosimTestDetails
+
+  abstract override def withFixture(test: NoArgTest): Outcome = {
+    cosimTestDetails.sbtRoot = Some(s"${File(".").toAbsolute}")
+    cosimTestDetails.testName = Some(test.name)
+    super.withFixture(test)
+  }
+}
 
 object VerifProtoBufUtils {
   def getHelper[T: TypeTag](obj: T, target: String) = typeOf[T]
@@ -42,11 +60,13 @@ object VerifProtoBufUtils {
 
   /**
    * WIP: Generic Proto to Bundle function.
-   * Requires that ever field set in the proto has a exact match (by field name) in a constructor defined as <BundleName>Helper within
+   * Requires that every field set in the proto has a exact match (by field name) in a constructor defined as [BundleName]Helper within
    * some object pass in as helpers. Note the the BundleName and the ProtoName must also match. Finally all non-primitive items must be defined (i.e.
    * you cannot leave the RoCCInstruction within a RoCCCommand entirely undefined. All primitive undefined values are set to 0.
    *
-   * As more bundle types are added more conversions within the case statements and default values will need to be defined
+   * As more bundle types are added more conversions within the case statements and default values will need to be defined.
+   *
+   * Note: The proto's set of fields may be a superset of the bundle's set of fields.
    */
   def ProtoToBundle[R <: Bundle, H <: Object](proto: com.google.protobuf.Message, helpers: H, returnType: R)
                                 (implicit p: Parameters, helperType: TypeTag[H], helperClass: ClassTag[H]): R = {
@@ -74,8 +94,8 @@ object VerifProtoBufUtils {
           val subProtoName = subProto.getDescriptorForType.getName
           val subHelper = getHelper(helperType, subProtoName)
           protoArgs += (fieldName -> ProtoToBundle(subProto, subHelper, helperType, helperClass, subHelper.returnType))
-        case UINT32 => protoArgs += (fieldName -> fromIntToLiteral(value.asInstanceOf[Integer]).asUInt)
-        case UINT64 => protoArgs += (fieldName -> fromLongToLiteral(value.asInstanceOf[Long]).asUInt)
+        case UINT32 => protoArgs += (fieldName -> fromBigIntToLiteral((BigInt(value.asInstanceOf[Integer] >>> 1) << 1) + (value.asInstanceOf[Integer] & 1)).asUInt)
+        case UINT64 => protoArgs += (fieldName -> fromBigIntToLiteral((BigInt(value.asInstanceOf[Long] >>> 1) << 1) + (value.asInstanceOf[Long] & 1)).asUInt)
         case BOOL => protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
         case STRING => protoArgs += (fieldName -> fromBigIntToLiteral(BigInt(value.asInstanceOf[String], 16)).asUInt)
       }
@@ -85,7 +105,7 @@ object VerifProtoBufUtils {
     // Fill undeclared values with 0s and set the implicit parameters to p
     val args = getArgsZip(getArgs(helper))
       .map(tuple => {
-        protoArgs.getOrElse(tuple._1,
+        protoArgs.getOrElse(tuple._1, // Match arguments list to the values from the proto if present, else get a default
           tuple._2 match {
             case t if t =:= typeOf[chisel3.UInt] => 0.U
             case t if t =:= typeOf[chisel3.Bool] => false.B
@@ -193,7 +213,7 @@ object VerifTestUtils {
 
   def getVerifTLBundleParameters(beatBytes: Int = 16, pAddrBits: Int = 32,
                              transferSize: TransferSizes = TransferSizes(1, 64)): TLBundleParameters = {
-    TLBundleParameters(getVerifTLMasterPortParameters(), getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize))
+    TLBundleParameters(getVerifTLMasterPortParameters(), getVerifTLSlavePortParameters(beatBytes, pAddrBits, transferSize)).copy(sourceBits = 5) //TOD: This is a hack, need to add some way to specify source bits in the bundle creaion process
   }
 
   def getVerifParameters(
