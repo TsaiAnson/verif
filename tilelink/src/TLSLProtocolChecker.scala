@@ -5,7 +5,6 @@ import chisel3.util.log2Ceil
 import freechips.rocketchip.tilelink._
 import scala.collection.mutable.HashMap
 import TLTransaction._
-import TLUtils._
 import SL._
 
 trait TLMessageAP {
@@ -97,8 +96,15 @@ trait BurstSizeAP {
     t match {case t: TLBundleA => t.size.litValue().toInt == log2Ceil(beatBytes) + 2; case _: TLBundleD => false}}, "AD: If Size is Four Beats")
 }
 
+// Other Utility APs
+trait MiscAP {
+  // Returns false always (used in properties that SHOULD NOT be triggered, e.g. unexpected response message
+  def AlwaysFalse  = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+    t match {case _ => false; case _: TLBundleD => false}}, "AD: Always False")
+}
+
 // Note: only supports up to bursts of 4, rest unchecked
-class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  with BurstSizeAP {
+class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  with BurstSizeAP with MiscAP {
   // Message Properties
   def GetProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsGet, Implies, GetAP(beatBytes, maxTxSize))
   def PutPullProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsPutFull, Implies, PutFullAP(beatBytes, maxTxSize))
@@ -124,28 +130,24 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
   val LogicTwoBeatDataHandhsakeProperty = qProp[TLChannel, Int, UInt](IsLogic & SaveSource & TwoBeat(beatBytes), Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData)
 
   val GetDataFourBeatHandshakeProperty = qProp[TLChannel, Int, UInt](IsGet & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData)
+    ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData)
   val PutFullFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt](IsPutFull & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource)
+    ###(1,-1), IsAccessAck & CheckSource, ###(1,-1), IsAccessAck & CheckSource, ###(1,-1), IsAccessAck & CheckSource)
   val PutPartialFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt](IsPutPartial & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource,
-    ###(1,-1), IsAccessAck & CheckSource)
+    ###(1,-1), IsAccessAck & CheckSource, ###(1,-1), IsAccessAck & CheckSource, ###(1,-1), IsAccessAck & CheckSource)
   val ArithFourBeatDataHandhsakeProperty = qProp[TLChannel, Int, UInt](IsArith & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData)
+    ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData)
   val LogicFourBeatDataHandhsakeProperty = qProp[TLChannel, Int, UInt](IsLogic & SaveSource, Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData,
-    ###(1,-1), IsAccessAckData & CheckSource & CheckData)
+    ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData, ###(1,-1), IsAccessAckData & CheckSource & CheckData)
 
   val HintHandhsakeProperty = qProp[TLChannel, Int, UInt](IsHint & SaveSource, Implies, ###(1,-1), IsHintAck & CheckSource)
 
+  // Properties to ensure we don't see any responses (Acks) without requests
+  val UnexpectedAccessAck = qProp[TLChannel, Int, UInt](IsAccessAck, Implies, AlwaysFalse)
+  val UnexpectedAccessAckData = qProp[TLChannel, Int, UInt](IsAccessAckData, Implies, AlwaysFalse)
+  val UnexpectedHintAck = qProp[TLChannel, Int, UInt](IsHintAck, Implies, AlwaysFalse)
+
+  // Helper methods to get properties
   def GetProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
     var result = Seq(GetProperty(maxTxSize), GetDataSingleBeatHandshakeProperty)
     if (maxTxSize > beatBytes) {
@@ -205,11 +207,14 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
     HintProperty(maxTxSize),
     HintAckProperty(maxTxSize),
     HintHandhsakeProperty,
+    UnexpectedHintAck,
   )
 
   def CommonProperties(maxTxSize: Int) = Seq(
     AccessAckProperty(maxTxSize),
     AccessAckDataProperty(maxTxSize),
+    UnexpectedAccessAck,
+    UnexpectedAccessAckData,
   )
 }
 
