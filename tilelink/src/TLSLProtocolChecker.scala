@@ -214,7 +214,7 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
 }
 
 // NOTE: Currently only supports TL-U
-class TLSLProtocolChecker(sparam: TLSlavePortParameters, mparam: TLMasterPortParameters) {
+class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortParameters) {
   val bparam = TLBundleParameters(mparam, sparam)
   // PB for Property Bank
   val pb = new TLUProperties(sparam.beatBytes)
@@ -245,7 +245,7 @@ class TLSLProtocolChecker(sparam: TLSlavePortParameters, mparam: TLMasterPortPar
   }
 
   // Assumes complete transaction trace
-  def checkTransactions(txns: Seq[TLChannel], memModel: SLMemoryModel[TLChannel,UInt]): Boolean = {
+  def check(txns: Seq[TLChannel], memModel: SLMemoryModel[TLChannel,UInt]): Boolean = {
     val memoryStates = memModel.model(txns)
 
     var result = true
