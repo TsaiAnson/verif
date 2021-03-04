@@ -12,7 +12,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.HashMap
 
 class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
-  implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
+  implicit val params: TLBundleParameters = TLBundleParameters(DefaultTLParams.master(), DefaultTLParams.slave)
 
   it should "single source memory request (no burst)" in {
     val input = Seq(
@@ -49,7 +49,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Put(0x8, 0x8888, 1),
       Get(0x0),
       Get(0x8, 1),
-      AccessAckData(0x8888, 0, 1),
+      AccessAckData(0x8888, 1),
       AccessAckData(0x1234, 0)
     )
 
@@ -67,7 +67,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(Get(0x0, 4, 0xff, 0)) ++
       AccessAckDataBurst(Seq(0x1234, 0x5678), 0) ++
       Seq(Get(0x10, 4, 0xff, 1)) ++
-      AccessAckDataBurst(Seq(0x2222, 0x6666), 0, 1)
+      AccessAckDataBurst(Seq(0x2222, 0x6666), 1)
 
     val mm = new SLTLMemoryModel(params)
     val result = mm.model(input)
@@ -83,10 +83,10 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(
         Get(0x0, 4, 0xff, 0),
         Get(0x10, 4, 0xff, 1),
-        AccessAckData(0x1234, 0, 4, 0),
-        AccessAckData(0x2222, 0, 4,1),
-        AccessAckData(0x6666, 0, 4,1),
-        AccessAckData(0x5678, 0, 4, 0)
+        AccessAckData(0x1234, 4, 0, false),
+        AccessAckData(0x2222, 4, 1, false),
+        AccessAckData(0x6666, 4, 1, false),
+        AccessAckData(0x5678, 4, 0, false)
     )
 
     val mm = new SLTLMemoryModel(params)
@@ -120,10 +120,10 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(
         Get(0x0, 4, 0xff, 0),
         Get(0x10, 4, 0xff, 1),
-        AccessAckData(0x1234, 0, 4, 0),
-        AccessAckData(0x2222, 0, 4, 1),
-        AccessAckData(0x6666, 0, 4, 1),
-        AccessAckData(0x5678, 0, 4, 0)
+        AccessAckData(0x1234, 4, 0, false),
+        AccessAckData(0x2222, 4, 1, false),
+        AccessAckData(0x6666, 4, 1, false),
+        AccessAckData(0x5678, 4, 0, false)
       )
     val mm = new SLTLMemoryModel(params)
     val result = mm.model(inputGood)
@@ -134,10 +134,10 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(
         Get(0x0, 4, 0xff, 0),
         Get(0x10, 4, 0xff, 1),
-        AccessAckData(0x1234, 0, 4, 0),
-        AccessAckData(0x2222, 0, 4, 1),
-        AccessAckData(0x1234, 0, 4, 1), // Transaction  has bad data
-        AccessAckData(0x5678, 0, 4, 0)
+        AccessAckData(0x1234, 4, 0, false),
+        AccessAckData(0x2222, 4, 1, false),
+        AccessAckData(0x1234, 4, 1, false), // Transaction  has bad data
+        AccessAckData(0x5678, 4, 0, false)
       )
     val resultBad = mm.model(inputBad)
     assert(result == resultBad) // The bad response data should not modify the memory states

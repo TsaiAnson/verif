@@ -13,7 +13,7 @@ import scala.collection.mutable.HashMap
 
 class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
-  implicit val params: TLBundleParameters = TLUtils.defaultVerifTLBundleParams
+  implicit val params: TLBundleParameters = TLBundleParameters(DefaultTLParams.master(), DefaultTLParams.slave)
 
   it should "sanity test AtmProp and Seq and same cycle checking" in {
     val getAP = qAP({(t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.opcode.litValue() == TLOpcodes.Get}, "If is Get request")
