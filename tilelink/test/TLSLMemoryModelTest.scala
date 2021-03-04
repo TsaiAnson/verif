@@ -21,7 +21,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       AccessAckData(0x1234, 0)
     )
 
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, Some(new SLOptTLMemoryState(0x1234.U)))
@@ -36,7 +36,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x5678, 0)
       )
 
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, Some(new SLOptTLMemoryState(0x1234.U)), Some(new SLOptTLMemoryState(0x5678.U)))
@@ -53,7 +53,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       AccessAckData(0x1234, 0)
     )
 
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, None,
@@ -69,7 +69,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
       Seq(Get(0x10, 4, 0xff, 1)) ++
       AccessAckDataBurst(Seq(0x2222, 0x6666), 1)
 
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, None, None, Some(new SLOptTLMemoryState(0x1234.U)), Some(new SLOptTLMemoryState(0x5678.U)),
@@ -89,7 +89,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x5678, 4, 0, false)
     )
 
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(input)
 
     val expected = Seq(None, None, None, None, None, None,
@@ -125,7 +125,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
         AccessAckData(0x6666, 4, 1, false),
         AccessAckData(0x5678, 4, 0, false)
       )
-    val mm = new SLTLMemoryModel(params)
+    val mm = new TLSLMemoryModel(params)
     val result = mm.model(inputGood)
     assert(dataTwoBeatProp.check(inputGood, result))
 
