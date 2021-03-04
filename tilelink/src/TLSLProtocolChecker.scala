@@ -11,12 +11,11 @@ import SL._
 trait TLMessageAP {
   // Channel A
   val IsGet = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _: TLBundleD => false}}, "AD: If Get Message")
+    t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _: TLBundleD => false}}, "AD: If Get Message") // AD Stands for "Supports Channel A and D"
   val IsPutFull = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.PutFullData; case _: TLBundleD => false}}, "AD: If PutFullData Message")
   val IsPutPartial = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.PutPartialData; case _: TLBundleD => false}}, "AD: If PutPartialData Message")
-
   val IsArith = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.ArithmeticData; case _: TLBundleD => false}}, "AD: If ArithmeticData Message")
   val IsLogic = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
@@ -42,8 +41,6 @@ trait TLStaticParameterAP {
     t match {case t: TLBundleA => t.param.litValue() >= 0 && t.param.litValue() <= 3; case _: TLBundleD => false}}, "AD: If param is legal Logical")
   val HintParam = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.param.litValue() >= 0 && t.param.litValue() <= 1; case _: TLBundleD => false}}, "AD: If param is legal Hint")
-  val SizePositive = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => t.size.litValue() >= 0; case _: TLBundleD => false}}, "AD: If Size is positive")
   val AlignedAddr = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => (t.address.litValue() & ((2 << t.size.litValue().toInt) - 1)) == 0; case _: TLBundleD => false}}, "AD: If Address is aligned to Size")
   val ContiguousMask = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
@@ -56,12 +53,12 @@ trait TLStaticParameterAP {
 
 // Requires parameters
 trait TLDynamicParameterAP {
-  def SizeWithinBeatUL(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => t.size.litValue() >= 0 && t.size.litValue() <= log2Ceil(beatBytes); case t: TLBundleD => t.param.litValue() == 0}},
-    "AD: If Size within BeatBytes")
+  def SizeWithinMaxTx(maxTransfer: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+    t match {case t: TLBundleA => t.size.litValue() >= 0 && t.size.litValue() <= log2Ceil(maxTransfer); case _ => false}},
+    "AD: If Size smaller than Max Transfer Size")
   def MaskWithinSize(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => if (t.size.litValue() > log2Ceil(beatBytes)) {(1 << (beatBytes + 1)) > t.mask.litValue()}
-                                  else {(1 << (t.size.litValue().toInt + 1)) > t.mask.litValue()}; case t: TLBundleD => t.param.litValue() == 0}},
+                                  else {(1 << (t.size.litValue().toInt + 1)) > t.mask.litValue()}; case _ => false}},
     "AD: If Mask within Size")
 }
 
@@ -79,50 +76,15 @@ trait TLModelingAPs {
 }
 
 trait TLMessageAPs extends TLMessageAP with TLStaticParameterAP with TLDynamicParameterAP {
-  // TL-UL
-  def GetULAP(beatBytes: Int) = IsGet & ZeroParam & SizePositive & SizeWithinBeatUL(beatBytes) & AlignedAddr &
-    ContiguousMask & MaskWithinSize(beatBytes) & ZeroCorrupt
-  def PutFullULAP(beatBytes: Int)  = IsPutFull & ZeroParam & SizePositive & SizeWithinBeatUL(beatBytes) & AlignedAddr &
-    ContiguousMask & MaskWithinSize(beatBytes)
-  def PutPartialULAP(beatBytes: Int)  = IsPutPartial & ZeroParam & SizePositive & SizeWithinBeatUL(beatBytes) & AlignedAddr & MaskWithinSize(beatBytes)
-  def AccessAckULAP(beatBytes: Int)  = IsAccessAck & ZeroParam & SizePositive & SizeWithinBeatUL(beatBytes) & ZeroCorrupt
-  def AccessAckDataULAP(beatBytes: Int)  = IsAccessAck & ZeroParam & SizePositive & SizeWithinBeatUL(beatBytes) & DeniedCorrupt
-
-  // TL-UH
-  def GetAP(beatBytes: Int) = IsGet & ZeroParam & SizePositive & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & ZeroCorrupt
-  def PutFullAP(beatBytes: Int) = IsPutFull & ZeroParam & SizePositive & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
-  def PutPartialAP(beatBytes: Int)  = IsPutPartial & ZeroParam & SizePositive & AlignedAddr & MaskWithinSize(beatBytes)
-  def ArithAP(beatBytes: Int) = IsArith & ArithParam & SizePositive & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
-  def LogicAP(beatBytes: Int) = IsLogic & LogicParam & SizePositive & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
-  def HintAP(beatBytes: Int) = IsHint & HintParam & SizePositive & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & ZeroCorrupt
-  def AccessAckAP(beatBytes: Int)  = IsAccessAck & ZeroParam & SizePositive & ZeroCorrupt
-  def AccessAckDataAP(beatBytes: Int)  = IsAccessAck & ZeroParam & SizePositive & DeniedCorrupt
-  def HintAckAP(beatBytes: Int)  = IsHintAck & ZeroParam & SizePositive & ZeroCorrupt
-}
-
-class TLULProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs {
-  // Message Properties
-  val GetULProperty = qProp[TLChannel, Int, UInt](IsGet, Implies, GetULAP(beatBytes))
-  val PutPullULProperty = qProp[TLChannel, Int, UInt](IsPutFull, Implies, PutFullULAP(beatBytes))
-  val PutPartialULProperty = qProp[TLChannel, Int, UInt](IsPutPartial, Implies, PutPartialULAP(beatBytes))
-  val AccessAckULProperty = qProp[TLChannel, Int, UInt](IsAccessAck, Implies, AccessAckULAP(beatBytes))
-  val AccessAckDataULProperty = qProp[TLChannel, Int, UInt](IsAccessAckData, Implies, AccessAckDataULAP(beatBytes))
-
-  // Handshake Properties (Message properties not checked here, see above)
-  val GetDataHandshakeULProperty = qProp[TLChannel, Int, UInt](IsGet & SaveSource & SaveSize, Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckSize & CheckData)
-  val PutFullDataHandshakeULProperty = qProp[TLChannel, Int, UInt](IsPutFull & SaveSource & SaveSize, Implies, ###(1,-1), IsAccessAck & CheckSource & CheckSize)
-  val PutPartialDataHandshakeULProperty = qProp[TLChannel, Int, UInt](IsPutPartial & SaveSource & SaveSize, Implies, ###(1,-1), IsAccessAck & CheckSource & CheckSize)
-
-  val allProperties = Seq(
-    GetULProperty,
-    PutPullULProperty,
-    PutPartialULProperty,
-    AccessAckULProperty,
-    AccessAckDataULProperty,
-    GetDataHandshakeULProperty,
-    PutFullDataHandshakeULProperty,
-    PutPartialDataHandshakeULProperty
-  )
+  def GetAP(beatBytes: Int, maxTxSize: Int) = IsGet & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & ZeroCorrupt
+  def PutFullAP(beatBytes: Int, maxTxSize: Int) = IsPutFull & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
+  def PutPartialAP(beatBytes: Int, maxTxSize: Int) = IsPutPartial & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & MaskWithinSize(beatBytes)
+  def ArithAP(beatBytes: Int, maxTxSize: Int) = IsArith & ArithParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
+  def LogicAP(beatBytes: Int, maxTxSize: Int) = IsLogic & LogicParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes)
+  def HintAP(beatBytes: Int, maxTxSize: Int) = IsHint & HintParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & ZeroCorrupt
+  def AccessAckAP(maxTxSize: Int) = IsAccessAck & ZeroParam & SizeWithinMaxTx(maxTxSize) & ZeroCorrupt
+  def AccessAckDataAP(maxTxSize: Int) = IsAccessAck & ZeroParam & SizeWithinMaxTx(maxTxSize) & DeniedCorrupt
+  def HintAckAP(maxTxSize: Int) = IsHintAck & ZeroParam & SizeWithinMaxTx(maxTxSize) & ZeroCorrupt
 }
 
 // Temporary Size APs for different bursts: Up to 4 beats
@@ -136,17 +98,17 @@ trait BurstSizeAP {
 }
 
 // Note: only supports up to bursts of 4, rest unchecked
-class TLUHProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs with BurstSizeAP {
+class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  with BurstSizeAP {
   // Message Properties
-  val GetProperty = qProp[TLChannel, Int, UInt](IsGet, Implies, GetAP(beatBytes))
-  val PutPullProperty = qProp[TLChannel, Int, UInt](IsPutFull, Implies, PutFullAP(beatBytes))
-  val PutPartialProperty = qProp[TLChannel, Int, UInt](IsPutPartial, Implies, PutPartialAP(beatBytes))
-  val ArithmeticProperty = qProp[TLChannel, Int, UInt](IsArith, Implies, ArithAP(beatBytes))
-  val LogicalProperty = qProp[TLChannel, Int, UInt](IsLogic, Implies, LogicAP(beatBytes))
-  val HintProperty = qProp[TLChannel, Int, UInt](IsHint, Implies, HintAP(beatBytes))
-  val AccessAckProperty = qProp[TLChannel, Int, UInt](IsAccessAck, Implies, AccessAckAP(beatBytes))
-  val AccessAckDataProperty = qProp[TLChannel, Int, UInt](IsAccessAckData, Implies, AccessAckDataAP(beatBytes))
-  val HintAckProperty = qProp[TLChannel, Int, UInt](IsHintAck, Implies, HintAckAP(beatBytes))
+  def GetProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsGet, Implies, GetAP(beatBytes, maxTxSize))
+  def PutPullProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsPutFull, Implies, PutFullAP(beatBytes, maxTxSize))
+  def PutPartialProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsPutPartial, Implies, PutPartialAP(beatBytes, maxTxSize))
+  def ArithProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsArith, Implies, ArithAP(beatBytes, maxTxSize))
+  def LogicProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsLogic, Implies, LogicAP(beatBytes, maxTxSize))
+  def HintProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsHint, Implies, HintAP(beatBytes, maxTxSize))
+  def AccessAckProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsAccessAck, Implies, AccessAckAP(maxTxSize))
+  def AccessAckDataProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsAccessAckData, Implies, AccessAckDataAP(maxTxSize))
+  def HintAckProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt](IsHintAck, Implies, HintAckAP(maxTxSize))
 
   // Handshake Properties (Message properties not checked here, see above)
   val GetDataSingleBeatHandshakeProperty = qProp[TLChannel, Int, UInt](IsGet & SaveSource & OneBeat(beatBytes), Implies, ###(1,-1), IsAccessAckData & CheckSource & CheckData)
@@ -169,7 +131,7 @@ class TLUHProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs wit
     ###(1,-1), IsAccessAck & CheckSource,
     ###(1,-1), IsAccessAck & CheckSource,
     ###(1,-1), IsAccessAck & CheckSource)
-  val PutPartiaFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt](IsPutPartial & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAck & CheckSource,
+  val PutPartialFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt](IsPutPartial & SaveSource & FourBeat(beatBytes), Implies, ###(1,-1), IsAccessAck & CheckSource,
     ###(1,-1), IsAccessAck & CheckSource,
     ###(1,-1), IsAccessAck & CheckSource,
     ###(1,-1), IsAccessAck & CheckSource)
@@ -184,35 +146,115 @@ class TLUHProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs wit
 
   val HintHandhsakeProperty = qProp[TLChannel, Int, UInt](IsHint & SaveSource, Implies, ###(1,-1), IsHintAck & CheckSource)
 
-  val allProperties = Seq(
-    GetProperty,
-    PutPullProperty,
-    PutPartialProperty,
-    ArithmeticProperty,
-    LogicalProperty,
-    HintProperty,
-    AccessAckProperty,
-    AccessAckDataProperty,
-    HintAckProperty,
-    GetDataSingleBeatHandshakeProperty,
-    PutFullSingleBeatDataHandshakeProperty,
-    PutPartialSingleBeatDataHandshakeProperty,
-    ArithSingleBeatDataHandhsakeProperty,
-    LogicSingleBeatDataHandhsakeProperty,
-    GetDataTwoBeatHandshakeProperty,
-    PutFullTwoBeatDataHandshakeProperty,
-    PutPartialTwoBeatDataHandshakeProperty,
-    ArithTwoBeatDataHandhsakeProperty,
-    LogicTwoBeatDataHandhsakeProperty,
-    GetDataFourBeatHandshakeProperty,
-    PutPartiaFourBeatDataHandshakeProperty,
-    ArithFourBeatDataHandhsakeProperty,
-    LogicFourBeatDataHandhsakeProperty,
-    HintHandhsakeProperty
+  def GetProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
+    var result = Seq(GetProperty(maxTxSize), GetDataSingleBeatHandshakeProperty)
+    if (maxTxSize > beatBytes) {
+      result = result :+ GetDataTwoBeatHandshakeProperty
+    }
+    if (maxTxSize > beatBytes * 2) {
+      result = result :+ GetDataFourBeatHandshakeProperty
+    }
+    result
+  }
+
+  def PutFullProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
+    var result = Seq(PutPullProperty(maxTxSize), PutFullSingleBeatDataHandshakeProperty)
+    if (maxTxSize > beatBytes) {
+      result = result :+ PutFullTwoBeatDataHandshakeProperty
+    }
+    if (maxTxSize > beatBytes * 2) {
+      result = result :+ PutFullFourBeatDataHandshakeProperty
+    }
+    result
+  }
+
+  def PutPartialProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
+    var result = Seq(PutPartialProperty(maxTxSize), PutPartialSingleBeatDataHandshakeProperty)
+    if (maxTxSize > beatBytes) {
+      result = result :+ PutPartialTwoBeatDataHandshakeProperty
+    }
+    if (maxTxSize > beatBytes * 2) {
+      result = result :+ PutPartialFourBeatDataHandshakeProperty
+    }
+    result
+  }
+
+  def ArithProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
+    var result = Seq(ArithProperty(maxTxSize), ArithSingleBeatDataHandhsakeProperty)
+    if (maxTxSize > beatBytes) {
+      result = result :+ ArithTwoBeatDataHandhsakeProperty
+    }
+    if (maxTxSize > beatBytes * 2) {
+      result = result :+ ArithFourBeatDataHandhsakeProperty
+    }
+    result
+  }
+
+  def LogicProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
+    var result = Seq(LogicProperty(maxTxSize), LogicSingleBeatDataHandhsakeProperty)
+    if (maxTxSize > beatBytes) {
+      result = result :+ LogicTwoBeatDataHandhsakeProperty
+    }
+    if (maxTxSize > beatBytes * 2) {
+      result = result :+ LogicFourBeatDataHandhsakeProperty
+    }
+    result
+  }
+
+  def HintProperties(maxTxSize: Int) = Seq(
+    HintProperty(maxTxSize),
+    HintAckProperty(maxTxSize),
+    HintHandhsakeProperty,
+  )
+
+  def CommonProperties(maxTxSize: Int) = Seq(
+    AccessAckProperty(maxTxSize),
+    AccessAckDataProperty(maxTxSize),
   )
 }
 
 // NOTE: Currently only supports TL-U
-class TLSLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
-  
+class TLSLProtocolChecker(sparam: TLSlavePortParameters, mparam: TLMasterPortParameters) {
+  val bparam = TLBundleParameters(mparam, sparam)
+  // PB for Property Bank
+  val pb = new TLUProperties(sparam.beatBytes)
+  // Properties to check
+  var checkedProperties: Seq[Property[TLChannel, Int, UInt]] = Seq()
+
+  // Populating properties
+  if (sparam.allSupportGet) {
+    checkedProperties = checkedProperties ++ pb.GetProperties(sparam.allSupportGet.max)
+  }
+  if (sparam.allSupportPutFull) {
+    checkedProperties = checkedProperties ++ pb.PutFullProperties(sparam.allSupportPutFull.max)
+  }
+  if (sparam.allSupportPutPartial) {
+    checkedProperties = checkedProperties ++ pb.PutPartialProperties(sparam.allSupportPutPartial.max)
+  }
+  if (sparam.allSupportArithmetic) {
+    checkedProperties = checkedProperties ++ pb.ArithProperties(sparam.allSupportArithmetic.max)
+  }
+  if (sparam.allSupportLogical) {
+    checkedProperties = checkedProperties ++ pb.LogicProperties(sparam.allSupportLogical.max)
+  }
+  if (sparam.allSupportHint) {
+    checkedProperties = checkedProperties ++ pb.HintProperties(sparam.allSupportLogical.max)
+  }
+  if (checkedProperties.nonEmpty) {
+    checkedProperties = checkedProperties ++ pb.CommonProperties(sparam.maxTransfer)
+  }
+
+  // Assumes complete transaction trace
+  def checkTransactions(txns: Seq[TLChannel], memModel: SLMemoryModel[TLChannel,UInt]): Boolean = {
+    val memoryStates = memModel.model(txns)
+
+    var result = true
+    for (property <- checkedProperties) {
+      val temp = property.check(txns, memoryStates)
+      if (!temp) println(s"Property failed: $property")
+      result &= temp
+    }
+    if (!result) println(s"One or more properties failed. Please check the above log.")
+    result
+  }
 }
