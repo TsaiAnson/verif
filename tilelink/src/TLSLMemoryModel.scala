@@ -23,7 +23,7 @@ class SLOptTLMemoryState(init: UInt = 0.U) extends SLMemoryState[UInt] {
   override def toString: String = s"${this.getClass.getTypeName}: $int_state"
 }
 
-class SLTLMemoryModel(p: TLBundleParameters) extends SLMemoryModel[TLChannel, UInt] {
+class TLSLMemoryModel(p: TLBundleParameters) extends SLMemoryModel[TLChannel, UInt] {
   val mem_model = new TLMemoryModel(p)
   var mem_model_state = TLMemoryModel.State.empty()
   // Maps source to remaining burst
