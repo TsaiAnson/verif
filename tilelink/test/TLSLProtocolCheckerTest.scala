@@ -27,7 +27,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
 
       driver.push(PutBurst(addr = 0x10, data = Seq(0x1234, 0x5678, 0x8765, 0x4321), source = 0))
       c.clock.step(simCycles)
-      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data), new SLTLMemoryModel(params)))
+      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
     }
   }
 
@@ -43,7 +43,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
 
       driver.push(Seq(Arith(TLArithParam.MIN, 0x10, 0x4321, 0x55, 3, 0)))
       c.clock.step(simCycles)
-      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data), new SLTLMemoryModel(params)))
+      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
     }
   }
 
@@ -60,7 +60,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       driver.push(Seq(new TLBundleA(params).Lit(_.opcode -> TLOpcodes.Get.U, _.param -> 0.U, _.size -> 3.U,
         _.source -> 0.U, _.address -> 0x0.U, _.mask -> 0xff.U, _.corrupt -> 1.B, _.data -> 0.U)))
       c.clock.step(simCycles)
-      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data), new SLTLMemoryModel(params)))
+      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
     }
   }
 
@@ -86,7 +86,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
 
       mDriver.push(Seq(Get(0x0)))
       c.clock.step(simCycles)
-      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data), new SLTLMemoryModel(params)))
+      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
     }
   }
 
@@ -113,7 +113,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       c.clock.step(simCycles)
       driver.push(Seq(Put(0x0, 0x123)))
       c.clock.step(simCycles)
-      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data), new SLTLMemoryModel(params)))
+      assert(!protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
     }
   }
 }

@@ -72,7 +72,7 @@ trait TLModelingAPs {
   val CheckSize = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case _: TLBundleA => false; case t: TLBundleD => h("size") == t.size.litValue()}}, "AD: Check Size on Channel D")
   val CheckData = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case _: TLBundleA => false; case t: TLBundleD => m.get.get(0).litValue() == t.source.litValue()}}, "AD: Check Data on Channel D")
+    t match {case _: TLBundleA => false; case t: TLBundleD => if (m.isDefined) m.get.get(0).litValue() == t.source.litValue() else true}}, "AD: Check Data on Channel D")
 }
 
 trait TLMessageAPs extends TLMessageAP with TLStaticParameterAP with TLDynamicParameterAP {
@@ -245,8 +245,8 @@ class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortPar
   }
 
   // Assumes complete transaction trace
-  def check(txns: Seq[TLChannel], memModel: SLMemoryModel[TLChannel,UInt]): Boolean = {
-    val memoryStates = memModel.model(txns)
+  def check(txns: Seq[TLChannel], memModel: Option[SLMemoryModel[TLChannel,UInt]] = None): Boolean = {
+    val memoryStates = if (memModel.isDefined) memModel.get.model(txns) else Seq.fill(txns.length)(None)
 
     var result = true
     for (property <- checkedProperties) {
