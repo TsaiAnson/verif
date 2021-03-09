@@ -7,7 +7,6 @@ package verif
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest.experimental.{sanitizeFileName}
-import chipyard.RocketConfig
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.prci.ClockSinkParameters
@@ -197,6 +196,16 @@ case object VerifTileParams extends TileParams {
   val icache: Option[ICacheParams] = Some(ICacheParams(rowBits=128))
 }
 
+class VerifBaseRocketConfig extends Config(
+  new freechips.rocketchip.subsystem.WithNBigCores(1) ++         // single rocket-core
+  new freechips.rocketchip.subsystem.WithJtagDTM ++              // set the debug module to expose a JTAG port
+  new freechips.rocketchip.subsystem.WithNoMMIOPort ++           // no top-level MMIO master port (overrides default set in rocketchip)
+  new freechips.rocketchip.subsystem.WithNoSlavePort ++          // no top-level MMIO slave port (overrides default set in rocketchip)
+  //new freechips.rocketchip.subsystem.WithInclusiveCache ++       // use Sifive L2 cache TODO: Why doesn't this work
+  new freechips.rocketchip.subsystem.WithoutTLMonitors ++         // single rocket-core
+  new freechips.rocketchip.subsystem.WithNExtTopInterrupts(0) ++ // no external interrupts
+  new freechips.rocketchip.system.BaseConfig)                    // "base" rocketchip system
+
 /**
  * Factory object to help create a set of Verif parameters to use in tests
  */
@@ -223,7 +232,7 @@ object VerifTestUtils {
       pAddrBits: Int = 32,
       transferSize: TransferSizes = TransferSizes(1, 64)): Parameters = {
 
-    val origParams = new RocketConfig //Parameters.empty //new freechips.rocketchip.subsystem.WithoutTLMonitors
+    val origParams = new VerifBaseRocketConfig
 
     // augment the parameters
     implicit val p = origParams.alterPartial {
