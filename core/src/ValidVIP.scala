@@ -63,7 +63,7 @@ class ValidDriver[T <: Data](clock: Clock, interface: ValidIO[T]) {
 
 class ValidMonitor[T <: Data](clock: Clock, interface: ValidIO[T]) {
   val monitoredTransactions: mutable.Queue[ValidTX[T]] = mutable.Queue[ValidTX[T]]()
-  fork {
+  fork.withRegion(Monitor) {
     var cycleCount = 0
     while (true) {
       if (interface.valid.peek().litToBoolean) {
