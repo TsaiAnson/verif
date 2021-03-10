@@ -20,6 +20,9 @@ package object SL {
   def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[SLMemoryState[M]]) => Boolean, desc: String): AtmProp[T,H,M]
     = new AtmProp[T,H,M](proposition, desc)
 
+  // Quick Sequence
+  def qSeq[T,H,M](input: SequenceElement*): Sequence[T,H,M] = new Sequence[T,H,M](input:_*)
+
   // Quick Property
   def qProp[T,H,M](input: SequenceElement*): Property[T,H,M] = new Property[T,H,M](new Sequence[T,H,M](input:_*))
   def qProp[T,H,M](input: Sequence[T,H,M]): Property[T,H,M] = new Property[T,H,M](input)
