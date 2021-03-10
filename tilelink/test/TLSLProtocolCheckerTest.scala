@@ -15,7 +15,7 @@ import chisel3.experimental.BundleLiterals._
 class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
-  it should "Fail Protocol Compliance: Address Not Aligned with Size" in {
+  it should "Fail Protocol Compliance: Address Not Aligned with Size and No Response" in {
     val DUT = LazyModule(new TLBufferStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
@@ -31,7 +31,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "Fail Protocol Compliance: Non-Contiguous Mask on Arithmetic" in {
+  it should "Fail Protocol Compliance: Non-Contiguous Mask on Arithmetic and No Response" in {
     val DUT = LazyModule(new TLBufferStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
@@ -47,7 +47,7 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "Fail Protocol Compliance: Invalid Corrupt on Get" in {
+  it should "Fail Protocol Compliance: Invalid Corrupt on Get and No Response" in {
     val DUT = LazyModule(new TLBufferStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
