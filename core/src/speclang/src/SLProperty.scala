@@ -2,9 +2,10 @@ package verif
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-class Property[T,H,M](seq: Sequence[T,H,M], assertion: Int = 0) {
-  // Assertions: 0 - assert, 1 - assume, 2 - cover, 3 - restrict
-  // Currently, only assert is implemented
+class Property[T,H,M](seq: Sequence[T,H,M]) {
+
+  // Warnings
+  if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given property sequence does not contain an implication.")
 
   def check(input: Seq[T], mems: Seq[Option[SLMemoryState[M]]] = Seq()): Boolean = {
     // Short circuit if seq is empty
@@ -88,5 +89,9 @@ class Property[T,H,M](seq: Sequence[T,H,M], assertion: Int = 0) {
     }
 //    println(s"Debug: incomplete: $incompleteSeq, failed: $failed_prop")
     !incompleteSeq && !failed_prop
+  }
+
+  def coverage(): Unit = {
+    ???
   }
 }
