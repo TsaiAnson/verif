@@ -124,6 +124,11 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     // Source 1 is incomplete
     val input = Seq(Get(0x0), AccessAckData(0x0, 0),
       Get(0x0, source = 1))
+    val goodInput = Seq(Get(0x0), AccessAckData(0x0, 0),
+      Get(0x0, source = 1), AccessAckData(0x0, 1))
+    val goodInput2 = Seq(Get(0x0), AccessAckData(0x0, 0),
+      Get(0x0, source = 1), AccessAckData(0x0, 1),
+      Get(0x0, source = 1), AccessAckData(0x0, 1))
 
     var testSeqZero = new Sequence[TLChannel, Int, UInt]()
     println("Following should have an error:")
@@ -162,6 +167,16 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     assert(!oneProp.check(input))
     // Should fail as source 1 has missing response
     assert(!combProp.check(input))
+    // Should pass as source 1 has complete req-resp
+    assert(oneProp.check(goodInput))
+    assert(combProp.check(goodInput))
+
+    val testSeqCombined2 = testSeqZero + (testSeqOne * 2)
+    val combProp2 = qProp[TLChannel, Int, UInt](testSeqCombined2)
+    // Should fail as there is only one source 1 transaction
+    assert(!combProp2.check(goodInput))
+    // Should pass as there are now 2 source 1 transactions
+    assert(combProp2.check(goodInput2))
   }
 
   it should "sanity test beat checking in bursts with local variables" in {

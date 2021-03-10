@@ -69,6 +69,17 @@ class Sequence[T,H,M](input: SequenceElement*) {
     newSeq
   }
 
+  // Static Repetition Operator
+  def *(that: Int): Sequence[T,H,M] = {
+    val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
+    val newSeq = new Sequence[T,H,M]()
+    for (_ <- 0 until that) {
+      copyPropSets ++= groupedSeq
+    }
+    newSeq.set(copyPropSets)
+    newSeq
+  }
+
   // Adding SequenceElements
   def +(that: SequenceElement): Sequence[T,H,M] = {
     val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
