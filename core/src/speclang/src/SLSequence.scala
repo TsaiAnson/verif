@@ -60,8 +60,15 @@ class Sequence[T,H,M](input: SequenceElement*) {
     val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
     groupedSeq.copyToBuffer(copyPropSets)
     val newSeq = new Sequence[T,H,M]()
-    // TODO Unsure of exact behavior, but currently just adding sequences together
-    newSeq.set(copyPropSets ++ that.groupedSeq)
+    if (copyPropSets.last.isIncomplete) {
+      val copyOtherPropSets = new ListBuffer[PropSet[T,H,M]]()
+      that.groupedSeq.copyToBuffer(copyOtherPropSets)
+      copyOtherPropSets.update(0, new PropSet[T,H,M](copyOtherPropSets.head.getAP, copyPropSets.last.getTO))
+      copyPropSets.remove(copyPropSets.size - 1)
+      newSeq.set(copyPropSets ++ copyOtherPropSets)
+    } else {
+      newSeq.set(copyPropSets ++ that.groupedSeq)
+    }
     newSeq
   }
 

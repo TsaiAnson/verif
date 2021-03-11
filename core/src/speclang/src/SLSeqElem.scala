@@ -26,6 +26,11 @@ class AtmProp[T,H,M](proposition: (T, HashMap[String,H], Option[SLMemoryState[M]
   def |(that: AtmProp[T,H,M]): AtmProp[T,H,M] = new AtmProp[T,H,M]({(t: T, h: HashMap[String, H], m: Option[SLMemoryState[M]])
     => proposition(t, h, m) | that.getProp(t, h, m)}, s"$desc or $that")
 
+  // Adding creates another sequence
+  def +(that: AtmProp[T,H,M]): Sequence[T,H,M] = new Sequence[T,H,M](this, that)
+  def +(that: TimeOp): Sequence[T,H,M] = new Sequence[T,H,M](this, that)
+  def +(that: Sequence[T,H,M]): Sequence[T,H,M] = new Sequence(this) + that
+
   override def toString: String = desc
 }
 
