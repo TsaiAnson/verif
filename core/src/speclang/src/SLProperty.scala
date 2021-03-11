@@ -3,6 +3,9 @@ package verif
 import scala.collection.mutable.{ListBuffer, HashMap}
 
 class Property[T,H,M](seq: Sequence[T,H,M]) {
+  // Coverage Data, accumulates across transaction streams. Can be cleared with helper method at end.
+  var propSetPass = Array.fill[Int](seq.groupedSeq.size)(0) // For each propSet (group of APs), how many times did it Pass
+  var propSetFail = Array.fill[Int](seq.groupedSeq.size)(0) // For any failed properties, at which propSet did it fail?
 
   // Warnings
   if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given property sequence does not contain an implication.")
@@ -39,16 +42,20 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
           var continue = true
           while (continue && (seqIdx < seq.len)) {
             continue = seq.get(seqIdx).check(txn, hash, ms, lastPassed, currCycle)
-            if (continue) lastPassed = currCycle
             invalid = seq.get(seqIdx).invalid(startCycle, currCycle, lastPassed, (seqIdx >= seq.firstImplication && seq.firstImplication != -1))
             if (continue) {
+              lastPassed = currCycle
+              propSetPass(seqIdx) += 1
               seqIdx += 1
               propMatched = true
             }
           }
           if ((propMatched && seqIdx == seq.len) || invalid) {
             // Property was completed or invalid
-            if (invalid) failed_prop = true
+            if (invalid) {
+              propSetFail(seqIdx) += 1
+              failed_prop = true
+            }
             concProp.remove(qIdx)
             concHash.remove(qIdx)
           } else if (propMatched) concProp.update(qIdx, (seqIdx, startCycle, lastPassed))
@@ -61,11 +68,15 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
         val startCycle = currCycle
         val hash = new HashMap[String, H]()
         if (seq.get(0).check(txn, hash, ms, startCycle, startCycle)) {
+          propSetPass(0) += 1
           var seqIdx = 1
           var continue = true
           while (continue && (seqIdx < seq.len)) {
             continue = seq.get(seqIdx).check(txn, hash, ms, startCycle, startCycle)
-            if (continue) seqIdx += 1
+            if (continue) {
+              propSetPass(seqIdx) += 1
+              seqIdx += 1
+            }
           }
           // Unfinished, add to queue
           if (seqIdx < seq.len) {
@@ -82,6 +93,7 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
     var incompleteSeq = false
     for ((ai, sc, lp) <- concProp) {
       if (firstImplication != -1 && ai >= firstImplication) {
+        propSetFail(ai) += 1
         println(s"ERROR: Unresolved implication within a property instance. Current atomic proposition: ${seq.get(ai).getAP}. " +
           s"Index of starting transaction: $sc, Index of last passed transaction: $lp.")
         incompleteSeq = true
@@ -91,7 +103,34 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
     !incompleteSeq && !failed_prop
   }
 
-  def coverage(): Unit = {
-    ???
+  // Currently just printing out statistics
+  // Initiated Properties
+  // Completed Properties
+  // Failed Properties
+  // # of times each PropSet passed
+  // # off times each PropSet failed (completely, not just an incorrect match)
+  def getCoverage(): Unit = {
+    val initCount = propSetPass(seq.firstImplication)
+    val completedCount = propSetPass.last
+    val failedCount = propSetFail.sum
+    var resultString = ""
+
+    resultString += s"\nPROPERTY COVERAGE DATA: \n\n"
+    resultString += s"# of Initiated Properties: $initCount \n"
+    resultString += s"# of Completed Properties: $completedCount \n"
+    resultString += s"# of Failed Properties: $failedCount \n\n"
+    resultString += s"Coverage stats of each AP Group: (PASS #, FAIL#)\n"
+    for ((propSet, idx) <- seq.groupedSeq.zipWithIndex) {
+      if (!propSet.isImplication) {
+        resultString += s"${propSet.getAP} : (${propSetPass(idx)}, ${propSetFail(idx)})\n"
+      }
+    }
+    resultString += s"\nEND OF COVERAGE REPORT.\n"
+    println(resultString)
+  }
+
+  def clearCoverage(): Unit = {
+    propSetPass = Array.fill[Int](seq.groupedSeq.size)(0)
+    propSetFail = Array.fill[Int](seq.groupedSeq.size)(0)
   }
 }
