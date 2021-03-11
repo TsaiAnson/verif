@@ -32,8 +32,8 @@ class Sequence[T,H,M](input: SequenceElement*) {
         if (i == 0) groupedSeq += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 1))
         else if (condensed(i-1).isInstanceOf[Implies]) groupedSeq += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 0))
         else groupedSeq += new PropSet[T,H,M](a, condensed(i-1).asInstanceOf[TimeOp])
-      case t: TimeOp =>
-        groupedSeq += new PropSet[T,H,M](new AtmProp({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "temp-incomplete propset"), t, incomplete = true)
+      case _: TimeOp =>
+        // Removed incomplete TimeOp-Propset creation as the above case automatically combines the TimeOp
       case _: Implies =>
         firstImplication = groupedSeq.size
         groupedSeq += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"),
