@@ -35,6 +35,7 @@ class TimeOp(cycles: Int, cycles1: Int = -1, modifier: Int = 0) extends Sequence
   // 1 - at least
   // 2 - at most (up to, inclusive)
   // 3 - between cycles and cycles1 (inclusive, inclusive)
+  assert(modifier >= 0 && modifier <= 3, s"Time operator modifier must be from 0 to 3 (inclusive).")
 
   def getModifier: Int = modifier
   def getCycles: Int = cycles
@@ -69,12 +70,23 @@ class TimeOp(cycles: Int, cycles1: Int = -1, modifier: Int = 0) extends Sequence
     }
   }
 
-  override def toString: String = s"Cycles: $cycles to $cycles1, Modifier: $modifier"
+  override def toString: String = {
+    if (modifier == 0) {
+      s"Exactly $cycles cycles"
+    } else if (modifier == 1) {
+      s"At least $cycles cycles"
+    } else if (modifier == 2) {
+      s"Cycles: At most $cycles cycles"
+    } else {
+      s"Between $cycles to $cycles1 cycles"
+    }
+  }
 }
 
 // Need a better way to group these classes
 class Implies extends SequenceElement
 
+// Proposition Set (Packages APs with their time operator)
 class PropSet[T,H,M](ap: AtmProp[T,H,M], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
   def check(input: T, hash: HashMap[String, H], ms: Option[SLMemoryState[M]], lastPassed: Int, currCycle: Int): Boolean = {
     if (implication) return implication
