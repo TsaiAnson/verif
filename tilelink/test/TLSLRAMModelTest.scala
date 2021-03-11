@@ -44,7 +44,7 @@ class TLSLRAMModelTest extends AnyFlatSpec with ChiselScalatestTester {
       val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
-      val output = testRAM(dut, c.clock, txns, false)
+      val output = testRAM(dut, c.clock, txns)
     }
   }
 
