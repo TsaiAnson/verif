@@ -113,7 +113,7 @@ class TLSLMemoryModelTest extends AnyFlatSpec with ChiselScalatestTester {
             t.data.litValue() == m.get.get(0).litValue()
         case _ => false
       }}, "If Access Ack Data transaction")
-    val dataTwoBeatProp = qProp[TLChannel, Int, UInt](getTxn, Implies, ###(1,-1), aADTxn, ###(1,-1), aADTxn)
+    val dataTwoBeatProp = qProp[TLChannel, Int, UInt]("TwoBeat Get", getTxn, Implies, ###(1,-1), aADTxn, ###(1,-1), aADTxn)
 
     val inputGood = PutBurst(0x0, Seq(0x1234, 0x5678), 0) ++
       PutBurst(0x10, Seq(0x2222, 0x6666), 0) ++ // Note that the put source can the same

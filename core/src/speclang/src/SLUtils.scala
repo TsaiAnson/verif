@@ -24,6 +24,6 @@ package object SL {
   def qSeq[T,H,M](input: SequenceElement*): Sequence[T,H,M] = new Sequence[T,H,M](input:_*)
 
   // Quick Property
-  def qProp[T,H,M](input: SequenceElement*): Property[T,H,M] = new Property[T,H,M](new Sequence[T,H,M](input:_*))
-  def qProp[T,H,M](input: Sequence[T,H,M]): Property[T,H,M] = new Property[T,H,M](input)
+  def qProp[T,H,M](name: String, input: SequenceElement*): Property[T,H,M] = new Property[T,H,M](new Sequence[T,H,M](input:_*), name = name)
+  def qProp[T,H,M](name: String, input: Sequence[T,H,M]): Property[T,H,M] = new Property[T,H,M](input, name = name)
 }

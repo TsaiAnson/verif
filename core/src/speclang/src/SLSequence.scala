@@ -95,8 +95,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
         else copyPropSets.update(copyPropSets.size - 1, new PropSet[T,H,M](copyPropSets.last.getAP & a, copyPropSets.last.getTO))
         newSeq.set(copyPropSets)
       case t: TimeOp =>
-        if (copyPropSets.isEmpty) println(s"ERROR: Unable to add TimeOp ($t) to sequence (Initial SequenceElement must be Atomic Proposition).")
-        else if (copyPropSets.last.isIncomplete) println(s"ERROR: Unable to add TimeOp ($t) to sequence (sequential TimeOps).")
+        if (copyPropSets.nonEmpty && copyPropSets.last.isIncomplete) println(s"ERROR: Unable to add TimeOp ($t) to sequence (sequential TimeOps).")
         else copyPropSets += new PropSet[T,H,M](new AtmProp({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "temp-incomplete propset"), t, incomplete = true)
         newSeq.set(copyPropSets)
       case _: Implies =>

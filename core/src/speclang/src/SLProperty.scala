@@ -2,7 +2,7 @@ package verif
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-class Property[T,H,M](seq: Sequence[T,H,M]) {
+class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Name") {
   // Coverage Data, accumulates across transaction streams. Can be cleared with helper method at end.
   var propSetPass = Array.fill[Int](seq.groupedSeq.size)(0) // For each propSet (group of APs), how many times did it Pass
   var propSetFail = Array.fill[Int](seq.groupedSeq.size)(0) // For any failed properties, at which propSet did it fail?
@@ -42,7 +42,14 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
           var continue = true
           while (continue && (seqIdx < seq.len)) {
             continue = seq.get(seqIdx).check(txn, hash, ms, lastPassed, currCycle)
-            invalid = seq.get(seqIdx).invalid(startCycle, currCycle, lastPassed, (seqIdx >= seq.firstImplication && seq.firstImplication != -1))
+            invalid = seq.get(seqIdx).invalid(currCycle, lastPassed)
+            if (invalid) {
+              if (seqIdx >= seq.firstImplication && seq.firstImplication != -1) {
+                println(s"ERROR: Implication failed for $this, as atomic proposition '${seq.get(seqIdx).getAP}' did not meet the " +
+                  s"TimeOperator requirement (${seq.get(seqIdx).getTO}). Cycles elapsed: ${currCycle - startCycle}. " +
+                  s"Index of last passed transaction: $lastPassed.")
+              }
+            }
             if (continue) {
               lastPassed = currCycle
               propSetPass(seqIdx) += 1
@@ -94,7 +101,7 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
     for ((ai, sc, lp) <- concProp) {
       if (firstImplication != -1 && ai >= firstImplication) {
         propSetFail(ai) += 1
-        println(s"ERROR: Unresolved implication within a property instance. Current atomic proposition: ${seq.get(ai).getAP}. " +
+        println(s"ERROR: Unresolved implication within for a property instance ($this). Current atomic proposition: ${seq.get(ai).getAP}. " +
           s"Index of starting transaction: $sc, Index of last passed transaction: $lp.")
         incompleteSeq = true
       }
@@ -115,7 +122,7 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
     val failedCount = propSetFail.sum
     var resultString = ""
 
-    resultString += s"\nPROPERTY COVERAGE DATA: \n\n"
+    resultString += s"\nPROPERTY COVERAGE DATA ($this): \n\n"
     resultString += s"# of Initiated Properties: $initCount \n"
     resultString += s"# of Completed Properties: $completedCount \n"
     resultString += s"# of Failed Properties: $failedCount \n\n"
@@ -133,4 +140,6 @@ class Property[T,H,M](seq: Sequence[T,H,M]) {
     propSetPass = Array.fill[Int](seq.groupedSeq.size)(0)
     propSetFail = Array.fill[Int](seq.groupedSeq.size)(0)
   }
+
+  override def toString: String = s"Property $name"
 }

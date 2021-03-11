@@ -98,13 +98,9 @@ class PropSet[T,H,M](ap: AtmProp[T,H,M], to: TimeOp, implication: Boolean = fals
     ap.check(input, hash, ms) & to.check(currCycle - lastPassed)
   }
 
-  def invalid (startCycle: Int, currCycle: Int, lastPassedIdx: Int, implicationMet: Boolean): Boolean = {
+  def invalid (currCycle: Int, lastPassedIdx: Int): Boolean = {
     // Assumes one transaction per cycle
     val invalid = to.invalid(currCycle - lastPassedIdx)
-    if (invalid && implicationMet) {
-      println(s"ERROR: Implication failed, as atomic proposition '$ap' did not meet the TimeOperator requirement ($to). " +
-        s"Cycles elapsed: ${currCycle - startCycle}. Index of last passed transaction: $lastPassedIdx.")
-    }
     invalid
   }
 
