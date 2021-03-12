@@ -52,7 +52,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
               if (seqIdx >= seq.firstImplication && seq.firstImplication != -1) {
                 println(s"ERROR: Implication failed for $this, as atomic proposition '${seq.get(seqIdx).getAP}' did not meet the " +
                   s"TimeOperator requirement (${seq.get(seqIdx).getTO}). Cycles elapsed: ${currCycle - startCycle}. " +
-                  s"Index of last passed transaction: $lastPassed.")
+                  s"Index of starting transaction: $startCycle, Index of last passed transaction: $lastPassed.")
               }
             }
             if (continue) {

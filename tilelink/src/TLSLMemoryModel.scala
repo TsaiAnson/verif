@@ -51,7 +51,12 @@ class TLSLMemoryModel(p: TLBundleParameters) extends SLMemoryModel[TLChannel, UI
       txn match {
         case txnd: TLBundleD =>
           if (txnd.opcode.litValue() == TLOpcodes.AccessAckData) {
-            result = result :+ Some(new SLOptTLMemoryState(dataBuffer(txnd.source.litValue().toInt).dequeue()))
+            if (dataBuffer(txnd.source.litValue().toInt).isEmpty) {
+              // Here to catch exceptions (for bad traces)
+              result = result :+ Some(new SLOptTLMemoryState(0.U))
+            } else {
+              result = result :+ Some(new SLOptTLMemoryState(dataBuffer(txnd.source.litValue().toInt).dequeue()))
+            }
           } else {
             result = result :+ None
           }
