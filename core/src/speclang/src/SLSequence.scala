@@ -39,7 +39,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
       case _: Implies =>
         firstImplication = groupedSeq.size
         groupedSeq += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"),
-          new TimeOp(0), true)
+          new TimeOp(0), implication = true)
     }
   }
 
@@ -89,6 +89,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
       case a: AtmProp[T,H,M] =>
         if (copyPropSets.isEmpty) copyPropSets += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 1))
         else if (copyPropSets.last.isIncomplete) copyPropSets.update(copyPropSets.size - 1, new PropSet[T,H,M](a, copyPropSets.last.getTO))
+        else if (copyPropSets.last.isImplication) copyPropSets += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 1))
         else copyPropSets.update(copyPropSets.size - 1, new PropSet[T,H,M](copyPropSets.last.getAP & a, copyPropSets.last.getTO))
         newSeq.set(copyPropSets)
       case t: TimeOp =>
@@ -97,7 +98,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
         newSeq.set(copyPropSets)
       case _: Implies =>
         if (copyPropSets.isEmpty) println(s"ERROR: Unable to add Implication to sequence (Initial SequenceElement must be Atomic Proposition).")
-        else copyPropSets += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"), new TimeOp(0), true)
+        else copyPropSets += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"), new TimeOp(0), implication = true)
         newSeq.set(copyPropSets)
     }
     newSeq
