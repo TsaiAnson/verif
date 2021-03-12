@@ -103,9 +103,32 @@ trait BurstSizeAP {
 
 // Other Utility APs
 trait MiscAP {
-  // Returns false always (used in properties that SHOULD NOT be triggered, e.g. unexpected response message
-  def AlwaysFalse  = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case _ => false; case _: TLBundleD => false}}, "AD: Always False")
+  // Increases/decreases counter for expected response transactions
+  def CheckReqResp(beatBytes: Int, check: Boolean = false) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+    t match {
+      case t: TLBundleA =>
+        if (t.opcode.litValue() == TLOpcodes.PutFullData || t.opcode.litValue() == TLOpcodes.PutPartialData || t.opcode.litValue() == TLOpcodes.Hint) {
+          // Expect only one response transaction. However, we don't increment if part of a burst (only first one is incremented)
+          if (h.getOrElse("burst_req", 0) != 0) h("burst_req") -= 1
+          else {
+            // If burst request, increment burst_req by number of remaining burst message (increments by 0 for non-burst reqs)
+            h("burst_req") = h.getOrElse("burst_req", 0) + (1 << scala.math.max(t.size.litValue().toInt - log2Ceil(beatBytes), 0)) - 1
+            h("expected_resp") = h.getOrElse("expected_resp", 0) + 1
+          }
+        } else {
+          // Expect response transactions scaled by request size
+          h("expected_resp") = h.getOrElse("expected_resp", 0) + (1 << scala.math.max(t.size.litValue().toInt - log2Ceil(beatBytes), 0))
+        }
+      case _: TLBundleD => h("expected_resp") = h.getOrElse("expected_resp", 0) - 1 // Using .getOrElse as the first transaction could be a response (bad trace)
+    }
+    if (check) {
+      if (h("expected_resp") != 0) println(s"ERROR: Expected Responses Remaining ${h("expected_resp")}")
+      if (h("burst_req") != 0) println(s"ERROR: Expected Burst Requests ${h("burst_req")}")
+      h("expected_resp") == 0 && h("burst_req") == 0
+    } else {
+      true
+    }
+  }, "AD: CheckReqResp")
 }
 
 // Note: only supports up to bursts of 4, rest unchecked
@@ -164,6 +187,9 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
   val LogicFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Logic", (LogicFourBeatSequence + Implies + ###(1, -1)) * 4 + (AccessAckDataCheckSequence * 4))
 
   val HintHandshakeProperty = qProp[TLChannel, Int, UInt]("Hint Handshake", IsHintOp & SaveSource, Implies, ###(1,-1), IsHintAckOp & CheckSource)
+
+  // Checks if Request count matches Response count
+  def CheckReqRespProperty(traceSize: Int) = qProp[TLChannel, Int, UInt]("CheckReqRespProperty", ((CheckReqResp(beatBytes) + Implies) + ###(1,1)) + ((CheckReqResp(beatBytes) + ###(1,1)) * (traceSize - 2)) + CheckReqResp(beatBytes, true))
 
   // Helper methods to get properties
   def GetProperties(maxTxSize: Int): Seq[Property[TLChannel, Int, UInt]] = {
@@ -274,6 +300,10 @@ class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortPar
       if (!temp) println(s"Property failed: $property")
       result &= temp
     }
+
+    // Checking Request to Response Count
+    result &= pb.CheckReqRespProperty(txns.size).check(txns)
+
     if (!result) println(s"One or more properties failed. Please check the above log.")
     result
   }
