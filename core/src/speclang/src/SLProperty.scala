@@ -6,11 +6,16 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
   // Coverage Data, accumulates across transaction streams. Can be cleared with helper method at end.
   var propSetPass = Array.fill[Int](seq.groupedSeq.size)(0) // For each propSet (group of APs), how many times did it Pass
   var propSetFail = Array.fill[Int](seq.groupedSeq.size)(0) // For any failed properties, at which propSet did it fail?
+  var txnCoverage = Array[Int]()
 
   // Warnings
   if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given property sequence does not contain an implication.")
 
   def check(input: Seq[T], mems: Seq[Option[SLMemoryState[M]]] = Seq()): Boolean = {
+    // Cleared before each run
+    this.clearCoverage()
+    txnCoverage = Array.fill[Int](input.size)(0)
+
     // Short circuit if seq is empty
     if (seq.isEmpty) return true
 
@@ -53,6 +58,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
             if (continue) {
               lastPassed = currCycle
               propSetPass(seqIdx) += 1
+              txnCoverage(currCycle) = 1
               seqIdx += 1
               propMatched = true
             }
@@ -76,6 +82,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
         val hash = new HashMap[String, H]()
         if (seq.get(0).check(txn, hash, ms, startCycle, startCycle)) {
           propSetPass(0) += 1
+          txnCoverage(currCycle) = 1
           var seqIdx = 1
           var continue = true
           while (continue && (seqIdx < seq.len)) {
@@ -134,6 +141,8 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
         resultString += s"${propSet.getAP} : (${propSetPass(idx)}, ${propSetFail(idx)})\n"
       }
     }
+    resultString += s"Transaction coverage: (${txnCoverage.sum}/${txnCoverage.length})\n"
+    resultString += s"Transaction coverage bitmap: \n ${txnCoverage.mkString("[", ", ", "]")}\n"
     resultString += s"\nEND OF COVERAGE REPORT.\n"
     println(resultString)
   }
@@ -141,6 +150,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
   def clearCoverage(): Unit = {
     propSetPass = Array.fill[Int](seq.groupedSeq.size)(0)
     propSetFail = Array.fill[Int](seq.groupedSeq.size)(0)
+    txnCoverage = Array[Int]()
   }
 
   override def toString: String = s"Property $name"

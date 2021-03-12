@@ -122,8 +122,8 @@ trait MiscAP {
       case _: TLBundleD => h("expected_resp") = h.getOrElse("expected_resp", 0) - 1 // Using .getOrElse as the first transaction could be a response (bad trace)
     }
     if (check) {
-      if (h("expected_resp") != 0) println(s"ERROR: Expected Responses Remaining ${h("expected_resp")}")
-      if (h("burst_req") != 0) println(s"ERROR: Expected Burst Requests ${h("burst_req")}")
+      if (h("expected_resp") != 0) println(s"ERROR: Expected Responses Remaining: ${h("expected_resp")}")
+      if (h("burst_req") != 0) println(s"ERROR: Expected Burst Requests Remaining: ${h("burst_req")}")
       h("expected_resp") == 0 && h("burst_req") == 0
     } else {
       true
@@ -132,7 +132,8 @@ trait MiscAP {
 }
 
 // Note: only supports up to bursts of 4, rest unchecked
-class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  with BurstSizeAP with MiscAP {
+// maxDelay for message handshake checking (request to response cycle delay)
+class TLUProperties(beatBytes: Int, maxDelay: Int) extends TLMessageAPs with TLModelingAPs  with BurstSizeAP with MiscAP {
   // Message Properties
   def GetProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt]("Correct Get Fields", IsGetOp, Implies, GetAP(beatBytes, maxTxSize))
   def PutPullProperty(maxTxSize: Int) = qProp[TLChannel, Int, UInt]("Correct PutFull Fields",IsPutFullOp, Implies, PutFullAP(beatBytes, maxTxSize))
@@ -164,27 +165,28 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
   val ArithFourBeatSequence = qSeq[TLChannel, Int, UInt](IsArithOp & SaveSource & SaveSize & FourBeat(beatBytes))
   val LogicFourBeatSequence = qSeq[TLChannel, Int, UInt](IsLogicOp & SaveSource & SaveSize & FourBeat(beatBytes))
 
-  val AccessAckCheckSequence = qSeq[TLChannel, Int, UInt](###(1, -1), IsAccessAckOp & CheckSource & CheckSize)
-  val AccessAckDataCheckSequence = qSeq[TLChannel, Int, UInt](###(1, -1), IsAccessAckDataOp & CheckSource & CheckSize & CheckData)
+  val AccessAckCheckSequence = qSeq[TLChannel, Int, UInt](###(1, maxDelay), IsAccessAckOp & CheckSource & CheckSize)
+  val AccessAckDataCheckSequence = qSeq[TLChannel, Int, UInt](###(1, maxDelay), IsAccessAckDataOp & CheckSource & CheckSize & CheckData)
 
   // Handshake Properties
-  val GetDataOneBeatHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Get", GetOneBeatSequence + Implies + ###(1, -1) + AccessAckDataCheckSequence)
-  val PutFullOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat PutFull", PutFullOneBeatSequence + Implies + ###(1, -1) + AccessAckCheckSequence)
-  val PutPartialOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat PutPartial", PutPartialOneBeatSequence + Implies + ###(1, -1) + AccessAckCheckSequence)
-  val ArithOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Arith", ArithOneBeatSequence + Implies + ###(1, -1) + AccessAckDataCheckSequence)
-  val LogicOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Logic", LogicOneBeatSequence + Implies + ###(1, -1) + AccessAckDataCheckSequence)
+  // TODO Maybe limit the upper bound to scale with # of concurrent sourceIDs (e.g. if no concurrent, we expect 1 cycle delay)
+  val GetDataOneBeatHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Get", GetOneBeatSequence + Implies + ###(1, maxDelay) + AccessAckDataCheckSequence)
+  val PutFullOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat PutFull", PutFullOneBeatSequence + Implies + ###(1, maxDelay) + AccessAckCheckSequence)
+  val PutPartialOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat PutPartial", PutPartialOneBeatSequence + Implies + ###(1, maxDelay) + AccessAckCheckSequence)
+  val ArithOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Arith", ArithOneBeatSequence + Implies + ###(1, maxDelay) + AccessAckDataCheckSequence)
+  val LogicOneBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("OneBeat Logic", LogicOneBeatSequence + Implies + ###(1, maxDelay) + AccessAckDataCheckSequence)
 
   val GetDataTwoBeatHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat Get", GetTwoBeatSequence + Implies + (AccessAckDataCheckSequence * 2))
-  val PutFullTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat PutFull", (PutFullTwoBeatSequence + Implies + ###(1, -1)) * 2 + AccessAckCheckSequence)
-  val PutPartialTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat PutPartial", (PutPartialTwoBeatSequence + Implies + ###(1, -1)) * 2 + AccessAckCheckSequence)
-  val ArithTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat Arith", (ArithTwoBeatSequence + Implies + ###(1, -1)) * 2 + (AccessAckDataCheckSequence * 2))
-  val LogicTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat Logic", (LogicTwoBeatSequence + Implies + ###(1, -1)) * 2 + (AccessAckDataCheckSequence * 2))
+  val PutFullTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat PutFull", (PutFullTwoBeatSequence + Implies + ###(1, maxDelay)) * 2 + AccessAckCheckSequence)
+  val PutPartialTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat PutPartial", (PutPartialTwoBeatSequence + Implies + ###(1, maxDelay)) * 2 + AccessAckCheckSequence)
+  val ArithTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat Arith", (ArithTwoBeatSequence + Implies + ###(1, maxDelay)) * 2 + (AccessAckDataCheckSequence * 2))
+  val LogicTwoBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("TwoBeat Logic", (LogicTwoBeatSequence + Implies + ###(1, maxDelay)) * 2 + (AccessAckDataCheckSequence * 2))
 
   val GetDataFourBeatHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Get", GetFourBeatSequence + Implies + (AccessAckDataCheckSequence * 4))
-  val PutFullFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat PutFull", (PutFullFourBeatSequence + Implies + ###(1, -1)) * 4 + AccessAckCheckSequence)
-  val PutPartialFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat PutPartial", (PutPartialFourBeatSequence + Implies + ###(1, -1)) * 4 + AccessAckCheckSequence)
-  val ArithFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Arith", (ArithFourBeatSequence + Implies + ###(1, -1)) * 4 + ( AccessAckDataCheckSequence * 4))
-  val LogicFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Logic", (LogicFourBeatSequence + Implies + ###(1, -1)) * 4 + (AccessAckDataCheckSequence * 4))
+  val PutFullFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat PutFull", (PutFullFourBeatSequence + Implies + ###(1, maxDelay)) * 4 + AccessAckCheckSequence)
+  val PutPartialFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat PutPartial", (PutPartialFourBeatSequence + Implies + ###(1, maxDelay)) * 4 + AccessAckCheckSequence)
+  val ArithFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Arith", (ArithFourBeatSequence + Implies + ###(1, maxDelay)) * 4 + ( AccessAckDataCheckSequence * 4))
+  val LogicFourBeatDataHandshakeProperty = qProp[TLChannel, Int, UInt]("FourBeat Logic", (LogicFourBeatSequence + Implies + ###(1, maxDelay)) * 4 + (AccessAckDataCheckSequence * 4))
 
   val HintHandshakeProperty = qProp[TLChannel, Int, UInt]("Hint Handshake", IsHintOp & SaveSource, Implies, ###(1,-1), IsHintAckOp & CheckSource)
 
@@ -262,8 +264,8 @@ class TLUProperties(beatBytes: Int) extends TLMessageAPs with TLModelingAPs  wit
 // NOTE: Currently only supports TL-U
 class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortParameters) {
   val bparam = TLBundleParameters(mparam, sparam)
-  // PB for Property Bank
-  val pb = new TLUProperties(sparam.beatBytes)
+  // PB for Property Bank. maxDelay scales off of # of available source IDs, may need to change later
+  val pb = new TLUProperties(sparam.beatBytes, (1 << bparam.sourceBits) * 3)
   // Properties to check
   var checkedProperties: Seq[Property[TLChannel, Int, UInt]] = Seq()
 
@@ -295,14 +297,25 @@ class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortPar
     val memoryStates = if (memModel.isDefined) memModel.get.model(txns) else Seq.fill(txns.length)(None)
 
     var result = true
+    var totalTxnCoverage = Array.fill(txns.size)(0) //
     for (property <- checkedProperties) {
       val temp = property.check(txns, memoryStates)
       if (!temp) println(s"Property failed: $property")
       result &= temp
+      totalTxnCoverage = totalTxnCoverage.zip(property.txnCoverage).map{ case (x,y) => x + y}
     }
 
     // Checking Request to Response Count
     result &= pb.CheckReqRespProperty(txns.size).check(txns)
+
+    // Checking for any overlapping coverage coverage (2 is expected: 1 for message field checking and 1 for message handshake)
+    val overlappingCoverage = totalTxnCoverage.zipWithIndex.filter(_._1 > 2).map{ case (x,y) => (y, x-1)}
+    if (overlappingCoverage.nonEmpty) {
+      result &= false
+      println(s"ERROR: The following transactions were matched multiple times across message handshake properties: (INDEX, MATCH COUNT)")
+      println(overlappingCoverage.mkString("[", ", ", "]"))
+      println(s"This means that there is an unmatched request or unexpected response.")
+    }
 
     if (!result) println(s"One or more properties failed. Please check the above log.")
     result
