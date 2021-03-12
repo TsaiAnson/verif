@@ -109,6 +109,8 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
 //    println(s"Debug: incomplete: $incompleteSeq, failed: $failed_prop")
     !incompleteSeq && !failed_prop
   }
+  
+  def getSequence(): Sequence[T,H,M] = seq
 
   // Currently just printing out statistics
   // Initiated Properties
