@@ -32,17 +32,16 @@ class Sequence[T,H,M](input: SequenceElement*) {
         if (i == 0) groupedSeq += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 1))
         else if (condensed(i-1).isInstanceOf[Implies]) groupedSeq += new PropSet[T,H,M](a, new TimeOp(cycles = 0, modifier = 0))
         else groupedSeq += new PropSet[T,H,M](a, condensed(i-1).asInstanceOf[TimeOp])
-      case _: TimeOp =>
-        // Removed incomplete TimeOp-Propset creation as the above case automatically combines the TimeOp
+      case t: TimeOp =>
+        // Only add TimeOp if it's the last to add (else the above case will handle)
+        if (condensed.size - 1 == i)
+          groupedSeq += new PropSet[T,H,M](new AtmProp({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "temp-incomplete propset"), t, incomplete = true)
       case _: Implies =>
         firstImplication = groupedSeq.size
         groupedSeq += new PropSet[T,H,M](new AtmProp[T,H,M]({(_:T, _: HashMap[String, H], _: Option[SLMemoryState[M]]) => true}, "Implication"),
           new TimeOp(0), true)
     }
   }
-  // Temporary warning
-  if (input.nonEmpty && input(input.size - 1).isInstanceOf[TimeOp])
-    println(s"WARNING: Last element of sequence is TimeOp: ${input(input.size - 1)} and is not matched with an AtmProp.")
 
   def get(index: Int): PropSet[T,H,M] = groupedSeq(index)
   def len: Int = groupedSeq.size
@@ -60,7 +59,7 @@ class Sequence[T,H,M](input: SequenceElement*) {
     val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
     groupedSeq.copyToBuffer(copyPropSets)
     val newSeq = new Sequence[T,H,M]()
-    if (copyPropSets.last.isIncomplete) {
+    if (copyPropSets.nonEmpty && copyPropSets.last.isIncomplete) {
       val copyOtherPropSets = new ListBuffer[PropSet[T,H,M]]()
       that.groupedSeq.copyToBuffer(copyOtherPropSets)
       copyOtherPropSets.update(0, new PropSet[T,H,M](copyOtherPropSets.head.getAP, copyPropSets.last.getTO))
@@ -74,12 +73,10 @@ class Sequence[T,H,M](input: SequenceElement*) {
 
   // Static Repetition Operator
   def *(that: Int): Sequence[T,H,M] = {
-    val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
-    val newSeq = new Sequence[T,H,M]()
+    var newSeq = new Sequence[T,H,M]()
     for (_ <- 0 until that) {
-      copyPropSets ++= groupedSeq
+      newSeq = newSeq + this
     }
-    newSeq.set(copyPropSets)
     newSeq
   }
 
