@@ -17,13 +17,13 @@ package object SL {
   def Implies: Implies = new Implies
 
   // Quick Atomic Property
-  def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[SLMemoryState[M]]) => Boolean, desc: String): AtmProp[T,H,M]
-    = new AtmProp[T,H,M](proposition, desc)
+  def qAP[T,H,M](proposition: (T, HashMap[String, H], Option[SLMemoryState[M]]) => Boolean, desc: String = "Default")(implicit name: sourcecode.Name): AtmProp[T,H,M]
+    = new AtmProp[T,H,M](proposition, if (desc == "Default") name.value else desc)
 
   // Quick Sequence
   def qSeq[T,H,M](input: SequenceElement*): Sequence[T,H,M] = new Sequence[T,H,M](input:_*)
 
   // Quick Property
-  def qProp[T,H,M](name: String, input: SequenceElement*): Property[T,H,M] = new Property[T,H,M](new Sequence[T,H,M](input:_*), name = name)
-  def qProp[T,H,M](name: String, input: Sequence[T,H,M]): Property[T,H,M] = new Property[T,H,M](input, name = name)
+  def qProp[T,H,M](input: Sequence[T,H,M], desc: String = "Default")(implicit name: sourcecode.Name): Property[T,H,M] =
+    new Property[T,H,M](input, if (desc == "Default") name.value else desc)
 }

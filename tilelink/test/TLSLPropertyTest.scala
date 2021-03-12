@@ -18,7 +18,7 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "sanity test AtmProp and Seq and same cycle checking" in {
     val getAP = qAP({(t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.opcode.litValue() == TLOpcodes.Get}, "If is Get request")
     val paramZero = qAP({(t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.param.litValue() == 0}, "Parameter must be zero")
-    val getParamProp = qProp[TLBundleA, Int, UInt]("Get Param Zero", getAP, Implies, ###(0), paramZero)
+    val getParamProp = qProp[TLBundleA, Int, UInt]( getAP + Implies + ###(0) + paramZero)
 
     // Good Get Transactions
     val inputTransactions = Seq(
@@ -50,11 +50,11 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "sanity test beat checking in bursts" in {
     // Currently hardcoded for different source IDs
-    val twoBeat = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.size.litValue() == 4 }, "If 2 beat burst")
-    val sourceZero = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.source.litValue() == 0 }, "If source 0")
-    val sourceOne = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.source.litValue() == 1 }, "If source 1")
-    val seqZeroProp = qProp[TLBundleA, Int, UInt]("TwoBeat SourceZero", twoBeat & sourceZero, Implies, ###(1, -1), twoBeat & sourceZero)
-    val seqOneProp = qProp[TLBundleA, Int, UInt]("TwoBeat SourceOne", twoBeat & sourceOne, Implies, ###(1, -1), twoBeat & sourceOne)
+    val twoBeat = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.size.litValue() == 4 })
+    val sourceZero = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.source.litValue() == 0 })
+    val sourceOne = qAP({ (t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) => t.source.litValue() == 1 })
+    val seqZeroProp = qProp[TLBundleA, Int, UInt]((twoBeat & sourceZero) + Implies + ###(1, -1) + (twoBeat & sourceZero))
+    val seqOneProp = qProp[TLBundleA, Int, UInt]((twoBeat & sourceOne) + Implies + ###(1, -1) + (twoBeat & sourceOne))
 
     val putZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
       _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)
@@ -89,7 +89,7 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
       t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}}, "If Get transaction")
     val aADTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
       t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}}, "If Access Ack Data transaction")
-    val getAADProp = qProp[TLChannel, Int, UInt]("OneBeat Get", getTxn, Implies, ###(1,-1), aADTxn)
+    val getAADProp = qProp[TLChannel, Int, UInt](getTxn + Implies + ###(1,-1) + aADTxn)
 
     val inputGood = Seq(Get(0x0), AccessAckData(0x0, 0),
       Get(0x0), AccessAckData(0x0, 0),
@@ -109,13 +109,13 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "sanity test Implications" in {
-    val getTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}}, "If Get transaction")
-    val aADTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}}, "If Access Ack Data transaction")
-    val getAADNoImpProp= qProp[TLChannel, Int, UInt]("OneBeat Get No Implication", getTxn, ###(1,-1), aADTxn)
+    val getTxnOp = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+      t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}})
+    val aADTxnOp = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+      t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}})
+    val getAADNoImpProp= qProp[TLChannel, Int, UInt](getTxnOp + ###(1,-1) + aADTxnOp)
     // Random sequence just to test non-triggered property
-    val testImplicationProp = qProp[TLChannel, Int, UInt]("Test Implication", getTxn, ###(1,-1), aADTxn, Implies, aADTxn)
+    val testImplicationProp = qProp[TLChannel, Int, UInt](getTxnOp + ###(1,-1) + aADTxnOp + Implies + aADTxnOp)
 
     val inputBad = Seq(Get(0x0))
     // Should pass since no implication
@@ -125,14 +125,14 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "test Sequence Operations" in {
-    val getTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}}, "If Get transaction")
-    val aADTxn = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}}, "If Access Ack Data transaction")
+    val getTxnOp = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+      t match {case t: TLBundleA => t.opcode.litValue() == TLOpcodes.Get; case _ => false}})
+    val aADTxnOp = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+      t match {case t: TLBundleD => t.opcode.litValue() == TLOpcodes.AccessAckData; case _ => false}})
     val sourceZero = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleA => t.source.litValue() == 0; case t: TLBundleD => t.source.litValue() == 0}}, "If source 0")
+      t match {case t: TLBundleA => t.source.litValue() == 0; case t: TLBundleD => t.source.litValue() == 0}})
     val sourceOne = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t match {case t: TLBundleA => t.source.litValue() == 1; case t: TLBundleD => t.source.litValue() == 1}}, "If source 1")
+      t match {case t: TLBundleA => t.source.litValue() == 1; case t: TLBundleD => t.source.litValue() == 1}})
 
     // Source 1 is incomplete
     val input = Seq(Get(0x0), AccessAckData(0x0, 0),
@@ -144,25 +144,25 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
       Get(0x0, source = 1), AccessAckData(0x0, 1))
 
     var testSeqZero = new Sequence[TLChannel, Int, UInt]()
-    testSeqZero += getTxn
+    testSeqZero += getTxnOp
     testSeqZero += sourceZero
     testSeqZero += Implies
     testSeqZero += ###(1,-1)
-    testSeqZero += aADTxn
+    testSeqZero += aADTxnOp
     testSeqZero += sourceZero
-    val zeroProp = qProp[TLChannel, Int, UInt]("TestSeqZero", testSeqZero)
+    val zeroProp = qProp[TLChannel, Int, UInt](testSeqZero)
 
     var testSeqOne = new Sequence[TLChannel, Int, UInt]()
-    testSeqOne += getTxn
+    testSeqOne += getTxnOp
     testSeqOne += sourceOne
     testSeqOne += Implies
     testSeqOne += ###(1,-1)
-    testSeqOne += aADTxn
+    testSeqOne += aADTxnOp
     testSeqOne += sourceOne
-    val oneProp = qProp[TLChannel, Int, UInt]("TestSeqOne", testSeqOne)
+    val oneProp = qProp[TLChannel, Int, UInt](testSeqOne)
 
     val testSeqCombined = testSeqZero + testSeqOne
-    val combProp = qProp[TLChannel, Int, UInt]("TestCombProp", testSeqCombined)
+    val combProp = qProp[TLChannel, Int, UInt](testSeqCombined)
 
     // Should pass as source 0 has complete req-resp
     assert(zeroProp.check(input))
@@ -175,7 +175,7 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     assert(combProp.check(goodInput))
 
     val testSeqCombined2 = testSeqZero + (testSeqOne * 2)
-    val combProp2 = qProp[TLChannel, Int, UInt]("TestCompProp2", testSeqCombined2)
+    val combProp2 = qProp[TLChannel, Int, UInt](testSeqCombined2)
     // Should fail as there is only one source 1 transaction
     println("Below should fail:")
     assert(!combProp2.check(goodInput))
@@ -187,10 +187,10 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "sanity test beat checking in bursts with local variables" in {
     // Currently hardcoded for different source IDs
     val twoBeatFirst = qAP({(t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      h("source") = t.source.litValue().toInt; t.size.litValue() == 4}, "If 2 beat burst start")
+      h("source") = t.source.litValue().toInt; t.size.litValue() == 4})
     val twoBeatLast = qAP({(t: TLBundleA, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-      t.source.litValue() == h("source") & t.size.litValue() == 4}, "If 2 beat burst end")
-    val twoBeatProp = qProp[TLBundleA, Int, UInt]("LocalVariable Test", twoBeatFirst, Implies, ###(1,-1), twoBeatLast)
+      t.source.litValue() == h("source") & t.size.litValue() == 4})
+    val twoBeatProp = qProp[TLBundleA, Int, UInt](twoBeatFirst + Implies + ###(1,-1) + twoBeatLast)
 
     val putSrcZero = new TLBundleA(params).Lit(_.opcode -> TLOpcodes.PutFullData.U, _.param -> 0.U, _.size -> 4.U,
       _.source -> 0.U, _.address -> 0x8.U, _.mask -> 0xff.U, _.corrupt -> 0.B, _.data -> 0.U)

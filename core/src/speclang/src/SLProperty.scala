@@ -8,10 +8,10 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
   var propSetFail = Array.fill[Int](seq.groupedSeq.size)(0) // For any failed properties, at which propSet did it fail?
   var txnCoverage = Array[Int]()
 
-  // Warnings
-  if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given property sequence does not contain an implication.")
-
   def check(input: Seq[T], mems: Seq[Option[SLMemoryState[M]]] = Seq()): Boolean = {
+    // Warnings
+    if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given sequence does not contain an implication ($this).")
+
     // Cleared before each run
     this.clearCoverage()
     txnCoverage = Array.fill[Int](input.size)(0)
