@@ -29,6 +29,7 @@ class AtmProp[T,H,M](proposition: (T, HashMap[String,H], Option[SLMemoryState[M]
   // Adding creates another sequence
   def +(that: AtmProp[T,H,M]): Sequence[T,H,M] = new Sequence[T,H,M](this, that)
   def +(that: TimeOp): Sequence[T,H,M] = new Sequence[T,H,M](this, that)
+  def +(that: Implies): Sequence[T,H,M] = new Sequence[T,H,M](this, that)
   def +(that: Sequence[T,H,M]): Sequence[T,H,M] = new Sequence(this) + that
 
   override def toString: String = desc
@@ -95,7 +96,8 @@ class Implies extends SequenceElement
 class PropSet[T,H,M](ap: AtmProp[T,H,M], to: TimeOp, implication: Boolean = false, incomplete: Boolean = false) extends SequenceElement {
   def check(input: T, hash: HashMap[String, H], ms: Option[SLMemoryState[M]], lastPassed: Int, currCycle: Int): Boolean = {
     if (implication) return implication
-    ap.check(input, hash, ms) & to.check(currCycle - lastPassed)
+    // Check TO first (allow short circuit), as AP could have state change (counters) that should only update when TO valid
+    to.check(currCycle - lastPassed) && ap.check(input, hash, ms)
   }
 
   def invalid (currCycle: Int, lastPassedIdx: Int): Boolean = {
