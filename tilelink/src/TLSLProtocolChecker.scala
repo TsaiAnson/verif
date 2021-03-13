@@ -106,16 +106,19 @@ trait MiscAP {
   def CheckReqResp(beatBytes: Int, check: Boolean = false) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {
       case t: TLBundleA =>
-        if (t.opcode.litValue() == TLOpcodes.PutFullData || t.opcode.litValue() == TLOpcodes.PutPartialData || t.opcode.litValue() == TLOpcodes.Hint) {
-          // Expect only one response transaction. However, we don't increment if part of a burst (only first one is incremented)
+        if (t.opcode.litValue() == TLOpcodes.PutFullData || t.opcode.litValue() == TLOpcodes.PutPartialData) {
+          // For burst requests (PutFull, PutPartial)
           if (h.getOrElse("burst_req", 0) != 0) h("burst_req") -= 1
           else {
             // If burst request, increment burst_req by number of remaining burst message (increments by 0 for non-burst reqs)
             h("burst_req") = h.getOrElse("burst_req", 0) + (1 << scala.math.max(t.size.litValue().toInt - log2Ceil(beatBytes), 0)) - 1
             h("expected_resp") = h.getOrElse("expected_resp", 0) + 1
           }
+        } else if (t.opcode.litValue() == TLOpcodes.ArithmeticData || t.opcode.litValue() == TLOpcodes.LogicalData || t.opcode.litValue() == TLOpcodes.Hint) {
+          // For Atomic (Arith and Logic) Instructions + Hint, where there is exactly one response per request bundle
+          h("expected_resp") = h.getOrElse("expected_resp", 0) + 1
         } else {
-          // Expect response transactions scaled by request size
+          // For Get: Response transactions scaled by request size
           h("expected_resp") = h.getOrElse("expected_resp", 0) + (1 << scala.math.max(t.size.litValue().toInt - log2Ceil(beatBytes), 0))
         }
       case _: TLBundleD => h("expected_resp") = h.getOrElse("expected_resp", 0) - 1 // Using .getOrElse as the first transaction could be a response (bad trace)
