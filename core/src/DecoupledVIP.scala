@@ -26,6 +26,10 @@ class DecoupledTX[T <: Data](gen: T) extends Bundle {
     this.Lit(_.data -> data, _.cycleStamp -> cycleStamp.U)
   }
 
+  def tx(data: T, randomWaitCycles: (Int, Int)): DecoupledTX[T] = {
+    this.Lit(_.data -> data, _.waitCycles -> (scala.util.Random.nextInt(randomWaitCycles._2) + randomWaitCycles._1).U)
+  }
+
   override def cloneType: this.type = (new DecoupledTX(gen)).asInstanceOf[this.type]
 }
 

@@ -26,6 +26,10 @@ class ValidTX[T <: Data](gen: T) extends Bundle {
     this.Lit(_.data -> data, _.cycleStamp -> cycleStamp.U)
   }
 
+  def tx(data: T, randomWaitCycles: (Int, Int)): ValidTX[T] = {
+    this.Lit(_.data -> data, _.waitCycles -> (scala.util.Random.nextInt(randomWaitCycles._2) + randomWaitCycles._1).U)
+  }
+
   override def cloneType: this.type = (new ValidTX(gen)).asInstanceOf[this.type]
 }
 
