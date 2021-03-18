@@ -19,7 +19,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val stimMonitor = new TLMonitor(clock, dut.in, None)
     val dispatcher = new TLUDispatcher(dut.in.params, None, stim)
 
-    for (_ <- 0 until stim.length*4) {
+    for (_ <- 0 until stim.length*10) {
       val seenTxns = stimMonitor.getMonitoredTransactions().map(_.data)
       val roundStim = dispatcher.next(seenTxns)
       driver.push(roundStim)
@@ -101,6 +101,25 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(0x0) :+
         Get(0x8)
       val output = testRAM(dut, c.clock, stim, false)
+      for (out <- output) {
+        println(out.opcode, out.data, out.size)
+      }
+    }
+  }
+
+  it should "Test Non-aligned Address" in {
+    val dut = LazyModule(new TLRAMStandalone)
+    test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+      implicit val bundleParams: TLBundleParameters = dut.in.params
+      val stim = Seq(
+//        Get(0x0),
+        Put(0x0, 0x1111),
+        Put(0x1, 0x3300, 0x2, 0x0, 0x0, false),
+        Put(0x8, 0x0),
+        Get(0x1, 0x0, 0x2, 0x0)
+      )
+      val output = testRAM(dut, c.clock, stim, false)
+      println(s"Length: ${output.length}")
       for (out <- output) {
         println(out.opcode, out.data, out.size)
       }
