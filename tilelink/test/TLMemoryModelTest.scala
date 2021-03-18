@@ -34,6 +34,9 @@ object TLMemoryModelSequences {
         Put(0x8, 0xffffffffL, Integer.parseInt("1001", 2), 0),
         Get(0x8),
         Put(0x8, 0x11118888L, Integer.parseInt("0011", 2), 0),
+        Get(0x8),
+        // Non-word aligned put
+        Put(0x9, 0x5500, Integer.parseInt("0010", 2), 0),
         Get(0x8)
       ),
       Seq(
@@ -42,7 +45,9 @@ object TLMemoryModelSequences {
         AccessAck(),
         AccessAckData(0xff3456ffL),
         AccessAck(),
-        AccessAckData(0xff348888L)
+        AccessAckData(0xff348888L),
+        AccessAck(),
+        AccessAckData(0xff345588L)
       )
     )
   }
@@ -80,16 +85,19 @@ object TLMemoryModelSequences {
       Seq(
         Put(0x8, 0x12345678L),
         Get(0x8, 2, Integer.parseInt("1111", 2), 0),
-        Get(0x8, 2, Integer.parseInt("1000", 2), 0),
-        Get(0x8, 2, Integer.parseInt("0011", 2), 0),
-        Get(0x8, 2, Integer.parseInt("0100", 2), 0),
+        Get(0x8, 0, Integer.parseInt("1000", 2), 0),
+        Get(0x8, 1, Integer.parseInt("0011", 2), 0),
+        Get(0x8, 0, Integer.parseInt("0100", 2), 0),
+        // Non-word aligned get
+        Get(0x9, 0, Integer.parseInt("0010", 2), 0)
       ),
       Seq(
         AccessAck(),
-        AccessAckData(0x12345678L),
-        AccessAckData(0x12000000L),
-        AccessAckData(0x00005678L),
-        AccessAckData(0x00340000L)
+        AccessAckData(0x12345678L, 2, 0, false),
+        AccessAckData(0x12000000L, 0, 0, false),
+        AccessAckData(0x00005678L, 1, 0, false),
+        AccessAckData(0x00340000L, 0, 0, false),
+        AccessAckData(0x00005600L, 0, 0, false)
       )
     )
   }

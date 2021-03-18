@@ -13,7 +13,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
     tx match {
       case txA: TLBundleA =>
         val byteAddr = txA.address.litValue()
-        assert(byteAddr % bytesPerWord == 0)
+        // Int-division truncates
         val wordAddr = (byteAddr / bytesPerWord).toLong
         val wordsToProcess = ceil(pow(2, txA.size.litValue().toInt) / bytesPerWord).toInt
 
@@ -47,7 +47,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
                 (Seq(AccessAck(txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
               }
             }
-          case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData => // TODO: support logic/arith bursts
+          case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData =>
             val writeMask = txA.mask.litValue().toInt
             // We're currently in a write burst
             if (state.burstStatus.isDefined) {
