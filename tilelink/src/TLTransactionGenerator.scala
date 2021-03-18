@@ -124,7 +124,10 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
+          // Base mask (must correspond to size)
           mask = (1 << (1 << size)) - 1
+          // Modified mask (can be anywhere in the mask field)
+          mask = mask << randGen.nextInt((1 << (beatSize - size)) + 1)
         }
 
         if (size > beatSize && burst) {
