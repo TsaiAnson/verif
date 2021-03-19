@@ -2,7 +2,7 @@ package verif
 
 import chisel3.util.log2Ceil
 import freechips.rocketchip.diplomacy.AddressSet
-import freechips.rocketchip.tilelink.{TLBundleParameters, TLChannel, TLSlaveParameters}
+import freechips.rocketchip.tilelink.{TLBundleParameters, TLChannel, TLSlaveParameters, TLSlavePortParameters}
 
 import scala.math.pow
 import scala.util.Random
@@ -11,16 +11,16 @@ import verif.TLTransaction._
 import verif.TLUtils.RWPermState
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
-class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
-                               beatSize : Int = 3,
-                               // TL-UL
-                               get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
-                               // TL-UH
-                               burst : Boolean = false, maxTxnSize: Int = 5, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
-                               // TL-C
-                               tlc : Boolean = false, cacheBlockSize : Int = -1, acquire : Boolean = false,
-                               // Randomization
-                               randSeed : Int = 1234567890) {
+class TLTransactionGenerator (params: TLSlavePortParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
+                              beatSize : Int = 3,
+                              // TL-UL
+                              get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
+                              // TL-UH
+                              burst : Boolean = false, maxTxnSize: Int = 5, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
+                              // TL-C
+                              tlc : Boolean = false, cacheBlockSize : Int = -1, acquire : Boolean = false,
+                              // Randomization
+                              randSeed : Int = 1234567890) {
   assert(!tlc || (tlc && cacheBlockSize != 1), "TLTransactionGenerator: Please set CACHEBLOCKSIZE if TLC is enabled")
 
   implicit val p: TLBundleParameters = bundleParams
@@ -29,7 +29,6 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
   val randGen = Random
   randGen.setSeed(randSeed)
 
-  // TODO: Check if address needs to be aligned with beatSize if actual size is smaller (TLMemoryModel expects it)
   def getRandomLegalAddress (slaves: Seq[AddressSet], size : Int) : Int = {
     val addressRaw = if (size >= beatSize) {
       randGen.nextInt(params.maxAddress.toInt + 1) & ~((1 << size) - 1)
@@ -52,7 +51,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
     // TLBundle Params
     var typeTxn = 0
     var param = 0
-    var size = 0 // TODO: Use max transfersize to determine
+    var size = 0
     var source = 0 // Will remain 0 for now (concurrentTxn = 1)
     var address = 0
     var mask = 0
@@ -83,21 +82,21 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
 
         // Need to "re-roll" for unwanted txn types
         redo = false
-        if ((!get || !params.supportsGet) && typeTxn == 0) {
+        if ((!get || !params.allSupportGet) && typeTxn == 0) {
           redo = true
-        } else if ((!putFull || !params.supportsPutFull ) && typeTxn == 1) {
+        } else if ((!putFull || !params.allSupportPutFull ) && typeTxn == 1) {
           redo = true
-        } else if ((!putPartial || !params.supportsPutPartial) && typeTxn == 2) {
+        } else if ((!putPartial || !params.allSupportPutPartial) && typeTxn == 2) {
           redo = true
-        } else if ((!arith || !params.supportsArithmetic) && typeTxn == 3) {
+        } else if ((!arith || !params.allSupportArithmetic) && typeTxn == 3) {
           redo = true
-        } else if ((!logic || !params.supportsLogical) && typeTxn == 4) {
+        } else if ((!logic || !params.allSupportLogical) && typeTxn == 4) {
           redo = true
-        } else if ((!hints || !params.supportsHint) && typeTxn == 5) {
+        } else if ((!hints || !params.allSupportHint) && typeTxn == 5) {
           redo = true
-        } else if ((!acquire || !params.supportsAcquireB) && typeTxn == 6) {
+        } else if ((!acquire || !params.allSupportAcquireB) && typeTxn == 6) {
           redo = true
-        } else if ((!acquire || !params.supportsAcquireB) && typeTxn == 7) {
+        } else if ((!acquire || !params.allSupportAcquireB) && typeTxn == 7) {
           // Shouldn't be able to release if cannot acquire
           redo = true
         }
@@ -106,8 +105,8 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
       if (typeTxn == 0) {
         count += 1
         // Get
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsGet.max)) + 1} else {randGen.nextInt(beatSize) + 1}
-        address = getRandomLegalAddress(params.address, size)
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportGet.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        address = getRandomLegalAddress(params.slaves.head.address, size)
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -119,8 +118,8 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
       } else if (typeTxn == 1) {
         count += 1
         // PutFull
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsPutFull.max)) + 1} else {randGen.nextInt(beatSize) + 1}
-        address = getRandomLegalAddress(params.address, size)
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportPutFull.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        address = getRandomLegalAddress(params.slaves.head.address, size)
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -143,10 +142,10 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
       } else if (typeTxn == 2) {
         count += 1
         // PutPartial
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsPutPartial.max)) + 1} else {randGen.nextInt(beatSize) + 1}
-        address = getRandomLegalAddress(params.address, size)
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportPutPartial.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        address = getRandomLegalAddress(params.slaves.head.address, size)
 
-        if (size > beatSize) {
+        if (size >= beatSize) {
           mask = randGen.nextInt(1 << (1 << beatSize))
         } else {
           mask = randGen.nextInt(1 << (1 << size))
@@ -166,11 +165,11 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         count += 1
         // ArithData
         param = randGen.nextInt(5)
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsArithmetic.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportArithmetic.max)) + 1} else {randGen.nextInt(beatSize) + 1}
         if (tlc) {
           address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
         } else{
-          address = getRandomLegalAddress(params.address, size)
+          address = getRandomLegalAddress(params.slaves.head.address, size)
         }
 
         if (size > beatSize) {
@@ -192,11 +191,11 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         count += 1
         // LogicData
         param = randGen.nextInt(4)
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsLogical.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportLogical.max)) + 1} else {randGen.nextInt(beatSize) + 1}
         if (tlc) {
           address = permState.getAllAddr(randGen.nextInt(permState.getAllAddr.size))
         } else{
-          address = getRandomLegalAddress(params.address, size)
+          address = getRandomLegalAddress(params.slaves.head.address, size)
         }
 
         if (size > beatSize) {
@@ -218,8 +217,8 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         count += 1
         // Intent
         param = randGen.nextInt(2)
-        size = if (burst) {randGen.nextInt(log2Ceil(params.supportsHint.max)) + 1} else {randGen.nextInt(beatSize) + 1}
-        address = getRandomLegalAddress(params.address, size)
+        size = if (burst) {randGen.nextInt(log2Ceil(params.allSupportHint.max)) + 1} else {randGen.nextInt(beatSize) + 1}
+        address = getRandomLegalAddress(params.slaves.head.address, size)
         if (size > beatSize) {
           mask = (1 << (1 << beatSize)) - 1
         } else {
@@ -265,7 +264,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
         while (redoAcquire && repeats < 10) {
           redoAcquire = false
 
-          address = getRandomLegalAddress(params.address, cacheBlockSize)
+          address = getRandomLegalAddress(params.slaves.head.address, cacheBlockSize)
 
           // Try increasing permissions or find new address. After 10 failed attempts, convert to release
           if (permState.getPerm(address) == 2) {
@@ -313,7 +312,7 @@ class TLTransactionGenerator ( params: TLSlaveParameters, bundleParams: TLBundle
           if (permState.getAllAddr.isEmpty) {
             // If nothing acquired yet, skip directly to acquire with random address
             repeats = 10
-            address = getRandomLegalAddress(params.address, cacheBlockSize)
+            address = getRandomLegalAddress(params.slaves.head.address, cacheBlockSize)
             // Getting block-aligned address
             address = address & ~((1 << cacheBlockSize) - 1)
           } else {
