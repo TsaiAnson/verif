@@ -18,7 +18,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Multi Driver/Monitor
       val driver = new TLDriverMaster(c.clock, xbar.in)
-      val protocolChecker = new TLProtocolChecker(xbar.in.params, xbar.sPortParams.slaves.head, xbar.mPortParams.masters.head)
+      val protocolChecker = new TLProtocolChecker(xbar.mPortParams, xbar.sPortParams)
       val monitor = new TLMonitor(c.clock, xbar.in, Some(protocolChecker))
 
       implicit val params = xbar.in.params
@@ -51,12 +51,12 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // XBar DUT
       val dutDriver = new TLDriverMaster(c.clock, TLRAMSlave.in)
-      val dutProtocolChecker = new TLProtocolChecker(TLRAMSlave.in.params, TLRAMSlave.sPortParams.managers.head, TLRAMSlave.mPortParams.clients.head)
+      val dutProtocolChecker = new TLProtocolChecker(TLRAMSlave.mPortParams, TLRAMSlave.sPortParams)
       val dutMonitor = new TLMonitor(c.clock, TLRAMSlave.in, Some(dutProtocolChecker))
 
       // HW Reference
       val refDriver = new TLDriverMaster(c.clock, TLRAMSlave.inRef)
-      val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.inRef.params, TLRAMSlave.sPortParams.managers.head, TLRAMSlave.mPortParams.clients.head)
+      val refProtocolChecker = new TLProtocolChecker(TLRAMSlave.mPortParams, TLRAMSlave.sPortParams)
       val refMonitor = new TLMonitor(c.clock, TLRAMSlave.inRef, Some(refProtocolChecker))
 
       implicit val params = TLRAMSlave.in.params
@@ -101,12 +101,12 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
 
       // Master 1
       val driver1 = new TLDriverMaster(c.clock, TLRAMSlave.inOne)
-      val protocolChecker1 = new TLProtocolChecker(TLRAMSlave.inOne.params, TLRAMSlave.sPortParams.head.managers.head, TLRAMSlave.mPortParams.head.clients.head)
+      val protocolChecker1 = new TLProtocolChecker(TLRAMSlave.mPortParams.head, TLRAMSlave.sPortParams.head)
       val monitor1 = new TLMonitor(c.clock, TLRAMSlave.inOne, Some(protocolChecker1))
 
       // Master 2
       val driver2 = new TLDriverMaster(c.clock, TLRAMSlave.inTwo)
-      val protocolChecker2 = new TLProtocolChecker(TLRAMSlave.inTwo.params, TLRAMSlave.sPortParams(1).managers.head, TLRAMSlave.mPortParams(1).clients.head)
+      val protocolChecker2 = new TLProtocolChecker(TLRAMSlave.mPortParams(1), TLRAMSlave.sPortParams(1))
       val monitor2 = new TLMonitor(c.clock, TLRAMSlave.inTwo, Some(protocolChecker2))
 
       // Note: What to do in cases where there are multiple params?

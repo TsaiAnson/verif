@@ -15,8 +15,32 @@ import chisel3.experimental.BundleLiterals._
 class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = new WithoutTLMonitors
 
-  it should "Fail Protocol Compliance: Address Not Aligned with Size and No Response" in {
-    val DUT = LazyModule(new TLBufferStandalone)
+  it should "Pass Protocol Compliance" in {
+    val DUT = LazyModule(new TLRAMNoModelStandalone)
+    test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
+      implicit val params: TLBundleParameters = DUT.in.params
+
+      val driver = new TLDriverMaster(c.clock, DUT.in)
+      val protocolChecker = new TLSLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
+      val monitor = new TLMonitor(c.clock, DUT.in)
+      val simCycles = 10
+
+      val stim = Seq(
+        Get(0x0), // Normal Get
+        Put(0x0, 0x123456789L), // Ordinary Put
+        Get(0x1, 0x0, 0x20, 0), // Non-wordaligned address, Non-aligned mask
+        Put(0x4, 0x00889900, Integer.parseInt("0110", 2), 0x2, 0x0, false),
+        Get(0x0) // Normal Get
+      )
+      driver.push(stim)
+
+      c.clock.step(simCycles)
+      assert(protocolChecker.check(monitor.getMonitoredTransactions().map(_.data)))
+    }
+  }
+
+  it should "Fail Protocol Compliance: Address Not Aligned with Size" in {
+    val DUT = LazyModule(new TLRAMNoModelStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
 
@@ -31,8 +55,8 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "Fail Protocol Compliance: Non-Contiguous Mask on Arithmetic and No Response" in {
-    val DUT = LazyModule(new TLBufferStandalone)
+  it should "Fail Protocol Compliance: Non-Contiguous Mask on Arithmetic" in {
+    val DUT = LazyModule(new TLRAMNoModelStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
 
@@ -47,8 +71,8 @@ class TLSLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  it should "Fail Protocol Compliance: Invalid Corrupt on Get and No Response" in {
-    val DUT = LazyModule(new TLBufferStandalone)
+  it should "Fail Protocol Compliance: Invalid Corrupt on Get" in {
+    val DUT = LazyModule(new TLRAMNoModelStandalone)
     test(DUT.module).withAnnotations(Seq(TreadleBackendAnnotation, WriteVcdAnnotation)) { c =>
       implicit val params: TLBundleParameters = DUT.in.params
 

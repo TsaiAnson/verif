@@ -41,7 +41,7 @@ class TLSLRAMModelTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "be testable via TLFuzzer" in {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
       val output = testRAM(dut, c.clock, txns)

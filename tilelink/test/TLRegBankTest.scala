@@ -12,9 +12,9 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
 
     test(TLRegBankSlave.module) { c =>
       val driver = new TLDriverMaster(c.clock, TLRegBankSlave.in)
-      val slaveParams = TLRegBankSlave.regNode.edges.in.head.slave.slaves.head
-      val masterParams = TLRegBankSlave.regNode.edges.in.head.master.masters.head
-      val protocolChecker = new TLProtocolChecker(TLRegBankSlave.in.params, slaveParams, masterParams)
+      val slaveParams = TLRegBankSlave.regNode.edges.in.head.slave
+      val masterParams = TLRegBankSlave.regNode.edges.in.head.master
+      val protocolChecker = new TLProtocolChecker(masterParams, slaveParams)
       val monitor = new TLMonitor(c.clock, TLRegBankSlave.in, Some(protocolChecker))
 
       implicit val params: TLBundleParameters = TLRegBankSlave.in.params

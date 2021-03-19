@@ -13,8 +13,7 @@ import scala.math.max
 class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   def testRAM(dut: TLRAMStandalone, clock: Clock, stim: Seq[TLChannel], checker: Boolean = true): Seq[TLBundleD] = {
     val driver = new TLDriverMaster(clock, dut.in)
-    val protocolChecker = if (checker) Some(new TLProtocolChecker(dut.in.params,
-      dut.sParams, dut.mPortParams.masters.head)) else None
+    val protocolChecker = if (checker) Some(new TLProtocolChecker(dut.mPortParams, dut.sPortParams)) else None
     val monitor = new TLMonitor(clock, dut.in, protocolChecker)
     val stimMonitor = new TLMonitor(clock, dut.in, None)
     val dispatcher = new TLUDispatcher(dut.in.params, None, stim)
@@ -33,7 +32,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "be testable via TLFuzzer" in {
     val dut = LazyModule(new TLRAMStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
       val output = testRAM(dut, c.clock, txns, false)

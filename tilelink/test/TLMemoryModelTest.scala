@@ -211,7 +211,7 @@ class TLMemoryModelTest extends AnyFlatSpec {
   val bundleParams: TLBundleParameters = TLBundleParameters(32, 32, 2, 1, 4, Seq(), Seq(), Seq(), hasBCE = false)
 
   def test(fn: () => (Seq[TLBundleA], Seq[TLBundleD])): Unit= {
-    val memoryModel = new TLMemoryModel(bundleParams)
+    val memoryModel = new TLMemoryModel(bundleParams, true)
     val (stimulus, expected) = fn()
     val (responseTxns, newState) = memoryModel.respondFromState(stimulus, TLMemoryModel.State.empty())
     val comparison = equalsTL(responseTxns.collect { case t: TLBundleD => t }, expected)

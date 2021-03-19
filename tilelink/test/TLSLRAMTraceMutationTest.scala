@@ -56,7 +56,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test TLRAM Trace Mutation: Adding extra transactions" in {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
       val protocolChecker = new TLSLProtocolChecker(dut.mPortParams, dut.bridge.edges.out.head.slave)
@@ -82,7 +82,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test TLRAM Trace Mutation: Removing transactions" in {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
 
@@ -107,7 +107,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test TLRAM Trace Mutation: Modifying transaction fields" in {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x100, 0xff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
       val protocolChecker = new TLSLProtocolChecker(dut.mPortParams, dut.bridge.edges.out.head.slave)
@@ -136,7 +136,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       // NOTE: Must have different address space or else might fail (separate traces have different data models)
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x200, 0xff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x200, 0xff)),
         burst = true, arith = true, logic = true)
       val protocolChecker = new TLSLProtocolChecker(dut.mPortParams, dut.bridge.edges.out.head.slave)
 
@@ -156,7 +156,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "Test TLRAM Trace Mutation: Concat good and bad transaction trace (separate address space)" in {
     val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      val gen = new TLTransactionGenerator(dut.sParams, dut.in.params, overrideAddr = Some(AddressSet(0x200, 0xff)),
+      val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x200, 0xff)),
         burst = true, arith = true, logic = true)
       val protocolChecker = new TLSLProtocolChecker(dut.mPortParams, dut.bridge.edges.out.head.slave)
 

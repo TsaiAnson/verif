@@ -21,7 +21,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = DUT.in.params
 
       val driver = new TLDriverMaster(c.clock, DUT.in)
-      val protocolChecker = new TLProtocolChecker(DUT.in.params, DUT.sPortParams.managers.head, DUT.mPortParams.clients.head)
+      val protocolChecker = new TLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
       val monitor = new TLMonitor(c.clock, DUT.in, Some(protocolChecker))
       val simCycles = 10
 
@@ -37,7 +37,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = DUT.in.params
 
       val driver = new TLDriverMaster(c.clock, DUT.in)
-      val protocolChecker = new TLProtocolChecker(DUT.in.params, DUT.sPortParams.managers.head, DUT.mPortParams.clients.head)
+      val protocolChecker = new TLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
       val monitor = new TLMonitor(c.clock, DUT.in, Some(protocolChecker))
       val simCycles = 10
 
@@ -53,7 +53,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = DUT.in.params
 
       val driver = new TLDriverMaster(c.clock, DUT.in)
-      val protocolChecker = new TLProtocolChecker(DUT.in.params, DUT.sPortParams.managers.head, DUT.mPortParams.clients.head)
+      val protocolChecker = new TLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
       val monitor = new TLMonitor(c.clock, DUT.in, Some(protocolChecker))
       val simCycles = 10
 
@@ -78,7 +78,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = DUT.in.params
 
       val mDriver = new TLDriverMaster(c.clock, DUT.in)
-      val protocolChecker = new TLProtocolChecker(DUT.in.params, DUT.sPortParams.managers.head, DUT.mPortParams.clients.head)
+      val protocolChecker = new TLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
       val monitor = new TLMonitor(c.clock, DUT.in, Some(protocolChecker))
       val slaveFn = new BadSlaveFnOne(DUT.out.params)
       val sDriver = new TLDriverSlave(c.clock, DUT.out, slaveFn, TLMemoryModel.State.empty())
@@ -103,7 +103,7 @@ class TLProtocolCheckerTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val params: TLBundleParameters = DUT.in.params
 
       val driver = new TLDriverMaster(c.clock, DUT.in)
-      val protocolChecker = new TLProtocolChecker(DUT.in.params, DUT.sPortParams.managers.head, DUT.mPortParams.clients.head)
+      val protocolChecker = new TLProtocolChecker(DUT.mPortParams, DUT.sPortParams)
       val monitor = new TLMonitor(c.clock, DUT.in, Some(protocolChecker))
       val slaveFn = new BadSlaveFnTwo(DUT.out.params)
       val sDriver = new TLDriverSlave(c.clock, DUT.out, slaveFn, TLMemoryModel.State.empty())
