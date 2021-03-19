@@ -1,7 +1,7 @@
 package verif
 
 import chisel3._
-import chisel3.util.isPow2
+import chisel3.util._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
@@ -20,8 +20,23 @@ package object TLUtils {
     aligned(data, (1 << base.litValue().toInt).U)
   }
 
-  def alignedMaskLg(mask : UInt, size : UInt) : Boolean = {
-    (1 << (1 << size.litValue().toInt)) - 1 == mask.litValue().toInt
+  def contiguousMask(mask : UInt, size : UInt, beatBytes: Int) : Boolean = {
+    if (size.litValue() > log2Ceil(beatBytes)) {
+      (1 << beatBytes) - 1 == mask.litValue()
+    } else {
+      // Need to check all possible contiguous masks
+      val totalBytes = 1 << size.litValue().toInt
+      val possibleMasks = (0 to (beatBytes - totalBytes)).toList.map(i => ((1 << totalBytes) - 1) << i)
+      possibleMasks.map(pmask => pmask == mask.litValue()).foldLeft(false)(_ || _)
+    }
+  }
+
+  def maskWithinSize(mask: UInt, size: UInt, beatBytes: Int): Boolean = {
+    if (size.litValue() > log2Ceil(beatBytes)) {
+      (1 << beatBytes) > mask.litValue()
+    } else {
+      (1 << (1 << size.litValue().toInt)) > mask.litValue()
+    }
   }
 
   def contiguous(data : UInt) : Boolean = {

@@ -42,8 +42,6 @@ trait TLStaticParameterAP {
     t match {case t: TLBundleA => t.param.litValue() >= 0 && t.param.litValue() <= 1; case _: TLBundleD => false}})
   val AlignedAddr = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => (t.address.litValue() & ((1 << t.size.litValue().toInt) - 1)) == 0; case _: TLBundleD => false}})
-  val ContiguousMask = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => (t.mask.litValue() & (t.mask.litValue() + 1)) == 0; case _: TLBundleD => false}})
   val ZeroCorrupt = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.corrupt.litValue() == 0; case t: TLBundleD => t.corrupt.litValue() == 0}})
   val DeniedCorrupt = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
@@ -55,9 +53,21 @@ trait TLDynamicParameterAP {
   def SizeWithinMaxTx(maxTransfer: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => t.size.litValue() >= 0 && t.size.litValue() <= log2Ceil(maxTransfer); case t: TLBundleD =>
       t.size.litValue() >= 0 && t.size.litValue() <= log2Ceil(maxTransfer)}})
-  def MaskAllHigh(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => if (t.size.litValue() > log2Ceil(beatBytes)) {(1 << beatBytes) - 1 == t.mask.litValue()}
-    else {(1 << (1 << t.size.litValue().toInt)) - 1 == t.mask.litValue()}; case _ => false}})
+  def ContiguousMask(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
+    t match {
+      case t: TLBundleA =>
+        if (t.size.litValue() > log2Ceil(beatBytes)) {
+          (1 << beatBytes) - 1 == t.mask.litValue()
+        } else {
+          // Need to check all possible contiguous masks
+          val totalBytes = 1 << t.size.litValue().toInt
+          val possibleMasks = (0 to (beatBytes - totalBytes)).toList.map(i => ((1 << totalBytes) - 1) << i)
+          possibleMasks.map(mask => mask == t.mask.litValue()).foldLeft(false)(_ || _)
+        }
+      case _ => false
+    }
+  })
+  // Ensure that all active byte lanes are within size constraint (PutPartial)
   def MaskWithinSize(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
     t match {case t: TLBundleA => if (t.size.litValue() > log2Ceil(beatBytes)) {(1 << beatBytes) > t.mask.litValue()}
                                   else {(1 << (1 << t.size.litValue().toInt)) > t.mask.litValue()}; case _ => false}})
@@ -77,12 +87,12 @@ trait TLModelingAPs {
 }
 
 trait TLMessageAPs extends TLMessageAP with TLStaticParameterAP with TLDynamicParameterAP {
-  def GetAP(beatBytes: Int, maxTxSize: Int) = IsGetOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & MaskAllHigh(beatBytes) & ZeroCorrupt
-  def PutFullAP(beatBytes: Int, maxTxSize: Int) = IsPutFullOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & MaskAllHigh(beatBytes)
+  def GetAP(beatBytes: Int, maxTxSize: Int) = IsGetOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask(beatBytes) & ZeroCorrupt
+  def PutFullAP(beatBytes: Int, maxTxSize: Int) = IsPutFullOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask(beatBytes)
   def PutPartialAP(beatBytes: Int, maxTxSize: Int) = IsPutPartialOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & MaskWithinSize(beatBytes)
-  def ArithAP(beatBytes: Int, maxTxSize: Int) = IsArithOp & ArithParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & MaskAllHigh(beatBytes)
-  def LogicAP(beatBytes: Int, maxTxSize: Int) = IsLogicOp & LogicParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & MaskAllHigh(beatBytes)
-  def HintAP(beatBytes: Int, maxTxSize: Int) = IsHintOp & HintParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask & MaskWithinSize(beatBytes) & MaskAllHigh(beatBytes) & MaskAllHigh(beatBytes) & ZeroCorrupt
+  def ArithAP(beatBytes: Int, maxTxSize: Int) = IsArithOp & ArithParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask(beatBytes)
+  def LogicAP(beatBytes: Int, maxTxSize: Int) = IsLogicOp & LogicParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask(beatBytes)
+  def HintAP(beatBytes: Int, maxTxSize: Int) = IsHintOp & HintParam & SizeWithinMaxTx(maxTxSize) & AlignedAddr & ContiguousMask(beatBytes) & ZeroCorrupt
   def AccessAckAP(maxTxSize: Int) = IsAccessAckOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & ZeroCorrupt
   def AccessAckDataAP(maxTxSize: Int) = IsAccessAckDataOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & DeniedCorrupt
   def HintAckAP(maxTxSize: Int) = IsHintAckOp & ZeroParam & SizeWithinMaxTx(maxTxSize) & ZeroCorrupt
@@ -125,8 +135,8 @@ trait MiscAP {
     }
     if (check) {
       if (h("expected_resp") != 0) println(s"ERROR: Expected Responses Remaining: ${h("expected_resp")}")
-      if (h("burst_req") != 0) println(s"ERROR: Expected Burst Requests Remaining: ${h("burst_req")}")
-      h("expected_resp") == 0 && h("burst_req") == 0
+      if (h.getOrElse("burst_req", 0) != 0) println(s"ERROR: Expected Burst Requests Remaining: ${h("burst_req")}")
+      h("expected_resp") == 0 && h.getOrElse("burst_req", 0) == 0
     } else {
       true
     }
@@ -293,7 +303,7 @@ class TLSLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortPar
     val memoryStates = if (memModel.isDefined) memModel.get.model(txns) else Seq.fill(txns.length)(None)
 
     var result = true
-    var totalTxnCoverage = Array.fill(txns.size)(0) //
+    var totalTxnCoverage = Array.fill(txns.size)(0)
     for (property <- checkedProperties) {
       val temp = property.check(txns, memoryStates)
       if (!temp) println(s"Property failed: $property")
