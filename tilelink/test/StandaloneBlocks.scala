@@ -108,7 +108,7 @@ class TLRAMNoModelStandalone (val mPortParams: TLMasterPortParameters = DefaultT
   val ioInNode = BundleBridgeSource(() => TLBundle(TLBundleParameters(mPortParams, bridge.edges.out.head.slave)))
   bridge := ioInNode
   val in = InModuleBody { ioInNode.makeIO() }
-  val sParams = bridge.edges.out.head.slave.slaves.head
+  val sPortParams = bridge.edges.out.head.slave
 
   lazy val module = new LazyModuleImp(this) {}
 }
@@ -133,7 +133,7 @@ class TLRAMStandalone (
   val ioInNode = BundleBridgeSource(() => TLBundle(TLBundleParameters(mPortParams, bridge.edges.out.head.slave)))
   bridge := ioInNode
   val in = InModuleBody { ioInNode.makeIO() }
-  val sParams = bridge.edges.out.head.slave.slaves.head
+  val sPortParams = bridge.edges.out.head.slave
 
   lazy val module = new LazyModuleImp(this) {}
 }
