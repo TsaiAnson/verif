@@ -56,6 +56,9 @@ class Sequence[T,H,M](input: SequenceElement*) {
 
   // Concatenating Sequence
   def +(that: Sequence[T,H,M]): Sequence[T,H,M] = {
+    if (that.groupedSeq.isEmpty) {
+      return this
+    }
     val copyPropSets = new ListBuffer[PropSet[T,H,M]]()
     groupedSeq.copyToBuffer(copyPropSets)
     val newSeq = new Sequence[T,H,M]()
