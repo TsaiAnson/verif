@@ -10,37 +10,46 @@ import chisel3.Clock
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters, TLChannel}
 import scala.math.max
 
-class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
-  def testRAM(dut: TLRAMStandalone, clock: Clock, stim: Seq[TLChannel], checker: Boolean = true): Seq[TLBundleD] = {
+class TLSLRAMModelTest extends AnyFlatSpec with ChiselScalatestTester {
+  def testRAM(dut: TLRAMNoModelStandalone, clock: Clock, stim: Seq[TLChannel], checker: Boolean = true, fail: Boolean = false): Seq[TLBundleD] = {
     val driver = new TLDriverMaster(clock, dut.in)
-    val protocolChecker = if (checker) Some(new TLProtocolChecker(dut.mPortParams, dut.sPortParams)) else None
-    val monitor = new TLMonitor(clock, dut.in, protocolChecker)
+    val protocolChecker = if (checker) Some(new TLSLProtocolChecker(dut.mPortParams, dut.bridge.edges.out.head.slave)) else None
+    val monitor = new TLMonitor(clock, dut.in)
     val stimMonitor = new TLMonitor(clock, dut.in, None)
     val dispatcher = new TLUDispatcher(dut.in.params, None, stim)
 
-    for (_ <- 0 until stim.length*10) {
+    for (_ <- 0 until stim.length*4) {
       val seenTxns = stimMonitor.getMonitoredTransactions().map(_.data)
       val roundStim = dispatcher.next(seenTxns)
       driver.push(roundStim)
       clock.step(max(5, roundStim.length * 2))
     }
 
-    monitor.getMonitoredTransactions().map(_.data).collect { case t: TLBundleD => t }
+    val monitoredTxns = monitor.getMonitoredTransactions().map(_.data)
+    if (checker) {
+      val result = protocolChecker.get.check(monitoredTxns, Some(new TLSLMemoryModel(TLBundleParameters(dut.mPortParams, dut.bridge.edges.out.head.slave))))
+      if (fail) {
+        assert(!result)
+      } else {
+        assert(result)
+      }
+    }
+    monitoredTxns.collect { case t: TLBundleD => t }
   }
 
   behavior of "TLRAMStandalone"
   it should "be testable via TLFuzzer" in {
-    val dut = LazyModule(new TLRAMStandalone)
+    val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       val gen = new TLTransactionGenerator(dut.sPortParams, dut.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         burst = true, arith = true, logic = true)
       val txns = gen.generateTransactions(40)
-      val output = testRAM(dut, c.clock, txns, false)
+      val output = testRAM(dut, c.clock, txns)
     }
   }
 
   it should "pass test with hardcoded burst" in {
-    val dut = LazyModule(new TLRAMStandalone)
+    val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       implicit val bundleParams: TLBundleParameters = dut.in.params
       val stim: Seq[TLBundleA] = Seq(
@@ -62,17 +71,17 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "pass test with atomic transactions" in {
-    val dut = LazyModule(new TLRAMStandalone)
+    val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       implicit val bundleParams: TLBundleParameters = dut.in.params
       val stim = Seq(
-          Put(addr = 0x0, data = 0x1234),
-          Get(addr = 0x0),
-          Arith(TLArithParam.ADD, 0x0, 0x1),
-          Get(addr = 0x0),
-          Logic(param = TLLogicParam.AND, addr = 0x0, data = 0xfff0),
-          Get(addr = 0x0)
-        )
+        Put(addr = 0x0, data = 0x1234),
+        Get(addr = 0x0),
+        Arith(TLArithParam.ADD, 0x0, 0x1),
+        Get(addr = 0x0),
+        Logic(param = TLLogicParam.AND, addr = 0x0, data = 0xfff0),
+        Get(addr = 0x0)
+      )
       val output = testRAM(dut, c.clock, stim)
       println(output)
     }
@@ -82,7 +91,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
 
   // This test just provides a reference output for the corresponding test in SlaveDriverTest
   it should "provide reference output for longer stimulus" in {
-    val dut = LazyModule(new TLRAMStandalone)
+    val dut = LazyModule(new TLRAMNoModelStandalone)
     test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       implicit val bundleParams: TLBundleParameters = dut.in.params
       val stim = Seq(
@@ -100,25 +109,6 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
         Get(0x0) :+
         Get(0x8)
       val output = testRAM(dut, c.clock, stim, false)
-      for (out <- output) {
-        println(out.opcode, out.data, out.size)
-      }
-    }
-  }
-
-  it should "Test Non-aligned Address" in {
-    val dut = LazyModule(new TLRAMStandalone)
-    test(dut.module).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      implicit val bundleParams: TLBundleParameters = dut.in.params
-      val stim = Seq(
-//        Get(0x0),
-        Put(0x0, 0x1111),
-        Put(0x1, 0x3300, 0x2, 0x0, 0x0, false),
-        Put(0x8, 0x0),
-        Get(0x1, 0x0, 0x2, 0x0)
-      )
-      val output = testRAM(dut, c.clock, stim, false)
-      println(s"Length: ${output.length}")
       for (out <- output) {
         println(out.opcode, out.data, out.size)
       }

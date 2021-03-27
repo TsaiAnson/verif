@@ -19,7 +19,8 @@ val buildSettings = Seq(
   ),
   scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
   libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
-  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test"
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
 )
 
 lazy val core = (project in file("./core"))
