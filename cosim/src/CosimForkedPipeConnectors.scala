@@ -19,19 +19,30 @@ trait AbstractForkedCosimPipe
 
 class ForkedRoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractForkedCosimPipe {
   val pipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${pipeName}"
-  fork.withName("RoCCCommand Pipe Driver") {
-    val driver = new DecoupledDriverMaster(clock, io) // TODO: Move outside fork if possible
+  
+  val driver = new DecoupledDriverMaster(clock, io)
+  
+  fork {
     while (!Files.exists(Paths.get(pipe))) {
       Thread.sleep(250)
     }
+    
+    println("All RoCC Command Files Exist")
 
     val in = new FileInputStream(pipe)
+    
+    println("RoCC Command File Input Stream Connected")
+   
+    clock.step()
 
     while (true) {
+      println("Command connector starting loop")
       val message = com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(in)
+      println(s"Message received: ${message}")
       if (message != null) {
         driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
       }
+      println("RoCC Command Clock Step")
       clock.step()
     }
   }
@@ -39,19 +50,27 @@ class ForkedRoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledI
 
 class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, clock: Clock, io: RoCCIO)
                (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractForkedCosimPipe {
-
     val fenceReqPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceReqName}"
     val fenceRespPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceRespName}"
 
-    fork.withRegion(Monitor).withName("Fence Pipe Connector") {
-      val monitor = new DecoupledMonitor(clock, io.cmd)
+    val monitor = new DecoupledMonitor(clock, io.cmd)
+    
+    fork {
+      
       // Spin until all needed FIFOs are created
       while (!Files.exists(Paths.get(fenceReqPipe)) || !Files.exists(Paths.get(fenceRespPipe))) {
         Thread.sleep(250)
       }
 
+      println("All fence files exist")
+
       val req = new FileInputStream(fenceReqPipe)
+      
+      println("Fence Req Input Stream Connected")
+
+      clock.step()
       while (true) {
+        println("Fence connector starting loop")
         try {
           val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
           if (r != null && r.getValid()) {
@@ -68,8 +87,10 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
         catch {
           case _: IOException => println("IO Exception thrown in Fence Pipe")
         }
+        println("Fence clock step")
         clock.step()
       }
+
       req.close()
     }
 }
@@ -79,10 +100,6 @@ class ForkedTLPipeConnector(tlaName: String, tldName: String, clock: Clock, io: 
 
   val tlaPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tlaName}"
   val tldPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tldName}"
-
-  while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
-    Thread.sleep(250)
-  }
 
   val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe, io.params), TLCosimMemoryBufferState(Seq()))
 }

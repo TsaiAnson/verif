@@ -131,9 +131,15 @@ case class TLCosimMemoryBufferState(txnBuffer: Seq[TLChannel])
 
 class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLBundleParameters)
                             (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends TLSlaveFunction[TLCosimMemoryBufferState] {
+  while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
+    Thread.sleep(250)
+  }
+
+  println("All TL Pipes Exist")
+
   // NOTE: Scala convention is to open inputs before outputs in matching pairs
   val tld_pipe = new FileInputStream(tldPipe)
-//  println("TLD connected")
+  println("TLD connected")
 
   override def response(tx: TLChannel, state: TLCosimMemoryBufferState): (Seq[TLChannel], TLCosimMemoryBufferState) = {
     tx match {
