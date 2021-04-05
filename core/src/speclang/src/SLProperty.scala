@@ -2,37 +2,34 @@ package verif
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Name") {
-  // Coverage Data, accumulates across transaction streams. Can be cleared with helper method at end.
+class Property[T,H,M](seq: Sequence[T,H,M], name: String) {
+  // Coverage Data. Automatically cleared within check method, but can be manually cleared with helper method at end.
   var propSetPass = Array.fill[Int](seq.groupedSeq.size)(0) // For each propSet (group of APs), how many times did it Pass
   var propSetFail = Array.fill[Int](seq.groupedSeq.size)(0) // For any failed properties, at which propSet did it fail?
   var txnCoverage = Array[Int]()
 
   def check(input: Seq[T], mems: Seq[Option[SLMemoryState[M]]] = Seq()): Boolean = {
     // Warnings
-    if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Given sequence does not contain an implication ($this).")
+    if (seq.groupedSeq.nonEmpty && seq.firstImplication == -1) println(s"WARNING: Property sequence does not contain an implication ($this).")
 
     // Cleared before each run
     this.clearCoverage()
     txnCoverage = Array.fill[Int](input.size)(0)
 
     // Short circuit if seq is empty
-    if (seq.isEmpty) return true
+    if (seq.isEmpty) {
+      println(s"WARNING: Property sequence is empty ($this).")
+      return true
+    }
 
     // Keeps track of concurrent instances of properties (SeqIndex, StartCycle, lastPassed)
-    // Note: currently does not keep track of intermittent variables
     val concProp = new ListBuffer[(Int, Int, Int)]()
     var failed_prop = false
     // Local Data per concurrent instance
     val concHash = new ListBuffer[HashMap[String, H]]()
 
     // If no memory states are given, assign all none
-    var int_mems = Seq[Option[SLMemoryState[M]]]()
-    if (mems.isEmpty) {
-      int_mems = Seq.fill(input.length)(None)
-    } else {
-      int_mems = mems
-    }
+    val int_mems = if (mems.isEmpty) Seq.fill(input.length)(None) else mems
     assert(int_mems.length == input.length, "Must have a memory state for each transaction")
 
     for (((txn, ms), currCycle) <- (input zip int_mems).zipWithIndex) {
@@ -47,11 +44,11 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
           var continue = true
           while (continue && (seqIdx < seq.len)) {
             continue = seq.get(seqIdx).check(txn, hash, ms, lastPassed, currCycle)
-            invalid = seq.get(seqIdx).invalid(currCycle, lastPassed)
+            invalid = seq.get(seqIdx).invalid(lastPassed, currCycle)
             if (invalid) {
               if (seqIdx >= seq.firstImplication && seq.firstImplication != -1) {
-                println(s"ERROR: Implication failed for $this, as atomic proposition '${seq.get(seqIdx).getAP}' did not meet the " +
-                  s"TimeOperator requirement (${seq.get(seqIdx).getTO}). Cycles elapsed: ${currCycle - startCycle}. " +
+                println(s"ERROR: Implication failed for $this, as '${seq.get(seqIdx).getAP}' did not meet the " +
+                  s"${seq.get(seqIdx).getTO} requirement. Cycles elapsed: ${currCycle - startCycle}. " +
                   s"Index of starting transaction: $startCycle, Index of last passed transaction: $lastPassed.")
               }
             }
@@ -106,7 +103,8 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
     val firstImplication = seq.firstImplication
     var incompleteSeq = false
     for ((ai, sc, lp) <- concProp) {
-      if (firstImplication != -1 && ai >= firstImplication) {
+      // If incomplete instance has activated implication. NOTE: Ignores incomplete PropSet objects at the end
+      if (firstImplication != -1 && ai >= firstImplication && !seq.get(ai).isIncomplete) {
         propSetFail(ai) += 1
         println(s"ERROR: Unresolved implication within for a property instance ($this). Current atomic proposition: ${seq.get(ai).getAP}. " +
           s"Index of starting transaction: $sc, Index of last passed transaction: $lp.")
@@ -120,7 +118,7 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
   def getSequence(): Sequence[T,H,M] = seq
 
   // Currently just printing out statistics
-  // Initiated Properties
+  // Activated Properties
   // Completed Properties
   // Failed Properties
   // # of times each PropSet passed
@@ -132,10 +130,10 @@ class Property[T,H,M](seq: Sequence[T,H,M], name: String = "Default Property Nam
     var resultString = ""
 
     resultString += s"\nPROPERTY COVERAGE DATA ($this): \n\n"
-    resultString += s"# of Initiated Properties: $initCount \n"
+    resultString += s"# of Activated Properties: $initCount \n"
     resultString += s"# of Completed Properties: $completedCount \n"
     resultString += s"# of Failed Properties: $failedCount \n\n"
-    resultString += s"Coverage stats of each AP Group: (PASS #, FAIL#)\n"
+    resultString += s"Coverage stats of each AP Group: (PASS #, FAIL #)\n"
     for ((propSet, idx) <- seq.groupedSeq.zipWithIndex) {
       if (!propSet.isImplication) {
         resultString += s"${propSet.getAP} : (${propSetPass(idx)}, ${propSetFail(idx)})\n"

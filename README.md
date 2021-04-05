@@ -32,7 +32,8 @@ val verifSettings = Seq(
   scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
   libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
-  libraryDependencies += "edu.berkeley.cs" %% "chisel3" %% "3.4.+"
+  libraryDependencies += "edu.berkeley.cs" %% "chisel3" %% "3.4.+",
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
 )
 
 lazy val verif = (project in file("./verif/core"))

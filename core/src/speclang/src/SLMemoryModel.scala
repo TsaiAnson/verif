@@ -3,8 +3,8 @@ package verif
 import chisel3._
 import scala.collection.mutable.HashMap
 
-trait SLMemoryState[T] {
-  def get(addr: Int): T
+trait SLMemoryState[M] {
+  def get(addr: Int): M
 }
 
 // Example of a generic UInt memory state

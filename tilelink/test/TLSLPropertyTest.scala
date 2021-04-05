@@ -161,20 +161,22 @@ class TLSLPropertyTest extends AnyFlatSpec with ChiselScalatestTester {
     testSeqOne += sourceOne
     val oneProp = qProp[TLChannel, Int, UInt](testSeqOne)
 
-    val testSeqCombined = testSeqZero + testSeqOne
+    val testSeqCombined = (testSeqZero + ###(1, -1)) + testSeqOne
     val combProp = qProp[TLChannel, Int, UInt](testSeqCombined)
 
     // Should pass as source 0 has complete req-resp
     assert(zeroProp.check(input))
+    println("Below should fail:")
     // Should fail as source 1 has missing response
     assert(!oneProp.check(input))
     // Should fail as source 1 has missing response
     assert(!combProp.check(input))
+    println("Done.")
     // Should pass as source 1 has complete req-resp
     assert(oneProp.check(goodInput))
     assert(combProp.check(goodInput))
 
-    val testSeqCombined2 = testSeqZero + (testSeqOne * 2)
+    val testSeqCombined2 = (testSeqZero + ###(1, -1)) + ((testSeqOne + ###(1, -1)) * 2)
     val combProp2 = qProp[TLChannel, Int, UInt](testSeqCombined2)
     // Should fail as there is only one source 1 transaction
     println("Below should fail:")
