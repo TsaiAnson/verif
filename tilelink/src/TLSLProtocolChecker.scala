@@ -67,10 +67,22 @@ trait TLDynamicParameterAP {
       case _ => false
     }
   })
-  // Ensure that all active byte lanes are within size constraint (PutPartial)
+  // HIGH bits of mask must be contained within aligned region of size, but doesn't have to be contiguous (PutPartial)
   def MaskWithinSize(beatBytes: Int) = qAP({(t: TLChannel, h: HashMap[String, Int], m: Option[SLMemoryState[UInt]]) =>
-    t match {case t: TLBundleA => if (t.size.litValue() > log2Ceil(beatBytes)) {(1 << beatBytes) > t.mask.litValue()}
-                                  else {(1 << (1 << t.size.litValue().toInt)) > t.mask.litValue()}; case _ => false}})
+    t match {
+      case t: TLBundleA =>
+        if (t.size.litValue() >= log2Ceil(beatBytes)) {
+          true
+        } else {
+          val totalBytes = 1 << t.size.litValue().toInt
+          // Generates all aligned region of size (same as contiguous mask)
+          val possibleMasks = (0 to (beatBytes - totalBytes)).toList.map(i => ((1 << totalBytes) - 1) << i)
+          // Checking if any bits are outside of aligned regions
+          possibleMasks.map(mask => (t.mask.litValue() & ~mask) == 0).foldLeft(false)(_ || _)
+        }
+      case _ => false
+    }
+  })
 }
 
 trait TLModelingAPs {
