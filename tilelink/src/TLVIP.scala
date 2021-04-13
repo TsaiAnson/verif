@@ -68,7 +68,6 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFuncti
   fork {
     while (true) {
       // extract TLBundle A,C,E
-      println("TL DriverSlave Loop")
       val txFromMaster = monitor.getMonitoredTransactions().map(_.data).flatMap{
         case _:TLBundleD | _:TLBundleB => None
         case other => Some(other)
@@ -86,7 +85,6 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFuncti
             new DecoupledTX(new TLBundleB(params)).tx(t)
         })
       }
-      println("TL Driver Slave requests clock step")
       clock.step()
     }
   }

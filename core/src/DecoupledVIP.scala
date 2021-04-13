@@ -50,7 +50,6 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
           while (idleCycles > 0) {
             idleCycles -= 1
             cycleCount += 1
-            println("Decoupled Driver Master Requests Clock Step")
             clock.step()
           }
         }
@@ -70,7 +69,6 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
               interface.bits.poke(t.data)
           }
           interface.valid.poke(true.B)
-          println("Decoupled Driver Master Requests Clock Step")
           clock.step()
         }
 
@@ -78,7 +76,6 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
       } else {
         if (idleCycles > 0) idleCycles -= 1
         cycleCount += 1
-        println("Decoupled Driver Master Requests Clock Step")
         clock.step()
       }
     }
@@ -106,7 +103,6 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
       while (idleCyclesD > 0) {
         idleCyclesD -= 1
         cycleCount += 1
-        println("Decoupled driver slave requests clock step")
         clock.step()
       }
       interface.ready.poke(true.B)
@@ -118,7 +114,6 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
         }
       }
       cycleCount += 1
-      println("Decoupled driver slave requests clock step")
       clock.step()
     }
   }
@@ -126,18 +121,15 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
 
 class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
   val monitoredTransactions: mutable.Queue[DecoupledTX[T]] = mutable.Queue[DecoupledTX[T]]()
-  println("Decoupled monitor created")
   fork.withRegion(Monitor) {
     var cycleCount = 0
     while (true) {
-      println("Decoupled monitor starting loop")
       if (interface.valid.peek().litToBoolean && interface.ready.peek().litToBoolean) {
         val t = new DecoupledTX(interface.bits.cloneType.asInstanceOf[T]) // asInstanceOf[T] to make IntelliJ happy
         val tLit = t.Lit(_.data -> interface.bits.peek(), _.cycleStamp -> cycleCount.U)
         monitoredTransactions += tLit
       }
       cycleCount += 1
-      println("Decoupled Monitor Requests Clock Step")
       clock.step()
     }
   }
