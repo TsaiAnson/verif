@@ -135,11 +135,8 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
     Thread.sleep(250)
   }
 
-  println("All TL Pipes Exist")
-
   // NOTE: Scala convention is to open inputs before outputs in matching pairs
   val tld_pipe = new FileInputStream(tldPipe)
-  println("TLD connected")
 
   override def response(tx: TLChannel, state: TLCosimMemoryBufferState): (Seq[TLChannel], TLCosimMemoryBufferState) = {
     tx match {
@@ -148,13 +145,8 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
         if (TLUtils.isCompleteTLTxn(tla_buffer, 16)) {
           tla_buffer.foreach(tla => {
             val tla_proto = VerifProtoBufUtils.BundleToProto(tla, TLProtos.TLA.newBuilder())
-//            println("Monitored new TLA")
-//            println(tla_proto)
 
             val tla_pipe = new FileOutputStream(tlaPipe)
-//            println("TLA connected")
-
-//            println("Writing TLA to pipe")
             tla_proto.writeTo(tla_pipe)
             tla_pipe.close()
           })
@@ -165,8 +157,6 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
             while(tld_proto == null) {
                tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
             }
-//            println("Recieved new TLD")
-//            println(tld_proto)
             tld_buffer = tld_buffer :+ VerifProtoBufUtils.ProtoToBundle(tld_proto, VerifBundleUtils, new TLBundleD(bundleParams))
           } while (!TLUtils.isCompleteTLTxn(tld_buffer, 16))
 
@@ -190,7 +180,6 @@ class TLPipe(tlaName: String, tldName: String, clock: Clock, io: TLBundle)
     while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
       Thread.sleep(250)
     }
-//    println("All TL files exist")
 
     val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe, io.params), TLCosimMemoryBufferState(Seq()))
   }

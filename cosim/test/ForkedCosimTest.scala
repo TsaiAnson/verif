@@ -51,15 +51,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe))
+      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
       runner.run(simArgs, simTarget, x => x == 0)
-      
-      for (_ <- 0 until 500) {
-        println("Main test stepping clock")
-        c.clock.step()
-      }
-      
-      assert(true)
     }
   }
 
@@ -71,11 +64,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe))
+      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
       runner.run(simArgs, simTarget, x => x == 0)
-
-      c.clock.step(500)
-      assert(true)
     }
   }
 
@@ -87,11 +77,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe))
+      val runner = new ForkedCosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
       runner.run(simArgs, simTarget, x => x == 0)
-
-      c.clock.step(500)
-      assert(true)
     }
   }
 }

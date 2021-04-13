@@ -27,22 +27,17 @@ class ForkedRoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledI
       Thread.sleep(250)
     }
     
-    println("All RoCC Command Files Exist")
-
     val in = new FileInputStream(pipe)
     
-    println("RoCC Command File Input Stream Connected")
-   
     clock.step()
 
     while (true) {
-      println("Command connector starting loop")
-      val message = com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(in)
-      println(s"Message received: ${message}")
-      if (message != null) {
-        driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
+      if (in.available != 0) {
+        val message = com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(in)
+        if (message != null) {
+          driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
+        }
       }
-      println("RoCC Command Clock Step")
       clock.step()
     }
   }
@@ -62,15 +57,10 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
         Thread.sleep(250)
       }
 
-      println("All fence files exist")
-
       val req = new FileInputStream(fenceReqPipe)
       
-      println("Fence Req Input Stream Connected")
-
       clock.step()
       while (true) {
-        println("Fence connector starting loop")
         try {
           val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
           if (r != null && r.getValid()) {
@@ -87,7 +77,6 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
         catch {
           case _: IOException => println("IO Exception thrown in Fence Pipe")
         }
-        println("Fence clock step")
         clock.step()
       }
 

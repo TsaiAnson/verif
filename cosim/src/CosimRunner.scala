@@ -1,5 +1,7 @@
 package cosim
 
+import chisel3._
+import chiseltest._
 import java.io.File
 import java.nio.file.{Files, Paths}
 import verif.{VerifCosimTestUtils, CosimTestDetails}
@@ -81,7 +83,7 @@ class CosimRunner(simPath: String, pipes: Seq[AbstractCosimPipe])(implicit cosim
   }
 }
 
-class ForkedCosimRunner(simPath: String, pipes: Seq[() => AbstractForkedCosimPipe])(implicit cosimTestDetails: CosimTestDetails) {
+class ForkedCosimRunner(simPath: String, pipes: Seq[() => AbstractForkedCosimPipe], clock: Clock)(implicit cosimTestDetails: CosimTestDetails) {
   def run(simArgs: Seq[String], simTarget: String, correctnessCheck: Any => Boolean): Unit = {
     val path = s"${cosimTestDetails.testPath.get}/cosim_run_dir"
 
@@ -91,12 +93,8 @@ class ForkedCosimRunner(simPath: String, pipes: Seq[() => AbstractForkedCosimPip
 
     // Wait for directory to exist
     while (!Files.exists(Paths.get(path))) {
-      println("Waiting for cosim_run_dir to exist")
       Thread.sleep(500)
     }
-
-    println("Found cosim_run_dir")
-
 
     // Create and start sim thread (sim creates fifos)
     val sim = new CosimSimulator(simPath, simArgs :+ s"--cosim-path=${path}", s"${cosimTestDetails.sbtRoot.get}/${simTarget}")
@@ -108,7 +106,9 @@ class ForkedCosimRunner(simPath: String, pipes: Seq[() => AbstractForkedCosimPip
     val forkedPipes = pipes.map(pipe => pipe())
 
     // Wait for sim to terminate
-    simThread.join
+    while (simThread.isAlive) {
+      clock.step()
+    }
 
     // Get simulation output
     val exitCode = sim.getExitCode

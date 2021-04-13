@@ -130,7 +130,7 @@ object VerifProtoBufUtils {
         case _: Bundle => s""" "${name}": { ${BundleToJson(value.asInstanceOf[Bundle])} }"""
         case _: Bool => s""""${name}": ${value.asInstanceOf[Bool].litToBoolean}"""
         case _: UInt => value.asInstanceOf[UInt].getWidth match { // Values wider than 64.W are stored as hex strings
-          case x if x > 64 => s""""${name}": "${String.format(s"%${math.ceil(x.toDouble / 4)}s", value.litValue.toString(16).toUpperCase).replace(" ", "0")}""""
+          case x if x > 64 => s""""${name}": "${String.format(s"%${math.ceil(x.toDouble / 4).toInt}s", value.litValue.toString(16).toUpperCase).replace(" ", "0")}""""
           case _ => s""""${name}": ${value.litValue}"""
         }
         case _ => s""""${name}": ${value.litValue}"""
