@@ -32,7 +32,8 @@ val verifSettings = Seq(
   scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
   libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
-  libraryDependencies += "edu.berkeley.cs" %% "chisel3" %% "3.4.+"
+  libraryDependencies += "edu.berkeley.cs" %% "chisel3" %% "3.4.+",
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
 )
 
 lazy val verif = (project in file("./verif/core"))
@@ -77,7 +78,8 @@ val verifSettings = Seq(
   ),
   scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
   libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
-  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test"
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
 )
 
 lazy val verifCore = (project in file("./tools/verif/core"))
@@ -99,8 +101,8 @@ lazy val verifGemmini = (project in file("./tools/verif/cosim"))
   .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, gemmini, verifCore)
   .settings(commonSettings)
   .settings(verifSettings)
-  .settings(libraryDependencies += "com.google.protobuf")
-  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0") % "protobuf-java" % "3.11.0")
+  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.11.0")
+  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0")
 ```
 
 Run tests from Chipyard:

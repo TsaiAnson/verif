@@ -21,7 +21,7 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val bundleParams: TLBundleParameters = pusher.out.params
       val slaveFn = new TLMemoryModel(bundleParams)
       val slaveModel = new TLDriverSlave(c.clock, pusher.out, slaveFn, TLMemoryModel.State.empty())
-      val protocolChecker = new TLProtocolChecker(pusher.out.params, pusher.sPortParams.slaves.head, pusher.mPortParams.masters.head)
+      val protocolChecker = new TLProtocolChecker(pusher.mPortParams, pusher.sPortParams)
       val monitor = new TLMonitor(c.clock, pusher.out, Some(protocolChecker))
 
       c.clock.step(100)
@@ -40,7 +40,7 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       implicit val bundleParams: TLBundleParameters = fuzzer.out.params
       val slaveFn = new TLMemoryModel(bundleParams)
       val slaveModel = new TLDriverSlave(c.clock, fuzzer.out, slaveFn, TLMemoryModel.State.empty())
-      val protocolChecker = new TLProtocolChecker(fuzzer.out.params, fuzzer.sPortParams.slaves.head, fuzzer.mPortParams.masters.head)
+      val protocolChecker = new TLProtocolChecker(fuzzer.mPortParams, fuzzer.sPortParams)
       val monitor = new TLMonitor(c.clock, fuzzer.out, Some(protocolChecker))
 
       c.clock.step(100)
@@ -57,7 +57,7 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       val mDriver = new TLDriverMaster(c.clock, passthrough.in)
       val slaveFn = new TLMemoryModel(bundleParams)
       val sDriver = new TLDriverSlave(c.clock, passthrough.out, slaveFn, TLMemoryModel.State.empty())
-      val protocolChecker = new TLProtocolChecker(passthrough.in.params, passthrough.sPortParams.slaves.head, passthrough.mPortParams.masters.head)
+      val protocolChecker = new TLProtocolChecker(passthrough.mPortParams, passthrough.sPortParams)
       val monitor = new TLMonitor(c.clock, passthrough.in, Some(protocolChecker))
 
       val (stimulus, expected) = (Seq(

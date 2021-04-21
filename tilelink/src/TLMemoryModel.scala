@@ -4,7 +4,7 @@ import scala.math.{ceil, pow}
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleParameters, TLChannel}
 import verif.TLTransaction._
 
-class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel.State] {
+class TLMemoryModel(p: TLBundleParameters, maskReads: Boolean = false) extends TLSlaveFunction[TLMemoryModel.State] {
   implicit val params: TLBundleParameters = p
 
   override def response(tx: TLChannel, state: TLMemoryModel.State) : (Seq[TLChannel], TLMemoryModel.State) = {
@@ -13,14 +13,14 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
     tx match {
       case txA: TLBundleA =>
         val byteAddr = txA.address.litValue()
-        assert(byteAddr % bytesPerWord == 0)
+        // Int-division truncates
         val wordAddr = (byteAddr / bytesPerWord).toLong
         val wordsToProcess = ceil(pow(2, txA.size.litValue().toInt) / bytesPerWord).toInt
 
         txA.opcode.litValue().toInt match {
           case TLOpcodes.Get =>
             val responseTxs = (0 until wordsToProcess).map {
-              wordIdx => TLMemoryModel.read(state.mem, wordAddr + wordIdx, txA.mask.litValue().toInt, bytesPerWord)
+              wordIdx => TLMemoryModel.read(state.mem, wordAddr + wordIdx, bytesPerWord, txA.mask.litValue().toInt, maskReads)
             }.map {
               word => AccessAckData(word, txA.size.litValue().toInt, txA.source.litValue().toInt, denied=false)
             }
@@ -47,12 +47,12 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
                 (Seq(AccessAck(txA.size.litValue().toInt, txA.source.litValue().toInt)), state.copy(mem = newMem, burstStatus = Some(burstStatus)))
               }
             }
-          case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData => // TODO: support logic/arith bursts
+          case TLOpcodes.LogicalData | TLOpcodes.ArithmeticData =>
             val writeMask = txA.mask.litValue().toInt
             // We're currently in a write burst
             if (state.burstStatus.isDefined) {
               val burstStatus = state.burstStatus.get
-              val readData = TLMemoryModel.read(state.mem, burstStatus.baseAddr + burstStatus.currentBeat, txA.mask.litValue().toInt, bytesPerWord)
+              val readData = TLMemoryModel.read(state.mem, burstStatus.baseAddr + burstStatus.currentBeat, bytesPerWord, txA.mask.litValue().toInt, maskReads)
               val writeData = TLMemoryModel.dataToWrite(readData, txA.data.litValue(), txA.opcode.litValue().toInt, txA.param.litValue().toInt)
               val newMem = TLMemoryModel.write(state.mem, burstStatus.baseAddr + burstStatus.currentBeat, writeData, writeMask, bytesPerWord)
               val newBurstStatus = if ((burstStatus.currentBeat + 1) == burstStatus.totalBeats) {
@@ -62,7 +62,7 @@ class TLMemoryModel(p: TLBundleParameters) extends TLSlaveFunction[TLMemoryModel
               }
               (Seq(AccessAckData(readData, txA.size.litValue().toInt, txA.source.litValue().toInt, denied = false)), state.copy(mem = newMem, burstStatus = newBurstStatus))
             } else {
-              val readData = TLMemoryModel.read(state.mem, wordAddr, txA.mask.litValue().toInt, bytesPerWord)
+              val readData = TLMemoryModel.read(state.mem, wordAddr, bytesPerWord, txA.mask.litValue().toInt, maskReads)
               val writeData = TLMemoryModel.dataToWrite(readData, txA.data.litValue(), txA.opcode.litValue().toInt, txA.param.litValue().toInt)
               val newMem = TLMemoryModel.write(state.mem, wordAddr, writeData, writeMask, bytesPerWord)
               if (wordsToProcess == 1) { // Single beat read-modify-write
@@ -124,18 +124,22 @@ object TLMemoryModel {
     mem + (wordAddr -> newValue)
   }
 
-  def read(mem: Map[WordAddr, Array[Byte]], wordAddr: WordAddr, mask: Int, bytesPerWord: Int): BigInt = {
+  def read(mem: Map[WordAddr, Array[Byte]], wordAddr: WordAddr, bytesPerWord: Int, mask: Int, maskEn: Boolean = false): BigInt = {
     // In TileLink, Get requests with a mask only read the active byte lanes and the other lanes can contain any data
     // So it is OK to naively read from the memory and return the full word
-    // However, we choose to zero out the bytes that are low in the mask to potentially uncover issues in other software models
+    // However, we can choose to zero out the bytes that are low in the mask to potentially uncover issues in other software models
     val bytesToRead = maskToBigEndian(mask, bytesPerWord)
     val readBytes = if (mem.contains(wordAddr)) mem(wordAddr) else Array.fill(bytesPerWord)(0.toByte)
     assert(readBytes.length == bytesPerWord)
-    val readBytesMasked = readBytes.zipWithIndex.foldLeft(Seq.empty[Byte]) {
-      case (bytesToReturn, (readByte, idx)) =>
-        bytesToReturn :+ (if (bytesToRead.contains(idx)) readByte else 0.toByte)
+    if (maskEn) {
+      val readBytesMasked = readBytes.zipWithIndex.foldLeft(Seq.empty[Byte]) {
+        case (bytesToReturn, (readByte, idx)) =>
+          bytesToReturn :+ (if (bytesToRead.contains(idx)) readByte else 0.toByte)
+      }
+      BigInt(Array(0.toByte) ++ readBytesMasked)
+    } else {
+      BigInt(Array(0.toByte) ++ readBytes)
     }
-    BigInt(Array(0.toByte) ++ readBytesMasked)
   }
 
   def dataToWrite(readData: BigInt, writeData: BigInt, opcode: Int, param: Int): BigInt = {

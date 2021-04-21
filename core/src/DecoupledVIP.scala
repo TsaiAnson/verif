@@ -26,6 +26,10 @@ class DecoupledTX[T <: Data](gen: T) extends Bundle {
     this.Lit(_.data -> data, _.cycleStamp -> cycleStamp.U)
   }
 
+  def tx(data: T, randomWaitCycles: (Int, Int)): DecoupledTX[T] = {
+    this.Lit(_.data -> data, _.waitCycles -> (scala.util.Random.nextInt(randomWaitCycles._2) + randomWaitCycles._1).U)
+  }
+
   override def cloneType: this.type = (new DecoupledTX(gen)).asInstanceOf[this.type]
 }
 
@@ -89,7 +93,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
 }
 
 // TODO: have this return a stream of seen transactions
-class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int) {
+class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], waitCycles: Int = 0, randomWaitCycles: (Int, Int) = (0,0)) {
   assert(DataMirror.directionOf(interface.valid) == Direction.Output, "DecoupledDriverSlave is connected to a slave port, not a master")
   fork.withRegion(TestdriverMain) {
     var cycleCount = 0
@@ -103,7 +107,11 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
       }
       interface.ready.poke(true.B)
       if (interface.valid.peek().litToBoolean) {
-        idleCyclesD = waitCycles
+        if (randomWaitCycles != (0,0)) {
+          idleCyclesD = scala.util.Random.nextInt(randomWaitCycles._2) + randomWaitCycles._1
+        } else {
+          idleCyclesD = waitCycles
+        }
       }
       cycleCount += 1
       clock.step()

@@ -10,7 +10,8 @@ import scala.collection.immutable
 import TLTransaction._
 
 // Checks the protocol compliance of transactions exchanged on a *single* connection
-class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, mparam: TLMasterParameters) {
+class TLProtocolChecker(mparam: TLMasterPortParameters, sparam: TLSlavePortParameters)  {
+  val params = TLBundleParameters(mparam, sparam)
 
   // Internal state mapping source -> state
   // States: 0 (Idle), 1 (pending AccessAck), 2 (pending HintAck), 3 (pending Grant), 4 (pending GrantAck), 5 (pending ReleaseAck),
@@ -28,7 +29,8 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
   // Internal state for burst response counting (source -> -X where X is # of remaining beats)
   val sourceBurstRemainResp = new mutable.HashMap[Int,Int]()
 
-  val beatSize = log2Ceil(params.dataBits / 8)
+  val beatBytes = params.dataBits / 8
+  val beatSize = log2Ceil(beatBytes)
 
   // Protocol compliance checker
   def check(txns: Seq[TLChannel]) : Unit = {
@@ -38,16 +40,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           if (txna.opcode.litValue() == TLOpcodes.PutFullData) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsPutFull != TransferSizes.none, "(A) Channel does not support PUTFULL requests.")
+            assert(sparam.allSupportPutFull != TransferSizes.none, "(A) Channel does not support PUTFULL requests.")
             assert(txna.param.litValue() == 0, "(A) Non-zero param field for PUTFULL TLBundle")
-            assert(containsLg(sparam.supportsPutFull, txna.size), "(A) PUTFULL Size is outside of valid transfer sizes")
+            assert(containsLg(sparam.allSupportPutFull, txna.size), "(A) PUTFULL Size is outside of valid transfer sizes")
             assert(alignedLg(txna.address, txna.size), s"(A) PUTFULL Address (${txna.address}) is NOT aligned with size (${txna.size})")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) PUTFULL Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) PUTFULL (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) PUTFULL MASK is not contiguous")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) PUTFULL Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt PUTFULL TLBundle")
 
             // Burst helper function
@@ -56,11 +53,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txna.opcode.litValue() == TLOpcodes.PutPartialData) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsPutPartial != TransferSizes.none, "(A) Channel does not support PUTPARTIAL requests.")
+            assert(sparam.allSupportPutPartial != TransferSizes.none, "(A) Channel does not support PUTPARTIAL requests.")
             assert(txna.param.litValue() == 0, "(A) Non-zero param field for PUTPARTIAL TLBundle")
-            assert(containsLg(sparam.supportsPutPartial, txna.size), "(A) PUTPARTIAL Size is outside of valid transfer sizes")
+            assert(containsLg(sparam.allSupportPutPartial, txna.size), "(A) PUTPARTIAL Size is outside of valid transfer sizes")
             assert(alignedLg(txna.address, txna.size), s"(A) PUTPARTIAL Address (${txna.address}) is NOT aligned with size (${txna.size})")
-            // TODO Check that high bits are aligned
+            assert(maskWithinSize(txna.mask, txna.size, beatBytes), s"(A) PUTPARTIAL Mask (${txna.mask}) contains active lanes greater than size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt PUTPARTIAL TLBundle")
 
             // Burst helper function
@@ -69,16 +66,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txna.opcode.litValue() == TLOpcodes.ArithmeticData) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsArithmetic != TransferSizes.none, "(A) Channel does not support ARITHMETIC requests.")
+            assert(sparam.allSupportArithmetic != TransferSizes.none, "(A) Channel does not support ARITHMETIC requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 4, s"(A) Non-valid PARAM (${txna.param}) for ARITHMETIC Data Bundle")
-            assert(containsLg(sparam.supportsArithmetic, txna.size), "(A) ARITHMETIC Size is outside of valid transfer sizes")
+            assert(containsLg(sparam.allSupportArithmetic, txna.size), "(A) ARITHMETIC Size is outside of valid transfer sizes")
             assert(alignedLg(txna.address, txna.size), s"(A) ARITHMETIC Address (${txna.address}) is NOT aligned with size (${txna.size})")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) ARITHMETIC Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) ARITHMETIC (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) ARITHMETIC MASK is not contiguous")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) ARITHMETIC Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt ARITHMETIC TLBundle")
 
             // Burst helper function
@@ -87,16 +79,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txna.opcode.litValue() == TLOpcodes.LogicalData) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
+            assert(sparam.allSupportLogical != TransferSizes.none, "(A) Channel does not support LOGIC requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 3, s"(A) Non-valid PARAM (${txna.param}) for LOGIC Data Bundle")
-            assert(containsLg(sparam.supportsLogical, txna.size), "(A) LOGIC Size is outside of valid transfer sizes")
+            assert(containsLg(sparam.allSupportLogical, txna.size), "(A) LOGIC Size is outside of valid transfer sizes")
             assert(alignedLg(txna.address, txna.size), s"(A) LOGIC Address (${txna.address}) is NOT aligned with size (${txna.size})")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) LOGIC Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) LOGIC (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) LOGICAL MASK is not contiguous")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) LOGIC Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt LOGICAL TLBundle")
 
             // Burst helper function
@@ -105,15 +92,10 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txna.opcode.litValue() == TLOpcodes.Get) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsGet != TransferSizes.none, "(A) Channel does not support GET requests.")
+            assert(sparam.allSupportGet != TransferSizes.none, "(A) Channel does not support GET requests.")
             assert(txna.param.litValue() == 0, "(A) Non-zero param field for GET TLBundle")
-            assert(containsLg(sparam.supportsGet, txna.size), "(A) GET Size is outside of valid transfer sizes")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) GET Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) GET (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) GET MASK is not contiguous")
+            assert(containsLg(sparam.allSupportGet, txna.size), "(A) GET Size is outside of valid transfer sizes")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) GET Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt GET TLBundle")
 
             // Update state
@@ -121,14 +103,10 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
 
           } else if (txna.opcode.litValue() == TLOpcodes.Hint) {
 
-            assert(sparam.supportsHint != TransferSizes.none, "(A) Channel does not support INTENT requests.")
+            assert(sparam.allSupportHint != TransferSizes.none, "(A) Channel does not support INTENT requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 1, s"(A) Non-valid PARAM (${txna.param}) for INTENT Data Bundle")
-            assert(containsLg(sparam.supportsHint, txna.size), "(A) INTENT Size is outside of valid transfer sizes")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) INTENT Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) INTENT (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
+            assert(containsLg(sparam.allSupportHint, txna.size), "(A) INTENT Size is outside of valid transfer sizes")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) INTENT Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt INTENT TLBundle")
 
             // Update state
@@ -136,16 +114,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
 
           } else if (txna.opcode.litValue() == TLOpcodes.AcquireBlock) {
 
-            assert(sparam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
-            assert(sparam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
+            assert(sparam.allSupportAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
+            assert(sparam.allSupportAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 3, s"(A) Non-valid PARAM (${txna.param}) for ACQUIREBLOCK Bundle")
-            assert(containsLg(sparam.supportsAcquireT, txna.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) ACQUIREBLOCK Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) ACQUIREBLOCK (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) ACQUIREBLOCK MASK is not contiguous")
+            assert(containsLg(sparam.allSupportAcquireT, txna.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) ACQUIREBLOCK Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt ACQUIREBLOCK TLBundle")
 
             // Update state
@@ -153,16 +126,11 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
 
           } else if (txna.opcode.litValue() == TLOpcodes.AcquirePerm) {
 
-            assert(sparam.supportsAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
-            assert(sparam.supportsAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
+            assert(sparam.allSupportAcquireB != TransferSizes.none, "(A) Channel does not support AcquireB requests.")
+            assert(sparam.allSupportAcquireT != TransferSizes.none, "(A) Channel does not support AcquireT requests.")
             assert(txna.param.litValue() >= 0 && txna.param.litValue() <= 3, s"(A) Non-valid PARAM (${txna.param}) for ACQUIREPERM Bundle")
-            assert(containsLg(sparam.supportsAcquireT, txna.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
-            if (txna.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txna.mask, txna.size), s"(A) ACQUIREPERM Mask (${txna.mask}) is not aligned with size (${txna.size})")
-            } else {
-              assert(alignedMaskLg(txna.mask, beatSize.U), s"(A) ACQUIREPERM (Burst) Mask (${txna.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txna.mask), "(A) LOGICAL MASK is not contiguous")
+            assert(containsLg(sparam.allSupportAcquireT, txna.size), "(A) ACQUIRE Size is outside of valid transfer sizes")
+            assert(contiguousMask(txna.mask, txna.size, beatBytes), s"(A) ACQUIREPERM Mask (${txna.mask}) is not aligned with size (${txna.size})")
             assert(!txna.corrupt.litToBoolean, "(A) Corrupt ACQUIREPERM TLBundle")
 
             // Update state
@@ -177,13 +145,9 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           if (txnb.opcode.litValue() == TLOpcodes.ProbeBlock) {
 
             // Assertions checking on first TLBundle
-            assert(mparam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
+            assert(mparam.allSupportProbe != TransferSizes.none, "(B) Channel does not support PROBEBLOCK requests.")
             assert(txnb.param.litValue() >= 0 && txnb.param.litValue() < 3, s"(B) Non-valid PARAM (${txnb.param}) for PROBEBLOCK Bundle")
-            if (txnb.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txnb.mask, txnb.size), s"(B) PROBEBLOCK Mask (${txnb.mask}) is not aligned with size (${txnb.size})")
-            } else {
-              assert(alignedMaskLg(txnb.mask, beatSize.U), s"(B) PROBEBLOCK (Burst) Mask (${txnb.mask}) is not aligned with beat size ($beatSize)")
-            }
+            assert(contiguousMask(txnb.mask, txnb.size, beatBytes), s"(B) PROBEBLOCK Mask (${txnb.mask}) is not aligned with size (${txnb.size})")
             assert(contiguous(txnb.mask), "(B) PROBEBLOCK MASK is not contiguous")
             assert(!txnb.corrupt.litToBoolean, "(B) Corrupt PROBEBLOCK TLBundle")
 
@@ -193,14 +157,9 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txnb.opcode.litValue() == TLOpcodes.ProbePerm) {
 
             // Assertions checking on first TLBundle
-            assert(mparam.supports.probe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
+            assert(mparam.allSupportProbe != TransferSizes.none, "(B) Channel does not support PROBEPERM requests.")
             assert(txnb.param.litValue() >= 0 && txnb.param.litValue() < 3, s"(B) Non-valid PARAM (${txnb.param}) for PROBEPERM Bundle")
-            if (txnb.size.litValue() < beatSize) {
-              assert(alignedMaskLg(txnb.mask, txnb.size), s"(B) PROBEPERM Mask (${txnb.mask}) is not aligned with size (${txnb.size})")
-            } else {
-              assert(alignedMaskLg(txnb.mask, beatSize.U), s"(B) PROBEPERM (Burst) Mask (${txnb.mask}) is not aligned with beat size ($beatSize)")
-            }
-            assert(contiguous(txnb.mask), "(B) PROBEPERM MASK is not contiguous")
+            assert(contiguousMask(txnb.mask, txnb.size, beatBytes), s"(B) PROBEPERM Mask (${txnb.mask}) is not aligned with size (${txnb.size})")
             assert(!txnb.corrupt.litToBoolean, "(B) Corrupt PROBEPERM TLBundle")
 
             // Update state
@@ -215,7 +174,7 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           if (txnc.opcode.litValue() == TLOpcodes.ProbeAck) {
 
             // Assertions checking on first TLBundle
-            assert(mparam.supports.probe != TransferSizes.none, "(C) Channel does not support PROBEACK requests.")
+            assert(mparam.allSupportProbe != TransferSizes.none, "(C) Channel does not support PROBEACK requests.")
             assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(C) Non-valid PARAM (${txnc.param}) for PROBEACK Bundle")
             assert(alignedLg(txnc.address, txnc.size), s"(C) PROBEACK Address (${txnc.address}) is NOT aligned with size (${txnc.size})")
 
@@ -225,7 +184,7 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txnc.opcode.litValue() == TLOpcodes.ProbeAckData) {
 
             // Assertions checking on first TLBundle
-            assert(mparam.supports.probe != TransferSizes.none, "(C) Channel does not support PROBEACKDATA requests.")
+            assert(mparam.allSupportProbe != TransferSizes.none, "(C) Channel does not support PROBEACKDATA requests.")
             assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(C) Non-valid PARAM (${txnc.param}) for PROBEACKDATA Bundle")
             assert(alignedLg(txnc.address, txnc.size), s"(C) PROBEACKDATA Address (${txnc.address}) is NOT aligned with size (${txnc.size})")
 
@@ -234,7 +193,7 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
 
           } else if (txnc.opcode.litValue() == TLOpcodes.Release) {
 
-            assert(sparam.supportsAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
+            assert(sparam.allSupportAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
             assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(B) Non-valid PARAM (${txnc.param}) for RELEASE Bundle")
             assert(!txnc.corrupt.litToBoolean, "(C) Corrupt RELEASE TLBundle")
 
@@ -244,7 +203,7 @@ class TLProtocolChecker(params: TLBundleParameters, sparam: TLSlaveParameters, m
           } else if (txnc.opcode.litValue() == TLOpcodes.ReleaseData) {
 
             // Assertions checking on first TLBundle
-            assert(sparam.supportsAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
+            assert(sparam.allSupportAcquireB != TransferSizes.none, "(C) Channel does not support AcquireB, and thus RELEASE, requests.")
             assert(txnc.param.litValue() >= 0 && txnc.param.litValue() < 6, s"(C) Non-valid PARAM (${txnc.param}) for RELEASEDATA Bundle")
             assert(alignedLg(txnc.address, txnc.size), s"(C) RELEASEDATA Address (${txnc.address}) is NOT aligned with size (${txnc.size})")
 

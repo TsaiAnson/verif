@@ -83,8 +83,7 @@ object VerifProtoBufUtils {
 
     // Extract fields from the protobuf
     val protoArgs = collection.mutable.Map[String, Any]()
-    proto.getAllFields.foreach(kv => {
-      val (field, value) = kv
+    proto.getAllFields.foreach { case (field, value) =>
       val fieldName = field.getName
       field.getType match {
         case MESSAGE =>
@@ -98,19 +97,19 @@ object VerifProtoBufUtils {
         case BOOL => protoArgs += (fieldName -> fromBooleanToLiteral(value.asInstanceOf[Boolean]).asBool)
         case STRING => protoArgs += (fieldName -> fromBigIntToLiteral(BigInt(value.asInstanceOf[String], 16)).asUInt)
       }
-    })
+    }
 
     // Get a zip of argument -> type for our helper function.
     // Fill undeclared values with 0s and set the implicit parameters to p
     val args = getArgsZip(getArgs(helper))
-      .map(tuple => {
-        protoArgs.getOrElse(tuple._1, // Match arguments list to the values from the proto if present, else get a default
-          tuple._2 match {
+      .map { case (arg, typ) =>
+        protoArgs.getOrElse(arg, // Match arguments list to the values from the proto if present, else get a default
+          typ match {
             case t if t =:= typeOf[chisel3.UInt] => 0.U
             case t if t =:= typeOf[chisel3.Bool] => false.B
             case t if t =:= typeOf[freechips.rocketchip.config.Parameters] => p
           })
-      })
+      }
 
     currentMirror
       .reflect(helperClass)
@@ -126,17 +125,17 @@ object VerifProtoBufUtils {
   }
 
   def BundleToJson[B <: Bundle](bundle: B): String = {
-    bundle.elements.map(tuple => {
-      tuple._2 match {
-        case _: Bundle => s""" "${tuple._1}": { ${BundleToJson(tuple._2.asInstanceOf[Bundle])} }"""
-        case _: Bool => s""""${tuple._1}": ${tuple._2.asInstanceOf[Bool].litToBoolean}"""
-        case _: UInt => tuple._2.asInstanceOf[UInt].getWidth match { // Values wider than 64.W are stored as hex strings
-          case x if x > 64 => s""""${tuple._1}": "${String.format(s"%${x / 4}s", tuple._2.litValue.toString(16).toUpperCase).replace(" ", "0")}""""
-          case _ => s""""${tuple._1}": ${tuple._2.litValue}"""
+    bundle.elements.map { case (name, value) =>
+      value match {
+        case _: Bundle => s""" "${name}": { ${BundleToJson(value.asInstanceOf[Bundle])} }"""
+        case _: Bool => s""""${name}": ${value.asInstanceOf[Bool].litToBoolean}"""
+        case _: UInt => value.asInstanceOf[UInt].getWidth match { // Values wider than 64.W are stored as hex strings
+          case x if x > 64 => s""""${name}": "${String.format(s"%${math.ceil(x.toDouble / 4)}s", value.litValue.toString(16).toUpperCase).replace(" ", "0")}""""
+          case _ => s""""${name}": ${value.litValue}"""
         }
-        case _ => s""""${tuple._1}": ${tuple._2.litValue}"""
+        case _ => s""""${name}": ${value.litValue}"""
       }
-    }).mkString(",\n")
+    }.mkString(",\n")
   }
 }
 

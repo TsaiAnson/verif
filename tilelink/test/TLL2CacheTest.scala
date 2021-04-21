@@ -18,9 +18,9 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val DRAMPortParams = TLL2.out.params
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
-      val L1ProtocolChecker = new TLProtocolChecker(L1PortParams, TLL2.sPortParams.head.managers.head, TLL2.mPortParams.head.clients.head)
+      val L1ProtocolChecker = new TLProtocolChecker(TLL2.mPortParams.head, TLL2.sPortParams.head)
       val L1Monitor = new TLMonitor(c.clock, TLL2.in, Some(L1ProtocolChecker))
-      val DRAMProtocolChecker = new TLProtocolChecker(DRAMPortParams, TLL2.sPortParams(1).managers.head, TLL2.mPortParams(1).clients.head)
+      val DRAMProtocolChecker = new TLProtocolChecker(TLL2.mPortParams(1), TLL2.sPortParams(1))
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out, Some(DRAMProtocolChecker))
 
       val slaveFn = new TLMemoryModel(TLL2.out.params)
@@ -53,9 +53,9 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
       val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
-      val L1ProtocolChecker = new TLProtocolChecker(L1PortParams, TLL2.sPortParams.head.managers.head, TLL2.mPortParams.head.clients.head)
+      val L1ProtocolChecker = new TLProtocolChecker(TLL2.mPortParams.head, TLL2.sPortParams.head)
       val L1Monitor = new TLMonitor(c.clock, TLL2.in, Some(L1ProtocolChecker))
-      val DRAMProtocolChecker = new TLProtocolChecker(DRAMPortParams, TLL2.sPortParams(1).managers.head, TLL2.mPortParams(1).clients.head)
+      val DRAMProtocolChecker = new TLProtocolChecker(TLL2.mPortParams(1), TLL2.sPortParams(1))
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out, Some(DRAMProtocolChecker))
 
       val slaveFn = new TLMemoryModel(DRAMPortParams)
@@ -71,7 +71,7 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
-      val gen = new TLTransactionGenerator(TLL2.sPortParams.head.slaves.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(TLL2.sPortParams.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
       val fuzz = new TLCFuzzer(L1PortParams, gen, 3, txns, true)
@@ -104,15 +104,15 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
 
       val L1Placeholder = new TLDriverMaster(c.clock, TLL2.in)
       val FuzzMonitor = new TLMonitor(c.clock, TLL2.in)
-      val L1ProtocolChecker = new TLProtocolChecker(params, TLL2.sPortParams.head.managers.head, TLL2.mPortParams.head.clients.head)
+      val L1ProtocolChecker = new TLProtocolChecker(TLL2.mPortParams.head, TLL2.sPortParams.head)
       val L1Monitor = new TLMonitor(c.clock, TLL2.in, Some(L1ProtocolChecker))
-      val DRAMProtocolChecker = new TLProtocolChecker(TLL2.out.params, TLL2.sPortParams(1).managers.head, TLL2.mPortParams(1).clients.head)
+      val DRAMProtocolChecker = new TLProtocolChecker(TLL2.mPortParams(1), TLL2.sPortParams(1))
       val DRAMMonitor = new TLMonitor(c.clock, TLL2.out, Some(DRAMProtocolChecker))
 
       val slaveFn = new TLMemoryModel(TLL2.out.params)
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
-      val gen = new TLTransactionGenerator(TLL2.sPortParams.head.slaves.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
+      val gen = new TLTransactionGenerator(TLL2.sPortParams.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
         get = false, putPartial = false, putFull = false,
         burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 5)
       val fuzz = new TLCFuzzer(params, gen, 5)

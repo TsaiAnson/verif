@@ -90,6 +90,29 @@ class TLRegBankStandalone(
   }
 }
 
+class TLRAMNoModelStandalone (val mPortParams: TLMasterPortParameters = DefaultTLParams.master(),
+    address: AddressSet = AddressSet(0x0, 0x1ff),
+    beatBytes: Int = 8,
+    cacheable: Boolean = false,
+    atomics: Boolean = true,
+    sramReg: Boolean = false,
+    fragmenterMaxBytes: Int = 32
+  ) (implicit p: Parameters = new WithoutTLMonitors) extends LazyModule {
+  val ram  = LazyModule(new TLRAM(address, cacheable=cacheable, atomics=atomics, beatBytes=beatBytes, sramReg=sramReg))
+  val frag = TLFragmenter(beatBytes, fragmenterMaxBytes)
+  val buffer = TLBuffer(BufferParams.default)
+  ram.node := frag := buffer
+
+  val bridge = BundleBridgeToTL(mPortParams)
+  buffer := bridge
+  val ioInNode = BundleBridgeSource(() => TLBundle(TLBundleParameters(mPortParams, bridge.edges.out.head.slave)))
+  bridge := ioInNode
+  val in = InModuleBody { ioInNode.makeIO() }
+  val sPortParams = bridge.edges.out.head.slave
+
+  lazy val module = new LazyModuleImp(this) {}
+}
+
 class TLRAMStandalone (
   val mPortParams: TLMasterPortParameters = DefaultTLParams.master(),
   address: AddressSet = AddressSet(0x0, 0x1ff),
@@ -110,7 +133,7 @@ class TLRAMStandalone (
   val ioInNode = BundleBridgeSource(() => TLBundle(TLBundleParameters(mPortParams, bridge.edges.out.head.slave)))
   bridge := ioInNode
   val in = InModuleBody { ioInNode.makeIO() }
-  val sParams = bridge.edges.out.head.slave.slaves.head
+  val sPortParams = bridge.edges.out.head.slave
 
   lazy val module = new LazyModuleImp(this) {}
 }
