@@ -153,6 +153,7 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
 
           var tld_buffer = Seq[TLChannel]()
           do {
+            println("looping until complete TL-D response")
             var tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
             while(tld_proto == null) {
                tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)

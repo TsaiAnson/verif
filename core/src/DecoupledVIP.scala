@@ -50,13 +50,13 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
           while (idleCycles > 0) {
             idleCycles -= 1
             cycleCount += 1
-            println("a")
+            println("Decoupled driver master wait cycles step")
             clock.step()
           }
         }
         while (!interface.ready.peek().litToBoolean) {
           cycleCount += 1
-          println("b")
+          println("Decoupled driver master interface not ready step")
           clock.step()
         }
 
@@ -71,7 +71,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
               interface.bits.poke(t.data)
           }
           interface.valid.poke(true.B)
-          println("c")
+          println("Decouple driver master post tx poke step")
           clock.step()
         }
 
@@ -79,7 +79,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
       } else {
         if (idleCycles > 0) idleCycles -= 1
         cycleCount += 1
-        println("d")
+        println("Decoupled driver master idle cycles step")
         clock.step()
       }
     }
@@ -107,7 +107,7 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
       while (idleCyclesD > 0) {
         idleCyclesD -= 1
         cycleCount += 1
-        println("z")
+        println("Decoupled driver slave idle step")
         clock.step()
       }
       interface.ready.poke(true.B)
@@ -119,7 +119,7 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
         }
       }
       cycleCount += 1
-      println("y")
+      println("Decoupled driver slave loop step")
       clock.step()
     }
   }
