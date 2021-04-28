@@ -50,11 +50,13 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
           while (idleCycles > 0) {
             idleCycles -= 1
             cycleCount += 1
+            println("a")
             clock.step()
           }
         }
         while (!interface.ready.peek().litToBoolean) {
           cycleCount += 1
+          println("b")
           clock.step()
         }
 
@@ -69,6 +71,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
               interface.bits.poke(t.data)
           }
           interface.valid.poke(true.B)
+          println("c")
           clock.step()
         }
 
@@ -76,6 +79,7 @@ class DecoupledDriverMaster[T <: Data](clock: Clock, interface: DecoupledIO[T]) 
       } else {
         if (idleCycles > 0) idleCycles -= 1
         cycleCount += 1
+        println("d")
         clock.step()
       }
     }
@@ -103,6 +107,7 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
       while (idleCyclesD > 0) {
         idleCyclesD -= 1
         cycleCount += 1
+        println("z")
         clock.step()
       }
       interface.ready.poke(true.B)
@@ -114,6 +119,7 @@ class DecoupledDriverSlave[T <: Data](clock: Clock, interface: DecoupledIO[T], w
         }
       }
       cycleCount += 1
+      println("y")
       clock.step()
     }
   }
@@ -130,6 +136,7 @@ class DecoupledMonitor[T <: Data](clock: Clock, interface: DecoupledIO[T]) {
         monitoredTransactions += tLit
       }
       cycleCount += 1
+      println("decoupled monitor step")
       clock.step()
     }
   }

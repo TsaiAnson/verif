@@ -8,7 +8,7 @@ import chisel3._
 import chisel3.util._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chiseltest.internal.{VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation}
 import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.tile.{RoCCCommand}
 import java.io.{ByteArrayOutputStream, FileInputStream, FileOutputStream, PrintStream, BufferedReader, InputStreamReader}
@@ -46,7 +46,7 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
   it should "mvin_mvout-baremetal" in {
     val simTarget = "generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/mvin_mvout-baremetal"
 
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation)) { c =>
       val commandPipe = () => new ForkedRoCCCommandPipeDriver("RoCCCommandPipe", c.clock, c.io.cmd)
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
@@ -59,7 +59,7 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
   it should "Run matrix_add-baremetal" in {
     val simTarget = "generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/matrix_add-baremetal"
 
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation)) { c =>
       val commandPipe = () => new ForkedRoCCCommandPipeDriver("RoCCCommandPipe", c.clock, c.io.cmd)
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
@@ -72,7 +72,7 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
   it should "Run matmul-baremetal" in {
     val simTarget = "generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/matmul-baremetal"
 
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation)) { c =>
       val commandPipe = () => new ForkedRoCCCommandPipeDriver("RoCCCommandPipe", c.clock, c.io.cmd)
       val fencePipe = () => new ForkedFencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new ForkedTLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));

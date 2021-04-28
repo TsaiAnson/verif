@@ -85,6 +85,7 @@ class TLDriverSlave[S](clock: Clock, interface: TLBundle, slaveFn: TLSlaveFuncti
             new DecoupledTX(new TLBundleB(params)).tx(t)
         })
       }
+      println("TL driver slave clock step")
       clock.step()
     }
   }

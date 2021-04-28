@@ -28,7 +28,8 @@ class ForkedRoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledI
     }
     
     val in = new FileInputStream(pipe)
-    
+   
+    println("Command pipe first step")
     clock.step()
 
     while (true) {
@@ -38,6 +39,7 @@ class ForkedRoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledI
           driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
         }
       }
+      println("Command pipe loop step")
       clock.step()
     }
   }
@@ -59,6 +61,7 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
 
       val req = new FileInputStream(fenceReqPipe)
       
+      println("Fence first step")
       clock.step()
       while (true) {
         try {
@@ -67,6 +70,7 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
             val resp = new FileOutputStream(fenceRespPipe)
 
             while (io.busy.peek.litToBoolean || monitor.monitoredTransactions.size < r.getNum()) {
+              println("Fence busy step")
               clock.step()
             } // Step clock while busy
 
@@ -77,6 +81,7 @@ class ForkedFencePipeConnector(fenceReqName: String, fenceRespName: String, cloc
         catch {
           case _: IOException => println("IO Exception thrown in Fence Pipe")
         }
+        println("Fence outer loop step")
         clock.step()
       }
 
