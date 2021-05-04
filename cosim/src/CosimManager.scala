@@ -32,7 +32,7 @@ class CosimSimulator(simPath: String, simArgs: Seq[String], simTarget: String) e
   }
 }
 
-class CosimManager(simPath: String, pipes: Seq[() => AbstractForkedCosimPipe], clock: Clock)(implicit cosimTestDetails: CosimTestDetails) {
+class CosimManager(simPath: String, pipes: Seq[() => AbstractCosimPipe], clock: Clock)(implicit cosimTestDetails: CosimTestDetails) {
   def run(simArgs: Seq[String], simTarget: String, correctnessCheck: Any => Boolean): Unit = {
     val path = s"${cosimTestDetails.testPath.get}/cosim_run_dir"
 

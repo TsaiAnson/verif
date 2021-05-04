@@ -22,7 +22,7 @@ import gemmini._
 
 import com.verif._
 
-class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester {
+class CosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester {
   implicit val p: Parameters = VerifTestUtils.getVerifParameters()
 
   val dut = LazyModule(
@@ -43,7 +43,7 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
     }
   }
 
-  it should "mvin_mvout-baremetal" in {
+  it should "Run mvin_mvout-baremetal" in {
     val simTarget = "generators/gemmini/software/gemmini-rocc-tests/build/bareMetalC/mvin_mvout-baremetal"
 
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation)) { c =>
@@ -51,8 +51,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new FencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new TLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
-      runner.run(simArgs, simTarget, x => x == 0)
+      val manager = new CosimManager(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
+      manager.run(simArgs, simTarget, x => x == 0)
     }
   }
 
@@ -64,8 +64,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new FencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new TLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
-      runner.run(simArgs, simTarget, x => x == 0)
+      val manager = new CosimManager(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
+      manager.run(simArgs, simTarget, x => x == 0)
     }
   }
 
@@ -77,8 +77,8 @@ class ForkedCosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestT
       val fencePipe = () => new FencePipeConnector("GemminiFenceReqPipe", "GemminiFenceRespPipe", c.clock, c.io)
       val tlPipe = () => new TLPipeConnector("TLAPipe", "TLDPipe", c.clock, c.tlOut(0));
 
-      val runner = new CosimRunner(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
-      runner.run(simArgs, simTarget, x => x == 0)
+      val manager = new CosimManager(simPath, Seq(commandPipe, fencePipe, tlPipe), c.clock)
+      manager.run(simArgs, simTarget, x => x == 0)
     }
   }
 }
