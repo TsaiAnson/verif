@@ -17,7 +17,7 @@ import java.nio.file.{Files, Paths}
 
 trait AbstractCosimPipe
 
-abstract class DecoupledCosimPipeDriver[T <: Data, D](pipeName: String, clock: Clock)(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
+abstract class DecoupledPipeDriver[T <: Data, D](pipeName: String, clock: Clock)(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
 
   val driver: DecoupledDriverMaster[T]
   val inputStreamToProto: (java.io.InputStream) => D
@@ -47,7 +47,7 @@ abstract class DecoupledCosimPipeDriver[T <: Data, D](pipeName: String, clock: C
   }
 }
 
-class RoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends DecoupledCosimPipeDriver[RoCCCommand, RoCCProtos.RoCCCommand](pipeName, clock) {
+class RoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends DecoupledPipeDriver[RoCCCommand, RoCCProtos.RoCCCommand](pipeName, clock) {
 
   val driver = new DecoupledDriverMaster(clock, io)
   val inputStreamToProto = (in: java.io.InputStream) => RoCCProtos.RoCCCommand.parseDelimitedFrom(in)
