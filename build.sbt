@@ -1,3 +1,5 @@
+import sbt.Keys.libraryDependencies
+
 name := "verif"
 organization := "edu.berkeley.cs"
 version := "0.0.1-SNAPSHOT"
@@ -17,10 +19,13 @@ val buildSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.mavenLocal
   ),
-  scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
+  scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls", "-Ypartial-unification"),
   libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
-  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3",
+  libraryDependencies += "org.typelevel" %% "cats-core" % "2.3.0",
+  libraryDependencies += "org.typelevel" %% "cats-free" % "2.3.0",
+  libraryDependencies += "org.typelevel" %% "cats-effect" % "2.3.0"
 )
 
 lazy val core = (project in file("./core"))
