@@ -1,5 +1,7 @@
 #!/bin/bash
 
+base_dir="$(pwd)"
+
 chipyard_dir="$base_dir/../../.."
 spike_dir="$chipyard_dir/toolchains/esp-tools/riscv-isa-sim/"
 gemmini_extension_dir="$spike_dir/gemmini"
@@ -23,9 +25,9 @@ do
 done
 
 
-#echo "Building Spike"
-#cd $spike_dir
-#mkdir build
-#cd build
-#../configure --prefix=$RISCV
-#make && make install
+echo "Building Spike"
+cd $spike_dir
+mkdir build
+cd build
+../configure --prefix=$RISCV
+make && make install

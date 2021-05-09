@@ -36,4 +36,4 @@ fi
 
 export PATH=$install_dir/bin:$PATH
 export LD_LIBRARY_PATH=$install_dir/lib:$LD_LIBRARY_PATH
-
+export CPLUS_INCLUDE_PATH=$install_dir/include:$CPLUS_INCLUDE_PATH
