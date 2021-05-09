@@ -21,10 +21,14 @@ fi
 proto_major=$(echo $proto_version | cut -f1 -d.)
 proto_minor=$(echo $proto_version | cut -f2 -d.)
 
-if [[ $proto_major -ge 3 && $proto_minor -ge 3 ]];
+if [[ $proto_major -ge 3 && $proto_minor -ge 3 ]]
 then
   echo "Installed protoc meets requirements"
   PROTOC=protoc
+elif [[ -e $install_dir/bin/protoc ]]
+then
+  echo "Local install of protoc found"
+  PROTOC=$install_dir/bin/protoc
 else
   echo "Installed protoc does not meet requirements"
   echo "Installing protoc 3.3.0 locally"
@@ -41,12 +45,12 @@ else
   PROTOC=$install_dir/bin/protoc
 fi
 
-#echo "Building protocol buffer files"
-#for proto in $(ls $proto_dir)
-#do
-#  $PROTOC --java_out=$java_dir --proto_path=$proto_dir $proto_dir/$proto
-#  $PROTOC --cpp_out=$cpp_dir --proto_path=$proto_dir $proto_dir/$proto
-#done
+echo "Building protocol buffer files"
+for proto in $(ls $proto_dir)
+do
+  $PROTOC --java_out=$java_dir --proto_path=$proto_dir $proto_dir/$proto
+  $PROTOC --cpp_out=$cpp_dir --proto_path=$proto_dir $proto_dir/$proto
+done
 
 #echo "Copying generated files to their proper locations"
 #for f in $(ls $cpp_dir)
