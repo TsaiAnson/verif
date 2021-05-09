@@ -30,11 +30,10 @@ else
   echo "Installing protoc 3.3.0 locally"
   mkdir -p $install_dir
   cd $install_dir
-  git clone https://github.com/protocolbuffers/protobuf.git
-  cd protobuf
-  git checkout v3.3.0
-  git submodule update --init --recursive
-  ./autogen.sh
+  wget https://github.com/protocolbuffers/protobuf/releases/download/v3.3.0/protobuf-java-3.3.0.zip
+  unzip protobuf-java-3.3.0.zip
+  rm protobuf-java-3.3.0.zip
+  cd protobuf-3.3.0
   ./configure --prefix=$install_dir
   make
   make check
@@ -42,22 +41,22 @@ else
   PROTOC=$install_dir/bin/protoc
 fi
 
-echo "Building protocol buffer files"
-for proto in $(ls $proto_dir)
-do
-  $PROTOC --java_out=$java_dir --proto_path=$proto_dir $proto_dir/$proto
-  $PROTOC --cpp_out=$cpp_dir --proto_path=$proto_dir $proto_dir/$proto
-done
+#echo "Building protocol buffer files"
+#for proto in $(ls $proto_dir)
+#do
+#  $PROTOC --java_out=$java_dir --proto_path=$proto_dir $proto_dir/$proto
+#  $PROTOC --cpp_out=$cpp_dir --proto_path=$proto_dir $proto_dir/$proto
+#done
 
-echo "Copying generated files to their proper locations"
-for f in $(ls $cpp_dir)
-do
-  cp $cpp_dir/$f $gemmini_extension_dir/
-done
+#echo "Copying generated files to their proper locations"
+#for f in $(ls $cpp_dir)
+#do
+#  cp $cpp_dir/$f $gemmini_extension_dir/
+#done
 
-echo "Building Spike"
-cd $spike_dir
-mkdir build
-cd build
-../configure --prefix=$RISCV
-/make && make install
+#echo "Building Spike"
+#cd $spike_dir
+#mkdir build
+#cd build
+#../configure --prefix=$RISCV
+#make && make install
