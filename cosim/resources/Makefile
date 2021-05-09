@@ -1,5 +1,5 @@
 ifeq ($(shell which protoc),)
-$(error Did not find protoc in PATH. Make sure all requirements are installed)
+	$(error Did not find protoc in PATH. Make sure all requirements are installed)
 endif
 
 base_dir=$(abspath .)
