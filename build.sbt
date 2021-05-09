@@ -18,7 +18,7 @@ val buildSettings = Seq(
     Resolver.mavenLocal
   ),
   scalacOptions := Seq("-deprecation", "-unchecked", "-Xsource:2.11", "-language:reflectiveCalls"),
-  //libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
+  libraryDependencies += "edu.berkeley.cs" %% "chiseltest" % "0.3.1",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.+" % "test",
   libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.3"
 )
