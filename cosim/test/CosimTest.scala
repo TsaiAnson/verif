@@ -39,6 +39,7 @@ class CosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester 
 
   it should "elaborate for parameters" in {
     test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
+      VerifCosimTestUtils.runCommand(s"{cosimTestDetails.sbtRoot.get}/generators/gemmini/software/gemmini-rocc-tests/build.sh")
       assert(true)
     }
   }
