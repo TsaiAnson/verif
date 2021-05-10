@@ -13,26 +13,8 @@ import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import org.scalatest._
 import org.scalatest.TestSuite
 
-
-class ImplicitDetailsPasser(implicit val cosimTestDetails: CosimTestDetails) {
-  def print(): Unit = {
-    println(cosimTestDetails.testName.getOrElse("No name found"))
-    println(cosimTestDetails.sbtRoot.getOrElse("No sbt root root found"))
-  }
-}
-
-class ArgsPassingTest extends AnyFlatSpec with CosimTester with BeforeAndAfterAllConfigMap with ChiselScalatestTester {
-  var foo = ""
-
-  override def beforeAll(configMap: ConfigMap) = {
-    if (configMap.get("foo").isDefined) {
-      foo = configMap.get("foo").fold("")(_.toString)
-    }
-  }
-
-  it should "Get this test name" in {
-    val i = new ImplicitDetailsPasser
-    i.print
-    println(foo)
+class ArgsPassingTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester {
+  it should "Get the simTarget argument" in {
+    println(simTarget)
   }
 }
