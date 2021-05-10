@@ -32,8 +32,16 @@ class CosimTestDetails {
   def testPath: Option[String] = if (sbtRoot.nonEmpty && testName.nonEmpty) Some(sbtRoot.get + "/test_run_dir/" + sanitizeFileName(testName.get)) else None
 }
 
-trait CosimTester extends TestSuiteMixin { this: TestSuite =>
+trait CosimTester extends TestSuiteMixin with BeforeAndAfterAllConfigMap { this: TestSuite =>
+  var simTarget = ""
+
   implicit val cosimTestDetails = new CosimTestDetails
+
+  override def beforeAll(configMap: ConfigMap) = {
+    if (configMap.get("simTarget").isDefined) {
+      simTarget = configMap.get("simTarget").fold("")(_.toString)
+    }
+  }
 
   abstract override def withFixture(test: NoArgTest): Outcome = {
     cosimTestDetails.sbtRoot = Some(s"${File(".").toAbsolute}")
