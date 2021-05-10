@@ -64,9 +64,10 @@ Add the following snippet to the end of `chipyard/build.sbt`:
 ```sbt
 val directoryLayout = Seq(
   scalaSource in Compile := baseDirectory.value / "src",
-  javaSource in Compile := baseDirectory.value / "src",
+  javaSource in Compile := baseDirectory.value / "resources",
   resourceDirectory in Compile := baseDirectory.value / "resources",
   scalaSource in Test := baseDirectory.value / "test",
+  javaSource in Test := baseDirectory.value / "resources",
   resourceDirectory in Test := baseDirectory.value / "resources",
 )
 
@@ -85,23 +86,25 @@ val verifSettings = Seq(
 lazy val verifCore = (project in file("./tools/verif/core"))
   .settings(directoryLayout)
   .sourceDependency(chiselRef, chiselLib)
+  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, chiseltest)
+  .settings(libraryDependencies ++= chiselTestersLibDeps.value)
   .settings(commonSettings)
   .settings(verifSettings)
 
 lazy val verifTL = (project in file("./tools/verif/tilelink"))
   .settings(directoryLayout)
   .sourceDependency(chiselRef, chiselLib)
-  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, verifCore)
+  .dependsOn(verifCore)
   .settings(commonSettings)
   .settings(verifSettings)
 
-lazy val verifGemmini = (project in file("./tools/verif/cosim"))
+lazy val verifCosim = (project in file("./tools/verif/cosim"))
   .settings(directoryLayout)
   .sourceDependency(chiselRef, chiselLib)
-  .dependsOn(rocketchip, chipyard, dsptools, `rocket-dsptools`, gemmini, verifCore)
+  .dependsOn(verifCore, verifTL, chipyard)
   .settings(commonSettings)
   .settings(verifSettings)
-  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.11.0")
+  .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.14.0")
   .settings(libraryDependencies += "com.google.protobuf" % "protobuf-java-util" % "3.14.0")
 ```
 
@@ -123,21 +126,21 @@ sbt:verifTL> testOnly verif.TLL2CacheTest
 │   ├── src/
 │   │   ├── smt/        (For constrained random)
 │   │   ├── maltese/
-│   │   └── *.scala     (Source Files)
+│   │   └── *.scala     (source files)
 │   └── test/
-│       ├── designs/    (Various Hardware/Software designs for Verif functionality)
-│       └── *Test.scala (Test Files)
-├── cosim/              [verifGemmini]
+│       ├── designs/    (Various hardware/software designs for verif functionality)
+│       └── *Test.scala (Test files)
+├── cosim/              [verifCosim]
 │   ├── src/
-│   │   ├── resources/
-│   │   └── *.scala     (Source Files)
+│   │   ├── resources/  (Protobufs and other emitted files
+│   │   └── *.scala     (Source files)
 │   └── test/
-│       └── *Test.scala (Test Files)
+│       └── *Test.scala (Test files)
 └── tilelink/           [verifTL]
     ├── src/
-    │   └── *.scala     (Source Files)
+    │   └── *.scala     (Source files)
     └── test/
-        └── *Test.scala (Test Files)
+        └── *Test.scala (Test files)
 ```
 
 ## Compiling/Running Tests
@@ -402,5 +405,11 @@ For more example code using the `.rand()` method, please view `src/test/scala/No
 ---
 Note that this method is called the "naive" random, as its approach to satisfying constraints is to keep generating random numbers until it finds one that is acceptable. While this is okay for basic sanity checks, it is by no means suitable for complex constrained randoms. The following section regarding SMT sampling will remedy this issue.
 
+## Co-Simulation
+The verifCosim subproject contains resources to enable co-simulation within Chipyard. This allows for rapid design space
+exploration by pairing an RTL simulation of an accelerator with a faster functional model of a Rocket core.
+
+Instruction for how to run co-simulation and additional information can be found in the 
+[co-simulation README](cosim/README.md).
 ## Coverage
 (TODO)
