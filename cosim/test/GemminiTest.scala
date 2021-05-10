@@ -6,7 +6,6 @@ import chisel3.util._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, TreadleBackendAnnotation, WriteVcdAnnotation}
 import cosim._
-import designs._
 import firrtl.AnnotationSeq
 import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule}

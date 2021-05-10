@@ -2,23 +2,20 @@ package verif
 
 import org.scalatest.flatspec.AnyFlatSpec
 
-import designs._
-import cosim._
 import chisel3._
+import chisel3.stage.ChiselStage
 import chisel3.util._
 import chiseltest._
 import chiseltest.experimental.TestOptionBuilder._
 import chiseltest.internal.{VerilatorBackendAnnotation, CachingAnnotation, WriteVcdAnnotation}
+import cosim._
 import freechips.rocketchip.config.{Parameters}
-import freechips.rocketchip.tile.{RoCCCommand}
-import java.io.{ByteArrayOutputStream, FileInputStream, FileOutputStream, PrintStream, BufferedReader, InputStreamReader}
-import java.util.stream.Collectors
-import org.scalatest.matchers._
-import scala.sys.process._
-import scala.reflect.io.File
 import freechips.rocketchip.diplomacy.{LazyModule}
-import freechips.rocketchip.tile.{RoCCCommand, OpcodeSet}
+import freechips.rocketchip.tile.{RoCCCommand}
 import gemmini._
+import java.io.File
+import scala.collection.JavaConverters._
+import scala.sys.process._
 
 import com.verif._
 
@@ -37,11 +34,9 @@ class CosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester 
   val simPath = "spike"
   val simArgs = Seq("--extension=gemmini")
 
-  it should "elaborate for parameters" in {
-    test(dut.module).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { c =>
-      VerifCosimTestUtils.runCommand(s"{cosimTestDetails.sbtRoot.get}/generators/gemmini/software/gemmini-rocc-tests/build.sh")
-      assert(true)
-    }
+  it should "Elaborate for parameters and build gemmini-rocc-tests" in {
+    ChiselStage.elaborate(dut.module)
+    assert(Process("./build.sh", new File(s"${cosimTestDetails.sbtRoot.get}/generators/gemmini/software/gemmini-rocc-tests/"), System.getenv().asScala.toSeq:_*).! == 0)
   }
 
   it should "Run mvin_mvout-baremetal" in {
