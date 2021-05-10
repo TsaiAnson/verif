@@ -27,7 +27,12 @@ done
 
 echo "Building Spike"
 cd $spike_dir
+rm -rf build
 mkdir build
 cd build
 ../configure --prefix=$RISCV
+if [[ -n $COSIM_PROTOBUF_LOCAL ]]
+then
+  sed -i "s+-lprotobuf+-L$base_dir/install/lib -lprotobuf+" Makefile
+fi
 make && make install

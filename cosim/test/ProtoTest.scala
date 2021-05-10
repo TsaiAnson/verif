@@ -1,8 +1,5 @@
-package verif
+package cosim
 
-import org.scalatest.flatspec.AnyFlatSpec
-
-import designs._
 import chisel3._
 import chisel3.util._
 import chiseltest._
@@ -12,6 +9,8 @@ import freechips.rocketchip.config.{Parameters}
 import freechips.rocketchip.tile.{RoCCCommand}
 import freechips.rocketchip.tilelink.{TLBundleA}
 import freechips.rocketchip.diplomacy.{TransferSizes}
+import org.scalatest.flatspec.AnyFlatSpec
+import verif._
 
 import com.verif._
 

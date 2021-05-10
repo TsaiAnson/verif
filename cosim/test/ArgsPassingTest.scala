@@ -1,9 +1,7 @@
-package verif
+package cosim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
-import designs._
-import cosim._
 import chisel3._
 import chisel3.util._
 import chiseltest._

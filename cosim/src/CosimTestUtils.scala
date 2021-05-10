@@ -2,7 +2,7 @@
 // Copyright (c) 2018 - 2019, The Regents of the University of California (Regents).
 // All Rights Reserved. See LICENSE and LICENSE.SiFive for license details.
 //------------------------------------------------------------------------------
-package verif
+package cosim
 
 import chisel3._
 import chisel3.experimental.BundleLiterals._
@@ -19,6 +19,7 @@ import org.scalatest._
 import org.scalatest.TestSuite
 import reflect.runtime._
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.io.File
 import scala.sys.process._
@@ -284,14 +285,7 @@ object VerifTestUtils {
 }
 
 object VerifCosimTestUtils {
-  def runCommand(cmd: Seq[String]): (Int, String, String) = {
-    val stdoutStream = new ByteArrayOutputStream
-    val stderrStream = new ByteArrayOutputStream
-    val stdoutWriter = new PrintWriter(stdoutStream)
-    val stderrWriter = new PrintWriter(stderrStream)
-    val exitValue = cmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
-    stdoutWriter.close()
-    stderrWriter.close()
-    (exitValue, stdoutStream.toString, stderrStream.toString)
+  def runCommand(cmd: Seq[String]): Int = {
+    Process(cmd, None, System.getenv().asScala.toSeq:_*).!
   }
 }

@@ -18,7 +18,11 @@ then
   echo "Installed protoc meets requirements"
 elif [[ -e $install_dir/bin/protoc ]]
 then
-  echo "Local install of protoc found"
+  echo "Local install of protoc found"  
+  export COSIM_PROTOBUF_LOCAL=1
+  export PATH=$install_dir/bin:$PATH
+  export LD_LIBRARY_PATH=$install_dir/lib:$LD_LIBRARY_PATH
+  export CPLUS_INCLUDE_PATH=$install_dir/include:$CPLUS_INCLUDE_PATH
 else
   echo "Installed protoc does not meet requirements"
   echo "Installing protoc 3.3.0 locally"
@@ -32,8 +36,8 @@ else
   make
   make check
   make install
+  export COSIM_PROTOBUF_LOCAL=1
+  export PATH=$install_dir/bin:$PATH
+  export LD_LIBRARY_PATH=$install_dir/lib:$LD_LIBRARY_PATH
+  export CPLUS_INCLUDE_PATH=$install_dir/include:$CPLUS_INCLUDE_PATH
 fi
-
-export PATH=$install_dir/bin:$PATH
-export LD_LIBRARY_PATH=$install_dir/lib:$LD_LIBRARY_PATH
-export CPLUS_INCLUDE_PATH=$install_dir/include:$CPLUS_INCLUDE_PATH
