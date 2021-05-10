@@ -29,7 +29,7 @@ class CosimTest extends AnyFlatSpec with CosimTester with ChiselScalatestTester 
     new VerifRoCCStandaloneWrapper(
       /*** SET YOUR CONFIGURATION FOR COSIM HERE ***/
       () => new Gemmini(GemminiConfigs.defaultConfig.copy(use_dedicated_tl_port = true,
-    meshRows = 4, meshColumns = 4, rob_entries = 4)),
+    meshRows = 4, meshColumns = 4, rob_full_entries = 4)),
     beatBytes = 16,
     addSinks = 1
   ))
