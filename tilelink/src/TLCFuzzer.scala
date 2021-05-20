@@ -8,10 +8,9 @@ import chisel3.util.log2Ceil
 
 import scala.collection.mutable.{HashMap, ListBuffer, Queue}
 
-// TL Transaction generator that follows TL-C protocol
-// If directed = true, don't generate transactions
-class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cacheBlockSize: Int, forceTxn: Seq[TLChannel] = Seq(),
-                directed: Boolean = false) {
+// TL Transaction Fuzzer that follows TL-C protocol
+// Note: Currently only supports one acquire and release in-flight at a given time. Can be extended.
+class TLCFuzzer(params: TLBundleParameters, txnGen: Option[TLTransactionGenerator], forceTxn: Seq[TLTransaction] = Seq(), cacheBlockSize: Int) {
   implicit val p = params
 
   // Internal Structures TODO Hardcoded BlockSize
@@ -39,9 +38,12 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
   val acquirePermMap = Map[Int, Int](0 -> 1, 1 -> 2, 2 -> 2)
   val releasePermMap = Map[Int, Int](0 -> 1, 1 -> 0, 2 -> 0, 3 -> 2, 4 -> 1, 5 -> 0)
 
-  def fuzzTxn(input: Seq[TLChannel]): Seq[TLChannel] = {
+  def addTxns(add: Seq[TLChannel]): Unit = {
+    manTxn ++= add
+  }
 
-    val txFromSlave = input.flatMap {
+  def next(resp: Seq[TLChannel]): Seq[TLChannel] = {
+    val txFromSlave = resp.flatMap {
       case _: TLBundleA | _: TLBundleC | _: TLBundleE => None
       case other => Some(other)
     }
@@ -185,9 +187,9 @@ class TLCFuzzer(params: TLBundleParameters, txnGen: TLTransactionGenerator, cach
     }
 
     // Only generate transactions if nothing to send (TODO: change when concurrent)
-    if (queuedTLBundles.isEmpty && !directed) {
+    if (queuedTLBundles.isEmpty && txnGen.isDefined) {
       // Generate next transaction (passing in permissions)
-      queuedTLBundles ++= txnGen.generateTransactions(1, permState)
+      queuedTLBundles ++= txnGen.get.generateTransactions(1, permState)
     }
 
     // Determining next transaction to be pushed

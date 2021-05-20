@@ -71,13 +71,10 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
         // L2 with sets = 2 will evict a block after third Acquire
       )
 
-      val gen = new TLTransactionGenerator(TLL2.sPortParams.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
-        get = false, putPartial = false, putFull = false,
-        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 3)
-      val fuzz = new TLCFuzzer(L1PortParams, gen, 3, txns, true)
+      val fuzz = new TLCFuzzer(L1PortParams, None, txns, 3)
 
       for (_<- 0 until 20) {
-        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
+        val txns = fuzz.next(FuzzMonitor.getMonitoredTransactions().map({_.data}))
         L1Placeholder.push(txns)
         c.clock.step(5)
       }
@@ -112,13 +109,11 @@ class TLL2CacheTest extends AnyFlatSpec with ChiselScalatestTester {
       val slaveFn = new TLMemoryModel(TLL2.out.params)
       val DRAMPlaceholder = new TLDriverSlave(c.clock, TLL2.out, slaveFn, TLMemoryModel.State.empty())
 
-      val gen = new TLTransactionGenerator(TLL2.sPortParams.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)),
-        get = false, putPartial = false, putFull = false,
-        burst = true, arith = false, logic = false, hints = false, acquire = true, tlc = true, cacheBlockSize = 5)
-      val fuzz = new TLCFuzzer(params, gen, 5)
+      val gen = new TLTransactionGenerator(TLL2.sPortParams.head, TLL2.in.params, overrideAddr = Some(AddressSet(0x00, 0x1ff)), get = false, putFull = false, putPartial = false, burst = true, arith = false, logic = false, hints = false, tlc = true, cacheBlockSize = 5, acquire = true)
+      val fuzz = new TLCFuzzer(params, Some(gen), cacheBlockSize = 5)
 
-      for (_ <- 0 until 200) {
-        val txns = fuzz.fuzzTxn(FuzzMonitor.getMonitoredTransactions().map({_.data}))
+      for (_ <- 0 until 500) {
+        val txns = fuzz.next(FuzzMonitor.getMonitoredTransactions().map({_.data}))
         L1Placeholder.push(txns)
         c.clock.step(5)
       }

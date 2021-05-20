@@ -11,21 +11,17 @@ import verif.TLTransaction._
 import verif.TLUtils.RWPermState
 
 // Currently supports TL-UL, TL-UH, TL-C (some restrictions in randomization)
-class TLTransactionGenerator (params: TLSlavePortParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
-                              beatSize : Int = 3,
-                              // TL-UL
-                              get : Boolean = true, putFull : Boolean = true, putPartial : Boolean = true,
-                              // TL-UH
-                              burst : Boolean = false, maxTxnSize: Int = 5, arith : Boolean = false, logic : Boolean = false, hints : Boolean = false,
-                              // TL-C
-                              tlc : Boolean = false, cacheBlockSize : Int = -1, acquire : Boolean = false,
-                              // Randomization
-                              randSeed : Int = 1234567890) {
+class TLTransactionGenerator(
+        params: TLSlavePortParameters, bundleParams: TLBundleParameters, overrideAddr: Option[AddressSet] = None,
+        get: Boolean = true, putFull: Boolean = true, putPartial: Boolean = true,
+        burst: Boolean = false, arith: Boolean = false, logic: Boolean = false, hints: Boolean = false,
+        tlc: Boolean = false, cacheBlockSize: Int = -1, acquire: Boolean = false,
+        randSeed: Int = 1234567890) {
   assert(!tlc || (tlc && cacheBlockSize != 1), "TLTransactionGenerator: Please set CACHEBLOCKSIZE if TLC is enabled")
 
   implicit val p: TLBundleParameters = bundleParams
+  val beatSize = log2Ceil(bundleParams.dataBits/8)
 
-  // Temporary until we have constrained randoms
   val randGen = Random
   randGen.setSeed(randSeed)
 
@@ -43,10 +39,10 @@ class TLTransactionGenerator (params: TLSlavePortParameters, bundleParams: TLBun
   // permState is used to ensure generated TL-C transactions are legal ()
   def generateTransactions(numbTxn : Int, permState: RWPermState = new RWPermState()) : Seq[TLChannel] = {
     // Results
-    var genTxns = ListBuffer[TLChannel]()
+    val genTxns = ListBuffer[TLChannel]()
 
     // Internal state to ensure we don't duplicate releases within one generate (acquire is OK)
-    var releasedAddr = ListBuffer[Int]()
+    val releasedAddr = ListBuffer[Int]()
 
     // TLBundle Params
     var typeTxn = 0
