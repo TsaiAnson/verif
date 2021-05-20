@@ -74,7 +74,7 @@ class TLDriverSlaveTest extends AnyFlatSpec with ChiselScalatestTester {
       ))
 
       val dispMonitor = new TLMonitor(c.clock, passthrough.in)
-      val dispatcher = new TLUDispatcher(passthrough.in.params, None, stimulus)
+      val dispatcher = new TLUFuzzer(passthrough.in.params, None, stimulus)
       for (_ <- 0 until 20) {
         val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
         mDriver.push(txns)

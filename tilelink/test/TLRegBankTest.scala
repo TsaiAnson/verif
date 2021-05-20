@@ -37,7 +37,7 @@ class TLRegBankTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val dispMonitor = new TLMonitor(c.clock, TLRegBankSlave.in)
-      val dispatcher = new TLUDispatcher(TLRegBankSlave.in.params, None, inputTransactions)
+      val dispatcher = new TLUFuzzer(TLRegBankSlave.in.params, None, inputTransactions)
       for (_ <- 0 until 40) {
         val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
         driver.push(txns)

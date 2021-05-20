@@ -16,7 +16,7 @@ class TLRAMTest extends AnyFlatSpec with ChiselScalatestTester {
     val protocolChecker = if (checker) Some(new TLProtocolChecker(dut.mPortParams, dut.sPortParams)) else None
     val monitor = new TLMonitor(clock, dut.in, protocolChecker)
     val stimMonitor = new TLMonitor(clock, dut.in, None)
-    val dispatcher = new TLUDispatcher(dut.in.params, None, stim)
+    val dispatcher = new TLUFuzzer(dut.in.params, None, stim)
 
     for (_ <- 0 until stim.length*10) {
       val seenTxns = stimMonitor.getMonitoredTransactions().map(_.data)

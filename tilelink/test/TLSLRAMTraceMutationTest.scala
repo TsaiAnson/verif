@@ -24,7 +24,7 @@ class TLSLRAMTraceMutationTest extends AnyFlatSpec with ChiselScalatestTester {
     val driver = new TLDriverMaster(clock, dut.in)
     val monitor = new TLMonitor(clock, dut.in)
     val stimMonitor = new TLMonitor(clock, dut.in, None)
-    val dispatcher = new TLUDispatcher(dut.in.params, None, stim)
+    val dispatcher = new TLUFuzzer(dut.in.params, None, stim)
 
     for (_ <- 0 until stim.length*4) {
       val seenTxns = stimMonitor.getMonitoredTransactions().map(_.data)

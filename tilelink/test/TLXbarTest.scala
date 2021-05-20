@@ -30,7 +30,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val dispMonitor = new TLMonitor(c.clock, xbar.in)
-      val dispatcher = new TLUDispatcher(xbar.in.params, None, inputTransactions)
+      val dispatcher = new TLUFuzzer(xbar.in.params, None, inputTransactions)
       for (_ <- 0 until 30) {
         val txns = dispatcher.next(dispMonitor.getMonitoredTransactions().map({_.data}))
         driver.push(txns)
@@ -70,7 +70,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val dutDispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
-      val dutDispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      val dutDispatcher = new TLUFuzzer(TLRAMSlave.in.params, None, inputTransactions)
       for (_ <- 0 until 30) {
         val txns = dutDispatcher.next(dutDispMonitor.getMonitoredTransactions().map({_.data}))
         dutDriver.push(txns)
@@ -78,7 +78,7 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       }
 
       val refDispMonitor = new TLMonitor(c.clock, TLRAMSlave.in)
-      val refDispatcher = new TLUDispatcher(TLRAMSlave.in.params, None, inputTransactions)
+      val refDispatcher = new TLUFuzzer(TLRAMSlave.in.params, None, inputTransactions)
       for (_ <- 0 until 30) {
         val txns = refDispatcher.next(refDispMonitor.getMonitoredTransactions().map({_.data}))
         refDriver.push(txns)
@@ -134,9 +134,9 @@ class TLXbarTest extends AnyFlatSpec with ChiselScalatestTester {
       )
 
       val dispMonitorOne = new TLMonitor(c.clock, TLRAMSlave.inOne)
-      val dispatcherOne = new TLUDispatcher(TLRAMSlave.inOne.params, None, tx1)
+      val dispatcherOne = new TLUFuzzer(TLRAMSlave.inOne.params, None, tx1)
       val dispMonitorTwo = new TLMonitor(c.clock, TLRAMSlave.inTwo)
-      val dispatcherTwo = new TLUDispatcher(TLRAMSlave.inTwo.params, None, tx2)
+      val dispatcherTwo = new TLUFuzzer(TLRAMSlave.inTwo.params, None, tx2)
       for (_ <- 0 until 30) {
         val txns1 = dispatcherOne.next(dispMonitorOne.getMonitoredTransactions().map({_.data}))
         driver1.push(txns1)

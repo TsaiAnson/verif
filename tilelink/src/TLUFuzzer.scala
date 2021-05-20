@@ -7,8 +7,8 @@ import TLTransaction._
 
 import scala.collection.mutable
 
-// TL-U (L/H) Transaction dispatcher that is compliant with TL protocols
-class TLUDispatcher(params: TLBundleParameters, txnGen: Option[TLTransactionGenerator], forceTxn: Seq[TLChannel] = Seq()) {
+// TL-U (L/H) Transaction Fuzzer that is compliant with TL-U protocols
+class TLUFuzzer(params: TLBundleParameters, txnGen: Option[TLTransactionGenerator], forceTxn: Seq[TLChannel] = Seq()) {
   implicit val p = params
 
   // Internal state mapping source -> state. States: 0 (Idle), 1 (pending AccessAck), 2 (pending HintAck)
