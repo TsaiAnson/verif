@@ -15,13 +15,9 @@ import com.verif.TLProtos
 import java.io.{BufferedOutputStream, FileInputStream, FileOutputStream, IOException}
 import java.nio.file.{Files, Paths}
 
-abstract class AbstractCosimPipe extends Runnable {
-  def run: Unit
-  def exit: Unit
-}
+trait AbstractCosimPipe
 
-abstract class DecoupledCosimPipeDriver[T <: Data, D](pipeName: String)(implicit cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
-  @volatile private var terminate = false
+abstract class DecoupledPipeDriver[T <: Data, D](pipeName: String, clock: Clock)(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
 
   val driver: DecoupledDriverMaster[T]
   val inputStreamToProto: (java.io.InputStream) => D
@@ -30,100 +26,72 @@ abstract class DecoupledCosimPipeDriver[T <: Data, D](pipeName: String)(implicit
 
   val pipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${pipeName}"
 
-  override def run: Unit = {
-    // Spin until all needed FIFOs are created
+  fork {
     while (!Files.exists(Paths.get(pipe))) {
       Thread.sleep(250)
     }
 
-//    println("All Pipe Driver files exist")
-
     val in = new FileInputStream(pipe)
 
-//    println("Pipe Driver streams opened")
+    clock.step()
 
-    while(!terminate) {
-      val message = inputStreamToProto(in)
-      if (message != null) {
-        pushIntoDriver(message)
+    while (true) {
+     if (in.available != 0) {
+       val message = inputStreamToProto(in)
+        if (message != null) {
+          pushIntoDriver(message)
+        }
       }
+      clock.step()
     }
-
-    in.close
-  }
-
-  override def exit: Unit = {
-    terminate = true
   }
 }
 
-class RoCCCommandCosimPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends
-  DecoupledCosimPipeDriver[RoCCCommand, RoCCProtos.RoCCCommand](pipeName) {
-    val driver = new DecoupledDriverMaster(clock, io)
+class RoCCCommandPipeDriver(pipeName: String, clock: Clock, io: DecoupledIO[RoCCCommand])(implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends DecoupledPipeDriver[RoCCCommand, RoCCProtos.RoCCCommand](pipeName, clock) {
 
-    val inputStreamToProto = (input: java.io.InputStream) => {
-      com.verif.RoCCProtos.RoCCCommand.parseDelimitedFrom(input)
-    }
+  val driver = new DecoupledDriverMaster(clock, io)
+  val inputStreamToProto = (in: java.io.InputStream) => RoCCProtos.RoCCCommand.parseDelimitedFrom(in)
 
-    def pushIntoDriver(message: RoCCProtos.RoCCCommand): Unit = {
-      driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
-    }
+  override def pushIntoDriver(message: RoCCProtos.RoCCCommand): Unit = {
+    driver.push(new DecoupledTX(new RoCCCommand).tx(VerifProtoBufUtils.ProtoToBundle(message, VerifBundleUtils, new RoCCCommand)))
+  }
 }
 
-class FencePipe(fenceReqName: String, fenceRespName: String, clock: Clock, io: RoCCIO)
+class FencePipeConnector(fenceReqName: String, fenceRespName: String, clock: Clock, io: RoCCIO)
                (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
-    @volatile private var terminate = false
-
     val fenceReqPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceReqName}"
     val fenceRespPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${fenceRespName}"
 
     val monitor = new DecoupledMonitor(clock, io.cmd)
-
-    override def run: Unit = {
-      // Spin until all needed FIFOs are created
+    
+    fork {
       while (!Files.exists(Paths.get(fenceReqPipe)) || !Files.exists(Paths.get(fenceRespPipe))) {
         Thread.sleep(250)
       }
 
-//      println("All fence files exist")
-
       val req = new FileInputStream(fenceReqPipe)
-//      println("Fence req connected")
 
-      var resp_pending = false // Allow for req -> resp thread termination TODO: need to add this back in in some way
-      var r: FenceProtos.FenceReq = null
+      clock.step()
 
-      while(!terminate) {
+      while (true) {
         try {
           val r = FenceProtos.FenceReq.parseDelimitedFrom(req)
           if (r != null && r.getValid()) {
-//            println(s"Recieved fence request: ${r.getNum()}")
-
             val resp = new FileOutputStream(fenceRespPipe)
-//            println("Fence resp connected")
 
             while (io.busy.peek.litToBoolean || monitor.monitoredTransactions.size < r.getNum()) {
-//              println(s"Busy is ${io.busy.peek.litToBoolean} and ${monitor.getMonitoredTransactions.size} seen")
               clock.step()
-            } // step clock while busy
+            } // Step clock while busy
 
-//            println("Sending fence resp")
             FenceProtos.FenceResp.newBuilder().setComplete(true).build().writeTo(resp)
             resp.close()
           }
         }
         catch {
-          case e: IOException => println("IO Exception thrown in Fence Pipe")
+          case _: IOException => println("IO Exception thrown in Fence Pipe")
         }
         clock.step()
       }
-
-      req.close()
-
-    }
-
-    override def exit: Unit = {
-      terminate = true
     }
 }
 
@@ -131,9 +99,12 @@ case class TLCosimMemoryBufferState(txnBuffer: Seq[TLChannel])
 
 class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLBundleParameters)
                             (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends TLSlaveFunction[TLCosimMemoryBufferState] {
+  while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
+    Thread.sleep(250)
+  }
+
   // NOTE: Scala convention is to open inputs before outputs in matching pairs
   val tld_pipe = new FileInputStream(tldPipe)
-//  println("TLD connected")
 
   override def response(tx: TLChannel, state: TLCosimMemoryBufferState): (Seq[TLChannel], TLCosimMemoryBufferState) = {
     tx match {
@@ -142,13 +113,8 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
         if (TLUtils.isCompleteTLTxn(tla_buffer, 16)) {
           tla_buffer.foreach(tla => {
             val tla_proto = VerifProtoBufUtils.BundleToProto(tla, TLProtos.TLA.newBuilder())
-//            println("Monitored new TLA")
-//            println(tla_proto)
 
             val tla_pipe = new FileOutputStream(tlaPipe)
-//            println("TLA connected")
-
-//            println("Writing TLA to pipe")
             tla_proto.writeTo(tla_pipe)
             tla_pipe.close()
           })
@@ -157,10 +123,8 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
           do {
             var tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
             while(tld_proto == null) {
-               tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
+              tld_proto = com.verif.TLProtos.TLD.parseDelimitedFrom(tld_pipe)
             }
-//            println("Recieved new TLD")
-//            println(tld_proto)
             tld_buffer = tld_buffer :+ VerifProtoBufUtils.ProtoToBundle(tld_proto, VerifBundleUtils, new TLBundleD(bundleParams))
           } while (!TLUtils.isCompleteTLTxn(tld_buffer, 16))
 
@@ -173,21 +137,11 @@ class TLCosimMemoryInterface(tlaPipe: String, tldPipe: String, bundleParams: TLB
   }
 }
 
-class TLPipe(tlaName: String, tldName: String, clock: Clock, io: TLBundle)
+class TLPipeConnector(tlaName: String, tldName: String, clock: Clock, io: TLBundle)
             (implicit p: Parameters, cosimTestDetails: CosimTestDetails) extends AbstractCosimPipe {
 
   val tlaPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tlaName}"
   val tldPipe = s"${cosimTestDetails.testPath.get}/cosim_run_dir/${tldName}"
 
-  override def run: Unit = {
-    // Spin until all needed FIFOs are created
-    while (!Files.exists(Paths.get(tlaPipe)) || !Files.exists(Paths.get(tldPipe))) {
-      Thread.sleep(250)
-    }
-//    println("All TL files exist")
-
-    val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe, io.params), TLCosimMemoryBufferState(Seq()))
-  }
-
-  override def exit: Unit = {}
+  val driver = new TLDriverSlave(clock, io, new TLCosimMemoryInterface(tlaPipe, tldPipe, io.params), TLCosimMemoryBufferState(Seq()))
 }

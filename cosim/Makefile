@@ -1,27 +1,34 @@
 cosim_dir=$(abspath .)
+install_dir=$(cosim_dir)/install
 resources_dir=$(cosim_dir)/resources
-cpp_dir=$(resources_dir)/cpp
+
 chipyard_root_dir=$(cosim_dir)/../../..
-gemmini_sim_dir=$(chipyard_root_dir)/toolchains/esp-tools/riscv-isa-sim
+spike_dir=$(chipyard_root_dir)/toolchains/esp-tools/riscv-isa-sim
 gemmini_dir=$(chipyard_root_dir)/generators/gemmini
 gemmini_rocc_tests_dir=$(gemmini_dir)/software/gemmini-rocc-tests/
 
-.PHONY: gemmini-sim-setup gemmini-sim-build
+.PHONY: setup gemmini-sim-build
 
-gemmini-sim-setup:
-	cd $(gemmini_dir); \
-	git checkout blas; \
-	git pull origin blas
-	cd $(gemmini_rocc_tests_dir); \
-	git checkout 2802ca406323ef511e1c2939387144a47c250638; \
-	cd $(gemmini_sim_dir); \
-	git remote add cosim https://github.com/ryan-lund/esp-isa-sim.git; \
-	git fetch cosim
-	git checkout custom --track cosim/master; \
-	git pull cosim master; \
-	cd build; \
-	make && make install
-	@echo "Sim setup done"
+setup:
+	@echo "Setting up Cosim Resources"
+	@echo "Installing Protoc 3.3.0 Locally"
+	mkdir -p $(install_dir)
+	cd $(install_dir) && \
+	git clone https://github.com/protocolbuffers/protobuf.git && \
+	cd protobuf && \
+	git checkout v3.3.0 && \
+	git submodule update --init --recursive && \
+	./autogen.sh && \
+	./configure --prefix=$(install_dir) && \
+	make && \
+	make check && \
+	make install
+	@echo "Building Protocol Buffer Files"
+	@echo "Building Java"
+	protoc --java_out=$(java_dir) --proto_path=$(proto_dir) *
+	@echo "Building C++"
+	protoc --cpp_out=$(cpp_dir) --proto_path=$(proto_dir) *
+
 
 gemmini-sim-build:
 	@echo "Building Gemmini RoCC tests"
